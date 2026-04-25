@@ -1,14 +1,46 @@
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 import EventCard from '../components/EventCard'
-import { birthdays } from '../data/mockData'
 import { supabase } from '../lib/supabase'
 
 const filters = ['Tous', 'À venir', 'Mes événements', 'Passés']
 
+function daysUntilBirthday(birthdateStr) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const b = new Date(birthdateStr)
+  const next = new Date(today.getFullYear(), b.getMonth(), b.getDate())
+  if (next < today) next.setFullYear(today.getFullYear() + 1)
+  return Math.round((next - today) / 86400000)
+}
+
+function formatCountdown(days) {
+  if (days === 0) return "Aujourd'hui !"
+  if (days === 1) return 'Demain'
+  if (days < 7) return `Dans ${days} jours`
+  if (days < 14) return 'Dans 1 sem.'
+  if (days < 21) return 'Dans 2 sem.'
+  if (days < 60) return `Dans ${Math.floor(days / 7)} sem.`
+  return `Dans ${Math.floor(days / 30)} mois`
+}
+
+function enrichBirthdays(rows) {
+  return rows
+    .map(b => {
+      const days = daysUntilBirthday(b.birthdate)
+      return { ...b, days, countdown: formatCountdown(days), urgent: days < 7 }
+    })
+    .sort((a, b) => a.days - b.days)
+}
+
 export default function Home({ onEventClick, onCreateClick }) {
   const [activeFilter, setActiveFilter] = useState(0)
   const [events, setEvents] = useState([])
+  const [birthdays, setBirthdays] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [formName, setFormName] = useState('')
+  const [formDate, setFormDate] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     async function fetchEvents() {
@@ -16,14 +48,45 @@ export default function Home({ onEventClick, onCreateClick }) {
         .from('events')
         .select('*')
         .order('date', { ascending: true })
-      if (error) {
-        console.error('Erreur lors du chargement des événements :', error)
-      } else {
-        setEvents(data)
-      }
+      if (error) console.error('Erreur lors du chargement des événements :', error)
+      else setEvents(data)
     }
     fetchEvents()
   }, [])
+
+  useEffect(() => {
+    fetchBirthdays()
+  }, [])
+
+  async function fetchBirthdays() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data, error } = await supabase
+      .from('birthdays')
+      .select('id, name, birthdate')
+      .eq('user_id', user.id)
+    if (error) console.error('Erreur lors du chargement des anniversaires :', error)
+    else setBirthdays(enrichBirthdays(data ?? []))
+  }
+
+  async function handleAddBirthday(e) {
+    e.preventDefault()
+    if (!formName.trim() || !formDate) return
+    setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { error } = await supabase
+        .from('birthdays')
+        .insert({ name: formName.trim(), birthdate: formDate, user_id: user.id })
+      if (!error) {
+        setFormName('')
+        setFormDate('')
+        setShowForm(false)
+        await fetchBirthdays()
+      }
+    }
+    setSaving(false)
+  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden', position: 'relative' }}>
@@ -89,27 +152,90 @@ export default function Home({ onEventClick, onCreateClick }) {
             marginBottom: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
           }}>
             <div style={{ width: 42, height: 42, background: '#FBBF9A', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-              {b.emoji}
+              🎂
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>{b.name}</div>
-              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>{b.age}</div>
+              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>
+                {new Date(b.birthdate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-              <div style={{ fontSize: 12, color: '#8E8E93' }}>{b.countdown}</div>
+              <div style={{ fontSize: 12, color: b.urgent ? '#FF3B30' : '#8E8E93', fontWeight: b.urgent ? 600 : 400 }}>
+                {b.countdown}
+              </div>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: b.urgent ? '#FF3B30' : '#007AFF' }}/>
             </div>
           </div>
         ))}
 
-        {/* Add birthday CTA */}
-        <div style={{
-          background: '#fff', border: '1.5px dashed #AEAEB2', borderRadius: 14,
-          padding: 12, textAlign: 'center', fontSize: 12, fontWeight: 500, color: '#8E8E93',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', marginBottom: 10,
-        }}>
-          + Ajouter un anniversaire
-        </div>
+        {/* Add birthday form / CTA */}
+        {showForm ? (
+          <form onSubmit={handleAddBirthday} style={{
+            background: '#fff', borderRadius: 16, padding: '14px',
+            marginBottom: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
+            display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>Nouvel anniversaire</div>
+            <input
+              type="text"
+              placeholder="Nom"
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
+              required
+              style={{
+                border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px',
+                fontSize: 13, outline: 'none', color: '#1C1C1E',
+              }}
+            />
+            <input
+              type="date"
+              value={formDate}
+              onChange={e => setFormDate(e.target.value)}
+              required
+              style={{
+                border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px',
+                fontSize: 13, outline: 'none', color: '#1C1C1E',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="submit"
+                disabled={saving}
+                style={{
+                  flex: 1, padding: '11px', borderRadius: 10, border: 'none',
+                  background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
+                  fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer',
+                  opacity: saving ? 0.6 : 1,
+                }}
+              >
+                {saving ? 'Enregistrement…' : 'Ajouter'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowForm(false); setFormName(''); setFormDate('') }}
+                style={{
+                  padding: '11px 16px', borderRadius: 10, border: 'none',
+                  background: '#F2F2F7', color: '#1C1C1E',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Annuler
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div
+            onClick={() => setShowForm(true)}
+            style={{
+              background: '#fff', border: '1.5px dashed #AEAEB2', borderRadius: 14,
+              padding: 12, textAlign: 'center', fontSize: 12, fontWeight: 500, color: '#8E8E93',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer', marginBottom: 10,
+            }}
+          >
+            + Ajouter un anniversaire
+          </div>
+        )}
       </div>
 
       {/* FAB */}
