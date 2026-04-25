@@ -1,12 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 import EventCard from '../components/EventCard'
-import { events, birthdays } from '../data/mockData'
+import { birthdays } from '../data/mockData'
+import { supabase } from '../lib/supabase'
 
 const filters = ['Tous', 'À venir', 'Mes événements', 'Passés']
 
 export default function Home({ onEventClick, onCreateClick }) {
   const [activeFilter, setActiveFilter] = useState(0)
+  const [events, setEvents] = useState([])
+
+  useEffect(() => {
+    async function fetchEvents() {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('date', { ascending: true })
+      if (error) {
+        console.error('Erreur lors du chargement des événements :', error)
+      } else {
+        setEvents(data)
+      }
+    }
+    fetchEvents()
+  }, [])
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden', position: 'relative' }}>
@@ -47,9 +64,15 @@ export default function Home({ onEventClick, onCreateClick }) {
         </div>
 
         {/* Events */}
-        {events.map(ev => (
-          <EventCard key={ev.id} event={ev} onClick={onEventClick} />
-        ))}
+        {events.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, padding: '32px 0' }}>
+            Aucun événement pour l'instant
+          </div>
+        ) : (
+          events.map(ev => (
+            <EventCard key={ev.id} event={ev} onClick={onEventClick} />
+          ))
+        )}
 
         {/* Birthdays section */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 2px' }}>

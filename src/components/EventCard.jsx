@@ -5,9 +5,43 @@ const tagStyles = {
   gray: { background: '#F2F2F7', color: '#6B6B6B' },
 }
 
-export default function EventCard({ event, onClick }) {
+const typeEmoji = {
+  'Anniversaire': '🎂',
+  'Soirée': '🥂',
+  'Repas': '🍽️',
+  'Autre': '🎉',
+}
+
+const visibilityStyle = {
+  'Privé 🔒': 'gray',
+  'Sur invitation': 'blue',
+  'Public 🌍': 'green',
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d)) return dateStr
+  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+}
+
+export default function EventCard({ event = {}, onClick }) {
+  const {
+    name = 'Événement sans titre',
+    date = '',
+    location = '',
+    type = 'Autre',
+    visibility = 'Sur invitation',
+  } = event
+
+  const emoji = typeEmoji[type] ?? '🎉'
+  const tags = [
+    { label: type, style: 'pink' },
+    { label: visibility, style: visibilityStyle[visibility] ?? 'gray' },
+  ]
+
   return (
-    <div onClick={() => onClick(event)} style={{
+    <div onClick={() => onClick?.(event)} style={{
       background: '#fff', borderRadius: 20, marginBottom: 20,
       overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.08)', cursor: 'pointer',
     }}>
@@ -18,11 +52,11 @@ export default function EventCard({ event, onClick }) {
             width: 38, height: 38, background: '#FBBF9A', borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
           }}>
-            {event.emoji}
+            {emoji}
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{event.name}</div>
-            <div style={{ fontSize: 11, color: '#8E8E93' }}>{event.age}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{name}</div>
+            <div style={{ fontSize: 11, color: '#8E8E93' }}>{type}</div>
           </div>
         </div>
         <div style={{ fontSize: 18, color: '#AEAEB2', letterSpacing: 1 }}>···</div>
@@ -33,27 +67,28 @@ export default function EventCard({ event, onClick }) {
         background: '#FFF5F0', margin: '0 12px', borderRadius: 14,
         padding: '22px 16px 16px', textAlign: 'center',
       }}>
-        <span style={{ fontSize: 40, display: 'block', marginBottom: 7 }}>{event.emoji}</span>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>{event.eventName}</div>
-        <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 3 }}>{event.date}</div>
+        <span style={{ fontSize: 40, display: 'block', marginBottom: 7 }}>{emoji}</span>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>{name}</div>
+        <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 3 }}>{formatDate(date)}</div>
       </div>
 
       {/* Info */}
       <div style={{ padding: '12px 14px 6px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>{event.eventName}</div>
-        <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 10 }}>📍 {event.location}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>{name}</div>
+        {location ? (
+          <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 10 }}>📍 {location}</div>
+        ) : (
+          <div style={{ fontSize: 12, color: '#AEAEB2', marginBottom: 10 }}>Lieu non précisé</div>
+        )}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          {event.tags.map((tag, i) => (
+          {tags.map((tag, i) => (
             <div key={i} style={{
               padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-              ...tagStyles[tag.type]
+              ...tagStyles[tag.style],
             }}>
               {tag.label}
             </div>
           ))}
-          <div style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, ...tagStyles.gray }}>
-            👥 {event.guests} invités
-          </div>
         </div>
       </div>
 

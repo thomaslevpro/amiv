@@ -1,13 +1,38 @@
 import { useState } from 'react'
 import StatusBar from '../components/StatusBar'
+import { supabase } from '../lib/supabase'
 
 const types = ['🎂 Anniversaire', '🥂 Soirée', '🍽️ Repas', '🎉 Autre']
+const typeValues = ['Anniversaire', 'Soirée', 'Repas', 'Autre']
 const visibilities = ['Privé 🔒', 'Sur invitation', 'Public 🌍']
 
 export default function Create({ onBack }) {
   const [type, setType] = useState(0)
   const [vis, setVis] = useState(1)
   const [form, setForm] = useState({ name: '', date: '', location: '', desc: '' })
+  const [loading, setLoading] = useState(false)
+
+  async function handleCreate() {
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error } = await supabase.from('events').insert({
+        name: form.name,
+        date: form.date,
+        location: form.location,
+        description: form.desc,
+        type: typeValues[type],
+        visibility: visibilities[vis],
+        user_id: user.id,
+      })
+      if (error) throw error
+      onBack()
+    } catch (err) {
+      console.error('Erreur lors de la création de l\'événement :', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
@@ -77,11 +102,12 @@ export default function Create({ onBack }) {
         </div>
 
         {/* Submit */}
-        <div onClick={onBack} style={{
-          padding: 16, background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
-          borderRadius: 16, fontSize: 16, fontWeight: 700, textAlign: 'center', cursor: 'pointer',
+        <div onClick={loading ? undefined : handleCreate} style={{
+          padding: 16, background: loading ? '#AEAEB2' : 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
+          borderRadius: 16, fontSize: 16, fontWeight: 700, textAlign: 'center', cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'background 0.2s',
         }}>
-          Créer l'événement 🎉
+          {loading ? 'Création…' : 'Créer l\'événement 🎉'}
         </div>
       </div>
     </div>

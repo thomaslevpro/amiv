@@ -11,8 +11,7 @@ import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
 import Profile from './screens/Profile'
 
-export default function App() {
-  const [hasOnboarded, setHasOnboarded] = useState(false)
+export default function App() { const [hasOnboarded, setHasOnboarded] = useState(false)
   const [authInitLogin, setAuthInitLogin] = useState(false)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
