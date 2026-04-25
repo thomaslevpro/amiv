@@ -31,6 +31,19 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState(null)
   const [invitations, setInvitations] = useState([])
+  const [toast, setToast] = useState(null)
+
+  function handleShare() {
+    const url = `${window.location.origin}/invite/${event.share_token}`
+    if (navigator.share) {
+      navigator.share({ title: event.name, url })
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setToast('Lien copié !')
+        setTimeout(() => setToast(null), 2500)
+      })
+    }
+  }
 
   useEffect(() => {
     if (!event) return
@@ -130,6 +143,11 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
           <span style={{ fontSize: 16 }}>Retour</span>
         </div>
+        {event.share_token && (
+          <div onClick={handleShare} style={{ position: 'absolute', top: 40, right: 16, cursor: 'pointer', fontSize: 15, fontWeight: 700, color: '#fff' }}>
+            Partager 🔗
+          </div>
+        )}
         <div style={{ fontSize: 48, marginBottom: 10 }}>{emoji}</div>
         <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 5, letterSpacing: -0.3 }}>{event.name}</div>
         <div style={{ fontSize: 13, opacity: 0.85 }}>{event.type}</div>
@@ -248,6 +266,17 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         </div>
       </div>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.8)', color: '#fff', borderRadius: 20,
+          padding: '10px 20px', fontSize: 14, fontWeight: 600, zIndex: 999,
+          whiteSpace: 'nowrap',
+        }}>
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
