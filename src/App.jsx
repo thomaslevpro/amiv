@@ -40,8 +40,11 @@ export default function App() { const [hasOnboarded, setHasOnboarded] = useState
   if (!session) return <Auth initialIsLogin={authInitLogin} onLogin={() => setSession(true)} />
 
   if (screen === 'create') return <Create onBack={() => setScreen('home')} />
+  if (screen === 'messages' && selectedEvent) return (
+    <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} />
+  )
   if (screen === 'eventDetail' && selectedEvent) return (
-    <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} />
+    <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
   )
   if (screen === 'invitation' && selectedEvent) return (
     <Invitation event={selectedEvent} onBack={() => setScreen('eventDetail')} />
@@ -54,7 +57,7 @@ export default function App() { const [hasOnboarded, setHasOnboarded] = useState
     switch (tab) {
       case 'home': return <Home onEventClick={handleEventClick} onCreateClick={() => setScreen('create')} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
-      case 'messages': return <Messages />
+      case 'messages': return <Messages event={selectedEvent} />
       case 'profile': return <Profile session={session} />
       default: return null
     }

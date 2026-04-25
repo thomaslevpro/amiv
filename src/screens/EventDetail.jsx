@@ -23,7 +23,7 @@ function formatDate(dateStr) {
 
 const statusIcon = { pending: '⏳', accepted: '✅', declined: '❌' }
 
-export default function EventDetail({ event, onBack }) {
+export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -202,6 +202,18 @@ export default function EventDetail({ event, onBack }) {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Messages button */}
+        <div
+          onClick={() => onMessagesClick?.(event)}
+          style={{
+            background: '#fff', borderRadius: 14, padding: '14px', textAlign: 'center',
+            fontSize: 14, fontWeight: 700, color: '#1C1C1E', cursor: 'pointer',
+            boxShadow: '0 1px 8px rgba(0,0,0,0.07)', marginBottom: 10,
+          }}
+        >
+          💬 Messages
         </div>
 
         {/* Participation buttons */}
