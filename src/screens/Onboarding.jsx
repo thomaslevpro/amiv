@@ -28,7 +28,7 @@ export default function Onboarding({ onFinish }) {
 
   const next = () => {
     if (step < slides.length - 1) setStep(step + 1)
-    else onFinish()
+    else onFinish(false)
   }
 
   function renderTitle(title, highlight) {
@@ -87,7 +87,7 @@ export default function Onboarding({ onFinish }) {
             {step < slides.length - 1 ? 'Continuer →' : 'Commencer 🎉'}
           </div>
 
-          <div onClick={onFinish} style={{ fontSize: 13, color: '#8E8E93', textAlign: 'center', cursor: 'pointer', padding: '4px 0' }}>
+          <div onClick={() => onFinish(true)} style={{ fontSize: 13, color: '#8E8E93', textAlign: 'center', cursor: 'pointer', padding: '4px 0' }}>
             J'ai déjà un compte →
           </div>
         </div>

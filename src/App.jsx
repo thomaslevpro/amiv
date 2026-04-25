@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from './lib/supabase'
 import BottomNav from './components/BottomNav'
 import Onboarding from './screens/Onboarding'
+import Auth from './screens/Auth'
 import Home from './screens/Home'
 import Calendar from './screens/Calendar'
 import Messages from './screens/Messages'
@@ -11,80 +13,51 @@ import Profile from './screens/Profile'
 
 export default function App() {
   const [hasOnboarded, setHasOnboarded] = useState(false)
+  const [authInitLogin, setAuthInitLogin] = useState(false)
+  const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('home')
-  const [screen, setScreen] = useState('home') // 'home' | 'eventDetail' | 'invitation' | 'create'
+  const [screen, setScreen] = useState('home')
   const [selectedEvent, setSelectedEvent] = useState(null)
 
-  // Pas encore onboardé → écran onboarding
-  if (!hasOnboarded) {
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Onboarding onFinish={() => setHasOnboarded(true)} />
-      </div>
-    )
-  }
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
-  // Écrans overlay (pas de bottom nav)
-  if (screen === 'create') {
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Create onBack={() => setScreen('home')} />
-      </div>
-    )
-  }
+  if (loading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+      <div style={{ fontSize: 48, fontWeight: 900, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Amiv</div>
+    </div>
+  )
 
-  if (screen === 'eventDetail' && selectedEvent) {
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <EventDetail
-          event={selectedEvent}
-          onBack={() => setScreen('home')}
-          onInvitation={() => setScreen('invitation')}
-        />
-      </div>
-    )
-  }
+  if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
+  if (!session) return <Auth initialIsLogin={authInitLogin} onLogin={() => setSession(true)} />
 
-  if (screen === 'invitation' && selectedEvent) {
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Invitation
-          event={selectedEvent}
-          onBack={() => setScreen('eventDetail')}
-        />
-      </div>
-    )
-  }
+  if (screen === 'create') return <Create onBack={() => setScreen('home')} />
+  if (screen === 'eventDetail' && selectedEvent) return (
+    <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} />
+  )
+  if (screen === 'invitation' && selectedEvent) return (
+    <Invitation event={selectedEvent} onBack={() => setScreen('eventDetail')} />
+  )
 
-  // Handlers partagés
-  const handleEventClick = (event) => {
-    setSelectedEvent(event)
-    setScreen('eventDetail')
-  }
+  const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
+  const handleTabChange = (newTab) => { setTab(newTab); setScreen('home') }
 
-  const handleTabChange = (newTab) => {
-    setTab(newTab)
-    setScreen('home') // reset overlay si besoin
-  }
-
-  // Rendu de l'écran actif (avec bottom nav)
   const renderScreen = () => {
     switch (tab) {
-      case 'home':
-        return (
-          <Home
-            onEventClick={handleEventClick}
-            onCreateClick={() => setScreen('create')}
-          />
-        )
-      case 'calendar':
-        return <Calendar onEventClick={handleEventClick} />
-      case 'messages':
-        return <Messages />
-      case 'profile':
-        return <Profile />
-      default:
-        return null
+      case 'home': return <Home onEventClick={handleEventClick} onCreateClick={() => setScreen('create')} />
+      case 'calendar': return <Calendar onEventClick={handleEventClick} />
+      case 'messages': return <Messages />
+      case 'profile': return <Profile session={session} />
+      default: return null
     }
   }
 

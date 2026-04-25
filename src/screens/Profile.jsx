@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import StatusBar from '../components/StatusBar'
 import { currentUser } from '../data/mockData'
+import { supabase } from '../lib/supabase'
 
 export default function Profile() {
   const [notifs, setNotifs] = useState({ bday: true, invites: true, messages: false })
@@ -42,7 +43,7 @@ export default function Profile() {
       title: 'Compte',
       rows: [
         { icon: '🔒', label: 'Confidentialité', arrow: true },
-        { icon: '🚪', label: 'Se déconnecter', arrow: true, danger: true },
+        { icon: '🚪', label: 'Se déconnecter', arrow: true, danger: true, onClick: () => supabase.auth.signOut() },
       ],
     },
   ]
@@ -79,9 +80,9 @@ export default function Profile() {
             <div style={{ fontSize: 18, fontWeight: 700, color: '#1C1C1E', padding: '0 2px', marginBottom: 10 }}>{sec.title}</div>
             <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
               {sec.rows.map((row, i) => (
-                <div key={i} style={{
+                <div key={i} onClick={row.onClick} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px',
+                  padding: '14px 16px', cursor: row.onClick ? 'pointer' : 'default',
                   borderBottom: i < sec.rows.length - 1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
