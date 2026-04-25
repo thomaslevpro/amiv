@@ -1,0 +1,13 @@
+{
+  "name": "Amiv — Friends come first",
+  "short_name": "Amiv",
+  "description": "Organisez des événements inoubliables et restez connecté avec vos proches.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F2F2F7",
+  "theme_color": "#e055aa",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/amiv-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
