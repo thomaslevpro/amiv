@@ -2,22 +2,27 @@ import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 import { supabase } from '../lib/supabase'
 
-export default function Profile() {
+export default function Profile({ session, onEdit }) {
   const [notifs, setNotifs] = useState({ bday: true, invites: true, messages: false })
-  const [userEmail, setUserEmail] = useState(null)
+  const [profile, setProfile] = useState({ name: null, email: null, avatar_url: null })
   const [stats, setStats] = useState({ events: null, rsvps: null, birthdays: null })
 
   useEffect(() => {
     async function loadProfile() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      setUserEmail(user.email)
       const uid = user.id
-      const [eventsRes, rsvpsRes, birthdaysRes] = await Promise.all([
+      const [profileRes, eventsRes, rsvpsRes, birthdaysRes] = await Promise.all([
+        supabase.from('profiles').select('name, avatar_url').eq('id', uid).maybeSingle(),
         supabase.from('events').select('*', { count: 'exact', head: true }).eq('user_id', uid),
         supabase.from('rsvps').select('*', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'going'),
         supabase.from('birthdays').select('*', { count: 'exact', head: true }).eq('user_id', uid),
       ])
+      setProfile({
+        name: profileRes.data?.name ?? null,
+        email: user.email,
+        avatar_url: profileRes.data?.avatar_url ?? null,
+      })
       setStats({
         events: eventsRes.count ?? 0,
         rsvps: rsvpsRes.count ?? 0,
@@ -77,11 +82,15 @@ export default function Profile() {
 
         {/* Profile card */}
         <div style={{ background: '#fff', borderRadius: 20, padding: 18, marginBottom: 6, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#e055aa,#f5a623)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
-            👤
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#e055aa,#f5a623)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, overflow: 'hidden' }}>
+            {profile.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : '👤'
+            }
           </div>
           <div>
-            <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 2 }}>{userEmail ?? '—'}</div>
+            {profile.name && <div style={{ fontSize: 17, fontWeight: 600, color: '#1C1C1E', marginBottom: 2 }}>{profile.name}</div>}
+            <div style={{ fontSize: 13, color: '#8E8E93' }}>{profile.email ?? '—'}</div>
           </div>
         </div>
 
@@ -103,10 +112,13 @@ export default function Profile() {
         </div>
 
         <div style={{ padding: '10px 0 16px' }}>
-          <div style={{
-            width: '100%', padding: 14, background: '#1C1C1E', color: '#fff',
-            borderRadius: 12, fontSize: 15, fontWeight: 600, textAlign: 'center', cursor: 'pointer',
-          }}>
+          <div
+            onClick={onEdit}
+            style={{
+              width: '100%', padding: 14, background: '#1C1C1E', color: '#fff',
+              borderRadius: 12, fontSize: 15, fontWeight: 600, textAlign: 'center', cursor: 'pointer',
+            }}
+          >
             Modifier mon profil
           </div>
         </div>

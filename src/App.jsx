@@ -10,11 +10,14 @@ import Create from './screens/Create'
 import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
 import Profile from './screens/Profile'
+import EditProfile from './screens/EditProfile'
 
-export default function App() { const [hasOnboarded, setHasOnboarded] = useState(false)
+export default function App() {
+  const [hasOnboarded, setHasOnboarded] = useState(false)
   const [authInitLogin, setAuthInitLogin] = useState(false)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [profileComplete, setProfileComplete] = useState(null)
   const [tab, setTab] = useState('home')
   const [screen, setScreen] = useState('home')
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -26,11 +29,21 @@ export default function App() { const [hasOnboarded, setHasOnboarded] = useState
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (!session) setProfileComplete(null)
     })
     return () => subscription.unsubscribe()
   }, [])
 
-  if (loading) return (
+  useEffect(() => {
+    if (!session || profileComplete !== null) return
+    supabase.from('profiles').select('name').eq('id', session.user.id).maybeSingle().then(({ data }) => {
+      setProfileComplete(!!(data?.name))
+    })
+  }, [session, profileComplete])
+
+  const isLoading = loading || (!!session && profileComplete === null)
+
+  if (isLoading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
       <div style={{ fontSize: 48, fontWeight: 900, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Amiv</div>
     </div>
@@ -39,7 +52,14 @@ export default function App() { const [hasOnboarded, setHasOnboarded] = useState
   if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
   if (!session) return <Auth initialIsLogin={authInitLogin} onLogin={() => setSession(true)} />
 
+  if (!profileComplete) return (
+    <EditProfile isOnboarding={true} onSave={() => setProfileComplete(true)} />
+  )
+
   if (screen === 'create') return <Create onBack={() => setScreen('home')} />
+  if (screen === 'editProfile') return (
+    <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
+  )
   if (screen === 'messages' && selectedEvent) return (
     <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} />
   )
@@ -58,7 +78,7 @@ export default function App() { const [hasOnboarded, setHasOnboarded] = useState
       case 'home': return <Home onEventClick={handleEventClick} onCreateClick={() => setScreen('create')} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
       case 'messages': return <Messages event={selectedEvent} />
-      case 'profile': return <Profile session={session} />
+      case 'profile': return <Profile session={session} onEdit={() => setScreen('editProfile')} />
       default: return null
     }
   }
