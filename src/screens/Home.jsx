@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import StatusBar from '../components/StatusBar'
 import EventCard from '../components/EventCard'
+import NotificationBell from '../components/NotificationBell'
 import { supabase } from '../lib/supabase'
 
 const filters = ['Tous', 'À venir', 'Mes événements', 'Passés']
@@ -33,7 +34,7 @@ function enrichBirthdays(rows) {
     .sort((a, b) => a.days - b.days)
 }
 
-export default function Home({ onEventClick, onCreateClick }) {
+export default function Home({ onEventClick, onCreateClick, onNotifEventClick }) {
   const [activeFilter, setActiveFilter] = useState(0)
   const [events, setEvents] = useState([])
   const [birthdays, setBirthdays] = useState([])
@@ -99,15 +100,11 @@ export default function Home({ onEventClick, onCreateClick }) {
             <div style={{ fontSize: 27, fontWeight: 700, letterSpacing: -0.4, color: '#1C1C1E' }}>Événements</div>
             <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>3 à venir ce mois-ci</div>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            {[
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            ].map((icon, i) => (
-              <div key={i} style={{ width: 32, height: 32, background: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.10)', cursor: 'pointer' }}>
-                {icon}
-              </div>
-            ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+            <div style={{ width: 32, height: 32, background: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.10)', cursor: 'pointer' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <NotificationBell onEventClick={onNotifEventClick ?? onEventClick} />
           </div>
         </div>
 

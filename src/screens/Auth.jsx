@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function Auth({ onLogin, initialIsLogin = false }) {
@@ -9,6 +9,15 @@ export default function Auth({ onLogin, initialIsLogin = false }) {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        onLogin()
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   const handle = async () => {
     setLoading(true)
     setError(null)
@@ -16,7 +25,7 @@ export default function Auth({ onLogin, initialIsLogin = false }) {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        onLogin()
+        // navigation gérée par onAuthStateChange ci-dessus
       } else {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error

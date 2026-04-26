@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import BottomNav from './components/BottomNav'
 import Onboarding from './screens/Onboarding'
@@ -24,6 +24,9 @@ export default function App() {
   const [tab, setTab] = useState('home')
   const [screen, setScreen] = useState('home')
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const pendingEventId = useRef(
+    window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
+  )
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -32,7 +35,14 @@ export default function App() {
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
-      if (!session) setProfileComplete(null)
+      if (!session) {
+        setProfileComplete(null)
+      } else if (_event === 'SIGNED_IN') {
+        const path = window.location.pathname
+        if (path !== '/' && !path.startsWith('/invite/') && !path.startsWith('/events/')) {
+          window.history.replaceState(null, '', '/')
+        }
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -44,6 +54,19 @@ export default function App() {
     })
   }, [session, profileComplete])
 
+  useEffect(() => {
+    if (!session || !pendingEventId.current) return
+    const id = pendingEventId.current
+    pendingEventId.current = null
+    supabase.from('events').select('*').eq('id', id).maybeSingle().then(({ data }) => {
+      if (data) {
+        setSelectedEvent(data)
+        setScreen('eventDetail')
+        window.history.replaceState(null, '', '/')
+      }
+    })
+  }, [session])
+
   const isLoading = loading || (!!session && profileComplete === null)
 
   if (isLoading) return (
@@ -53,7 +76,7 @@ export default function App() {
   )
 
   if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
-  if (!session) return <Auth initialIsLogin={authInitLogin} onLogin={() => setSession(true)} />
+  if (!session) return <Auth initialIsLogin={authInitLogin} onLogin={() => {}} />
 
   if (!profileComplete) return (
     <EditProfile isOnboarding={true} onSave={() => setProfileComplete(true)} />

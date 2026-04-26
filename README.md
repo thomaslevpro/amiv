@@ -1,124 +1,177 @@
-# Amiv 🎂 — PWA Setup Guide
+# Supabase CLI
 
-> Application mobile de gestion d'anniversaires et d'événements entre amis.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=develop)](https://coveralls.io/github/supabase/cli?branch=develop) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
----
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-## Stack technique
-- **React + Vite** — framework UI
-- **CSS-in-JS inline** — design system fidèle à la maquette
-- **Supabase** (prochaine étape) — auth + base de données
-- **Vercel** (prochaine étape) — déploiement PWA
+This repository contains all the functionality for Supabase CLI.
 
----
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-## 🚀 Lancer le projet en local
+## Getting started
 
-### Prérequis
-- [Node.js](https://nodejs.org) version 18+ (vérifie avec `node -v`)
-- [Cursor](https://cursor.sh) ou VS Code
+### Install the CLI
 
-### Étapes
-
-```bash
-# 1. Ouvre ce dossier dans Cursor
-# Fichier → Ouvrir le dossier → sélectionne "amiv"
-
-# 2. Ouvre le terminal intégré (Ctrl+` ou Cmd+`)
-
-# 3. Installe les dépendances
-npm install
-
-# 4. Lance le serveur de développement
-npm run dev
-
-# 5. Ouvre http://localhost:5173 dans ton navigateur
-# Sur mobile : ouvre l'URL de ton réseau local affiché dans le terminal
-```
-
----
-
-## 📁 Structure du projet
-
-```
-amiv/
-├── public/
-│   ├── manifest.json     ← Config PWA (icône, nom, couleurs)
-│   └── amiv-icon.svg     ← Icône de l'app
-├── src/
-│   ├── components/
-│   │   ├── StatusBar.jsx  ← Barre de statut iOS
-│   │   ├── BottomNav.jsx  ← Navigation bas de page
-│   │   └── EventCard.jsx  ← Carte événement réutilisable
-│   ├── screens/
-│   │   ├── Onboarding.jsx ← 3 slides d'introduction
-│   │   ├── Home.jsx       ← Liste événements + anniversaires
-│   │   ├── Calendar.jsx   ← Vue calendrier mensuel
-│   │   ├── Messages.jsx   ← Messagerie + conversations
-│   │   ├── Create.jsx     ← Formulaire création événement
-│   │   ├── EventDetail.jsx← Détail événement + RSVP
-│   │   ├── Invitation.jsx ← Vue invitation reçue
-│   │   └── Profile.jsx    ← Profil + paramètres
-│   ├── data/
-│   │   └── mockData.js    ← Données fictives (à remplacer par Supabase)
-│   ├── App.jsx            ← Routeur principal
-│   ├── main.jsx           ← Point d'entrée React
-│   └── index.css          ← Variables CSS globales + reset
-├── index.html
-├── package.json
-└── vite.config.js
-```
-
----
-
-## 🗄️ Prochaine étape — Brancher Supabase
-
-1. Crée un compte sur [supabase.com](https://supabase.com)
-2. Nouveau projet → note ton `URL` et ta clé `anon`
-3. Installe le client :
-```bash
-npm install @supabase/supabase-js
-```
-4. Crée `src/lib/supabase.js` :
-```js
-import { createClient } from '@supabase/supabase-js'
-
-export const supabase = createClient(
-  'TON_URL_SUPABASE',
-  'TA_CLE_ANON'
-)
-```
-5. Les tables à créer dans Supabase :
-   - `users` (id, name, email, avatar_url, created_at)
-   - `events` (id, name, emoji, date, location, organizer_id, description, created_at)
-   - `invitations` (id, event_id, user_id, status: 'yes'|'no'|'maybe'|'pending')
-   - `contacts` (id, user_id, contact_id, birthday)
-   - `messages` (id, event_id, user_id, text, created_at)
-
----
-
-## ☁️ Déployer sur Vercel
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-# 1. Push sur GitHub
-git init
-git add .
-git commit -m "feat: init amiv v1"
-git remote add origin https://github.com/TON_USERNAME/amiv.git
-git push -u origin main
-
-# 2. Va sur vercel.com → Import Git Repository → sélectionne "amiv"
-# 3. Clique Deploy — c'est tout !
+npm i supabase --save-dev
 ```
 
----
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
-## 📱 Installer comme PWA sur mobile
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
 
-Une fois déployé sur Vercel :
-- **iOS** : Safari → Partager → "Sur l'écran d'accueil"
-- **Android** : Chrome → Menu → "Ajouter à l'écran d'accueil"
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
 
----
+<details>
+  <summary><b>macOS</b></summary>
 
-*Amiv v0.1.0 — Friends come first 🎂*
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
+```bash
+supabase bootstrap
+```
+
+Or using npx:
+
+```bash
+npx supabase bootstrap
+```
+
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
+```

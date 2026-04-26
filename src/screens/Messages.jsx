@@ -34,10 +34,11 @@ export default function Messages({ event, onBack }) {
 
   async function send() {
     if (!input.trim() || !userId || !event?.id) return
+    const content = input.trim()
     const { error } = await supabase.from('messages').insert({
       event_id: event.id,
       user_id: userId,
-      content: input.trim(),
+      content,
     })
     if (error) {
       console.log('Erreur Supabase:', JSON.stringify(error))
@@ -45,6 +46,22 @@ export default function Messages({ event, onBack }) {
     }
     setInput('')
     await fetchMessages()
+    const { data: rsvps } = await supabase
+      .from('rsvps')
+      .select('user_id')
+      .eq('event_id', event.id)
+      .neq('user_id', userId)
+    if (rsvps?.length) {
+      await supabase.from('notifications').insert(
+        rsvps.map(r => ({
+          user_id: r.user_id,
+          type: 'message_received',
+          title: `Nouveau message dans ${event.name ?? 'un événement'}`,
+          body: content.length > 60 ? content.slice(0, 57) + '…' : content,
+          data: { event_id: event.id, sender_id: userId },
+        }))
+      )
+    }
   }
 
   function formatTime(ts) {
