@@ -1,22 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function Auth({ onLogin, initialIsLogin = false }) {
+export default function Auth({ initialIsLogin = false }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(initialIsLogin)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        onLogin()
-      }
-    })
-    return () => subscription.unsubscribe()
-  }, [])
 
   const handle = async () => {
     setLoading(true)
@@ -25,7 +16,7 @@ export default function Auth({ onLogin, initialIsLogin = false }) {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        // navigation gérée par onAuthStateChange ci-dessus
+        // App.jsx détecte SIGNED_IN via son onAuthStateChange — rien à faire ici
       } else {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error

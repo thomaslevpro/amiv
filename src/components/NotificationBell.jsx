@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import { useNotifications } from '../hooks/useNotifications'
 
 const typeEmoji = {
@@ -23,8 +24,16 @@ function relativeTime(ts) {
 
 export default function NotificationBell({ onEventClick }) {
   const [open, setOpen] = useState(false)
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
+  const [userId, setUserId] = useState(null)
   const ref = useRef(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id)
+    })
+  }, [])
+
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(userId)
 
   useEffect(() => {
     function handleOutside(e) {

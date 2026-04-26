@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './lib/supabase'
+import { useNotifications } from './hooks/useNotifications'
 import BottomNav from './components/BottomNav'
 import Onboarding from './screens/Onboarding'
 import Auth from './screens/Auth'
@@ -24,6 +25,9 @@ export default function App() {
   const [tab, setTab] = useState('home')
   const [screen, setScreen] = useState('home')
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [conversationEvent, setConversationEvent] = useState(null)
+  const { notifications, markAsRead, markAllAsReadByType } = useNotifications(session?.user?.id)
+  const unreadMessagesCount = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const pendingEventId = useRef(
     window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
   )
@@ -31,6 +35,7 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
+      if (session) setHasOnboarded(true) // utilisateur déjà connecté → skip onboarding
       setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -76,7 +81,7 @@ export default function App() {
   )
 
   if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
-  if (!session) return <Auth initialIsLogin={authInitLogin} onLogin={() => {}} />
+  if (!session) return <Auth initialIsLogin={authInitLogin} />
 
   if (!profileComplete) return (
     <EditProfile isOnboarding={true} onSave={() => setProfileComplete(true)} />
@@ -97,13 +102,36 @@ export default function App() {
   )
 
   const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
-  const handleTabChange = (newTab) => { setTab(newTab); setScreen('home') }
+  const handleTabChange = (newTab) => {
+    if (newTab === 'messages') markAllAsReadByType('message_received')
+    setTab(newTab)
+    setScreen('home')
+    setConversationEvent(null)
+  }
+  const handleNotifEventClick = async (partialEvent) => {
+    const { data } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
+    if (data) { setSelectedEvent(data); setScreen('eventDetail') }
+  }
 
   const renderScreen = () => {
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onCreateClick={() => setScreen('create')} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
-      case 'messages': return <Messages event={selectedEvent} />
+      case 'messages':
+        if (conversationEvent) {
+          return <Messages
+            event={conversationEvent}
+            onBack={() => setConversationEvent(null)}
+            notifications={notifications}
+            markAsRead={markAsRead}
+          />
+        }
+        return <Messages
+          onEventOpen={setConversationEvent}
+          notifications={notifications}
+          markAsRead={markAsRead}
+          onCreateClick={() => setScreen('create')}
+        />
       case 'profile': return <Profile session={session} onEdit={() => setScreen('editProfile')} />
       default: return null
     }
@@ -114,7 +142,7 @@ export default function App() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {renderScreen()}
       </div>
-      <BottomNav current={tab} onChange={handleTabChange} />
+      <BottomNav current={tab} onChange={handleTabChange} hasUnreadMessages={unreadMessagesCount > 0} />
     </div>
   )
 }

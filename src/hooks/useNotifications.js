@@ -1,67 +1,71 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export function useNotifications() {
+export function useNotifications(userId) {
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
-  const [userId, setUserId] = useState(null)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id)
-    })
-  }, [])
 
   useEffect(() => {
     if (!userId) return
-    let cancelled = false
 
-    async function fetchNotifications() {
-      setLoading(true)
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(30)
-      if (!cancelled) {
-        setNotifications(data ?? [])
+    // 1. Fetch initial
+    supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(30)
+      .then(({ data }) => {
+        if (data) setNotifications(data)
         setLoading(false)
-      }
-    }
+      })
 
-    fetchNotifications()
+    // 2. Realtime — .on() AVANT .subscribe()
+    const channelName = 'notif-' + userId + '-' + Math.random().toString(36).slice(2)
+    const channel = supabase.channel(channelName)
 
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on('postgres_changes', {
+    channel.on(
+      'postgres_changes',
+      {
         event: 'INSERT',
         schema: 'public',
         table: 'notifications',
-        filter: `user_id=eq.${userId}`,
-      }, payload => {
-        setNotifications(prev => [payload.new, ...prev].slice(0, 30))
-      })
-      .subscribe()
+        filter: `user_id=eq.${userId}`
+      },
+      (payload) => {
+        setNotifications(prev => [payload.new, ...prev])
+      }
+    )
+
+    channel.subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[Notifications] Realtime error:', status)
+      }
+    })
 
     return () => {
-      cancelled = true
       supabase.removeChannel(channel)
     }
   }, [userId])
 
-  const markAsRead = useCallback(async (id) => {
-    await supabase.from('notifications').update({ read: true }).eq('id', id)
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-  }, [])
-
-  const markAllAsRead = useCallback(async () => {
-    if (!userId) return
-    await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false)
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-  }, [userId])
-
   const unreadCount = notifications.filter(n => !n.read).length
 
-  return { notifications, unreadCount, loading, markAsRead, markAllAsRead }
+  const markAsRead = async (id) => {
+    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    setNotifications(prev =>
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    )
+  }
+
+  const markAllAsRead = async () => {
+    await supabase.from('notifications').update({ read: true }).eq('user_id', userId)
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
+
+  const markAllAsReadByType = async (type) => {
+    await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('type', type)
+    setNotifications(prev => prev.map(n => n.type === type ? { ...n, read: true } : n))
+  }
+
+  return { notifications, loading, unreadCount, markAsRead, markAllAsRead, markAllAsReadByType }
 }

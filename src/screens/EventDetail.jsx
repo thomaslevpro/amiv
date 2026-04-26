@@ -113,13 +113,14 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       ])
 
       if (invitedProfile?.id) {
-        await supabase.from('notifications').insert({
+        const { error: notifErr } = await supabase.from('notifications').insert({
           user_id: invitedProfile.id,
           type: 'invitation_received',
           title: `Tu es invité(e) à ${event.name}`,
           body: 'Quelqu\'un t\'a invité à un événement',
           data: { event_id: event.id, sender_id: userId },
         })
+        if (notifErr) console.error('[Notifications] Insert invitation error:', notifErr)
       }
 
       const invitationPayload = {
@@ -154,13 +155,14 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           .eq('id', userId)
           .maybeSingle()
         const name = profile?.name ?? 'Quelqu\'un'
-        await supabase.from('notifications').insert({
+        const { error: notifErr } = await supabase.from('notifications').insert({
           user_id: event.user_id,
           type: 'rsvp_received',
           title: `${name} participe à ${event.name}`,
           body: 'Nouvelle réponse à votre événement',
           data: { event_id: event.id, sender_id: userId },
         })
+        if (notifErr) console.error('[Notifications] Insert RSVP error:', notifErr)
       }
     }
     setLoading(false)

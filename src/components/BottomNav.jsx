@@ -32,7 +32,7 @@ const tabs = [
   { key: 'profile', icon: 'profile' },
 ]
 
-export default function BottomNav({ current, onChange }) {
+export default function BottomNav({ current, onChange, hasUnreadMessages }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -52,6 +52,7 @@ export default function BottomNav({ current, onChange }) {
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             }}>
               <div style={{
+                position: 'relative',
                 width: 44, height: 44, borderRadius: 22,
                 background: active ? '#F2F2F7' : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -60,6 +61,14 @@ export default function BottomNav({ current, onChange }) {
                 <div style={{ stroke: active ? '#1C1C1E' : '#AEAEB2' }}>
                   {icons[tab.icon]}
                 </div>
+                {tab.key === 'messages' && hasUnreadMessages && (
+                  <div style={{
+                    position: 'absolute', top: 5, right: 5,
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: '#FF3B30', border: '1.5px solid #fff',
+                    pointerEvents: 'none',
+                  }} />
+                )}
               </div>
             </div>
           )
