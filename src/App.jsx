@@ -12,11 +12,11 @@ import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
 import Profile from './screens/Profile'
 import EditProfile from './screens/EditProfile'
-import PublicInvite from './screens/PublicInvite'
+import GuestRsvpPage from './screens/GuestRsvpPage'
 
 export default function App() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
-  if (inviteMatch) return <PublicInvite token={inviteMatch[1]} />
+  if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
 
   const [hasOnboarded, setHasOnboarded] = useState(false)
   const [authInitLogin, setAuthInitLogin] = useState(false)

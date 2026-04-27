@@ -22,6 +22,7 @@ function formatDate(dateStr) {
 }
 
 const statusIcon = { pending: '⏳', accepted: '✅', declined: '❌' }
+const guestResponseIcon = { yes: '✅', no: '❌', maybe: '🤔' }
 
 export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [rsvpStatus, setRsvpStatus] = useState(null)
@@ -31,6 +32,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState(null)
   const [invitations, setInvitations] = useState([])
+  const [guestRsvps, setGuestRsvps] = useState([])
   const [toast, setToast] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', date: '', description: '', location: '' })
@@ -38,7 +40,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [eventOverrides, setEventOverrides] = useState({})
 
   function handleShare() {
-    const url = `${window.location.origin}/invite/${event.share_token}`
+    const url = `${window.location.origin}/invite/${event.invite_token}`
     if (navigator.share) {
       navigator.share({ title: event.name, url })
     } else {
@@ -61,14 +63,18 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       if (!user || cancelled) return
       setUserId(user.id)
 
-      const [rsvpRes, invRes] = await Promise.all([
+      const isOrg = user.id === event.user_id
+      const queries = [
         supabase.from('rsvps').select('status').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
         supabase.from('invitations').select('id, invited_email, status').eq('event_id', event.id).order('created_at', { ascending: true }),
-      ])
+        ...(isOrg ? [supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })] : []),
+      ]
 
+      const results = await Promise.all(queries)
       if (!cancelled) {
-        setRsvpStatus(rsvpRes.data?.status ?? null)
-        setInvitations(invRes.data ?? [])
+        setRsvpStatus(results[0].data?.status ?? null)
+        setInvitations(results[1].data ?? [])
+        if (isOrg) setGuestRsvps(results[2].data ?? [])
       }
     }
 
@@ -252,7 +258,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
               Modifier ✏️
             </div>
           )}
-          {event.share_token && (
+          {event.invite_token && (
             <div onClick={handleShare} style={{ cursor: 'pointer', fontSize: 15, fontWeight: 700, color: '#fff' }}>
               Partager 🔗
             </div>
@@ -426,6 +432,25 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {guestRsvps.length > 0 && (
+              <div style={{ marginTop: invitations.length ? 14 : 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>
+                  Via lien public 🔗
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {guestRsvps.map(g => (
+                    <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>
+                      <div>
+                        <div style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 500 }}>{g.guest_name}</div>
+                        <div style={{ fontSize: 11, color: '#8E8E93' }}>{g.guest_email}</div>
+                      </div>
+                      <div style={{ fontSize: 15 }}>{guestResponseIcon[g.response] ?? '⏳'}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
