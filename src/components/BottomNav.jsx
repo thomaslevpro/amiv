@@ -72,7 +72,7 @@ const Badge = () => (
   }} />
 )
 
-export default function BottomNav({ current, onChange, onCreateClick, hasUnreadMessages, hasUnreadNotifications, hidden }) {
+export default function BottomNav({ current, onChange, hasUnreadMessages, hasUnreadNotifications, hidden }) {
   return (
     <div style={{
       position: 'fixed',
@@ -131,38 +131,6 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         color: current === 'calendar' ? '#1C1C1E' : '#8E8E93',
       }}>
         <CalendarIcon active={current === 'calendar'} />
-      </div>
-
-      {/* Create — pill centré style Instagram */}
-      <div onClick={onCreateClick} style={{
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        paddingBottom: 4,
-        paddingLeft: 6,
-        paddingRight: 6,
-      }}>
-        <div style={{
-          width: 80,
-          height: 44,
-          borderRadius: 22,
-          background: 'rgba(0, 0, 0, 0.08)',
-          border: '0.5px solid rgba(255, 255, 255, 0.6)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-            stroke="#1C1C1E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-        </div>
       </div>
 
       {/* Messages */}

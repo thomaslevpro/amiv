@@ -121,7 +121,7 @@ export default function App() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
       case 'messages':
         if (conversationEvent) {
@@ -141,7 +141,6 @@ export default function App() {
       <BottomNav
         current={tab}
         onChange={handleTabChange}
-        onCreateClick={() => setScreen('create')}
         hasUnreadMessages={unreadMessagesCount > 0}
         hasUnreadNotifications={hasUnreadNotifications}
         hidden={isDetailScreen}
