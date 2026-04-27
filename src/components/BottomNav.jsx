@@ -77,24 +77,34 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
     <div style={{
       position: 'fixed',
       bottom: 0,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: 'calc(100% - 32px)',
-      maxWidth: 398,
-      margin: '0 16px 24px',
+      left: 0,
+      right: 0,
       zIndex: 100,
       display: hidden ? 'none' : 'flex',
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+      paddingLeft: 16,
+      paddingRight: 16,
+      background: 'transparent',
+      pointerEvents: 'none',
+    }}>
+    <div style={{
+      width: '100%',
+      maxWidth: 430,
+      display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-around',
       background: 'rgba(255, 255, 255, 0.65)',
       backdropFilter: 'blur(20px) saturate(180%)',
       WebkitBackdropFilter: 'blur(20px) saturate(180%)',
       border: '0.5px solid rgba(255, 255, 255, 0.8)',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
       borderRadius: 40,
-      paddingTop: 8,
-      paddingBottom: 8,
+      paddingTop: 10,
+      paddingBottom: 10,
       minHeight: 64,
+      pointerEvents: 'auto',
     }}>
 
       {/* Home */}
@@ -185,6 +195,7 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         {hasUnreadNotifications && <Badge />}
       </div>
 
+    </div>
     </div>
   )
 }
