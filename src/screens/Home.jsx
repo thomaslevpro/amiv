@@ -93,7 +93,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick })
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden', position: 'relative' }}>
       <StatusBar />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 24px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, padding: '6px 2px 0' }}>
           <div>
@@ -235,18 +235,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick })
         )}
       </div>
 
-      {/* FAB */}
-      <div onClick={onCreateClick} style={{
-        position: 'absolute', bottom: 80, right: 16,
-        width: 52, height: 52, background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-        borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer', boxShadow: '0 4px 20px rgba(224,85,170,0.4)', zIndex: 20,
-      }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-          <line x1="12" y1="5" x2="12" y2="19"/>
-          <line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      </div>
     </div>
   )
 }

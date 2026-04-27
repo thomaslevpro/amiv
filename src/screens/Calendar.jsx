@@ -20,7 +20,7 @@ export default function Calendar({ onEventClick }) {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
       <StatusBar />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 24px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, padding: '6px 2px 0' }}>
           <div>

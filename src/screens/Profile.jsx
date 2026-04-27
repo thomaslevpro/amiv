@@ -77,7 +77,7 @@ export default function Profile({ session, onEdit }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
       <StatusBar />
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 24px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
         <div style={{ fontSize: 27, fontWeight: 700, letterSpacing: -0.4, color: '#1C1C1E', marginBottom: 16, padding: '6px 2px 0' }}>Profil</div>
 
         {/* Profile card */}

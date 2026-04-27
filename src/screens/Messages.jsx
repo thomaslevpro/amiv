@@ -175,7 +175,7 @@ export default function Messages({ event, onBack, onEventOpen, notifications = [
           <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E' }}>Messages</div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
           {listLoading ? (
             <div style={{ background: '#fff', borderRadius: 20, margin: '12px 16px', overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
               <SkeletonRow />

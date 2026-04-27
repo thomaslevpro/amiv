@@ -17,6 +17,7 @@ import PublicInvite from './screens/PublicInvite'
 export default function App() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <PublicInvite token={inviteMatch[1]} />
+
   const [hasOnboarded, setHasOnboarded] = useState(false)
   const [authInitLogin, setAuthInitLogin] = useState(false)
   const [session, setSession] = useState(null)
@@ -28,6 +29,7 @@ export default function App() {
   const [conversationEvent, setConversationEvent] = useState(null)
   const { notifications, markAsRead, markAllAsReadByType } = useNotifications(session?.user?.id)
   const unreadMessagesCount = notifications.filter(n => n.type === 'message_received' && !n.read).length
+  const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
   const pendingEventId = useRef(
     window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
   )
@@ -35,7 +37,7 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      if (session) setHasOnboarded(true) // utilisateur déjà connecté → skip onboarding
+      if (session) setHasOnboarded(true)
       setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -82,24 +84,7 @@ export default function App() {
 
   if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
   if (!session) return <Auth initialIsLogin={authInitLogin} />
-
-  if (!profileComplete) return (
-    <EditProfile isOnboarding={true} onSave={() => setProfileComplete(true)} />
-  )
-
-  if (screen === 'create') return <Create onBack={() => setScreen('home')} />
-  if (screen === 'editProfile') return (
-    <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
-  )
-  if (screen === 'messages' && selectedEvent) return (
-    <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} />
-  )
-  if (screen === 'eventDetail' && selectedEvent) return (
-    <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
-  )
-  if (screen === 'invitation' && selectedEvent) return (
-    <Invitation event={selectedEvent} onBack={() => setScreen('eventDetail')} />
-  )
+  if (!profileComplete) return <EditProfile isOnboarding={true} onSave={() => setProfileComplete(true)} />
 
   const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
   const handleTabChange = (newTab) => {
@@ -113,25 +98,36 @@ export default function App() {
     if (data) { setSelectedEvent(data); setScreen('eventDetail') }
   }
 
-  const renderScreen = () => {
+  const isDetailScreen =
+    screen === 'create' ||
+    screen === 'editProfile' ||
+    (screen === 'invitation' && selectedEvent) ||
+    (screen === 'eventDetail' && selectedEvent) ||
+    (screen === 'messages' && selectedEvent)
+
+  const renderCurrentScreen = () => {
+    if (screen === 'create') return <Create onBack={() => setScreen('home')} />
+    if (screen === 'editProfile') return (
+      <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
+    )
+    if (screen === 'messages' && selectedEvent) return (
+      <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} />
+    )
+    if (screen === 'eventDetail' && selectedEvent) return (
+      <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
+    )
+    if (screen === 'invitation' && selectedEvent) return (
+      <Invitation event={selectedEvent} onBack={() => setScreen('eventDetail')} />
+    )
+
     switch (tab) {
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
       case 'messages':
         if (conversationEvent) {
-          return <Messages
-            event={conversationEvent}
-            onBack={() => setConversationEvent(null)}
-            notifications={notifications}
-            markAsRead={markAsRead}
-          />
+          return <Messages event={conversationEvent} onBack={() => setConversationEvent(null)} notifications={notifications} markAsRead={markAsRead} />
         }
-        return <Messages
-          onEventOpen={setConversationEvent}
-          notifications={notifications}
-          markAsRead={markAsRead}
-          onCreateClick={() => setScreen('create')}
-        />
+        return <Messages onEventOpen={setConversationEvent} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => setScreen('create')} />
       case 'profile': return <Profile session={session} onEdit={() => setScreen('editProfile')} />
       default: return null
     }
@@ -140,9 +136,16 @@ export default function App() {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 430, margin: '0 auto', width: '100%' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {renderScreen()}
+        {renderCurrentScreen()}
       </div>
-      <BottomNav current={tab} onChange={handleTabChange} hasUnreadMessages={unreadMessagesCount > 0} />
+      <BottomNav
+        current={tab}
+        onChange={handleTabChange}
+        onCreateClick={() => setScreen('create')}
+        hasUnreadMessages={unreadMessagesCount > 0}
+        hasUnreadNotifications={hasUnreadNotifications}
+        hidden={isDetailScreen}
+      />
     </div>
   )
 }
