@@ -122,6 +122,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   const [showForm, setShowForm] = useState(false)
   const [formName, setFormName] = useState('')
   const [formDate, setFormDate] = useState('')
+  const [formReminderDays, setFormReminderDays] = useState([7])
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [birthdayFilter, setBirthdayFilter] = useState('Ce mois')
@@ -171,13 +172,14 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     if (user) {
       const { error } = await supabase
         .from('birthdays')
-        .insert({ name: formName.trim(), birthdate: formDate, user_id: user.id })
+        .insert({ name: formName.trim(), birthdate: formDate, reminder_days: formReminderDays, user_id: user.id })
       if (error) {
         console.error('Birthday save failed:', error)
         showToast('Erreur lors de la sauvegarde 😕', true)
       } else {
         setFormName('')
         setFormDate('')
+        setFormReminderDays([7])
         setShowForm(false)
         showToast('Anniversaire ajouté 🎂')
         await fetchBirthdays()
@@ -305,6 +307,31 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
               required
               style={{ border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E' }}
             />
+            {/* Reminder chips */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#8E8E93', marginBottom: 8 }}>Rappels</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[{ label: 'J-30', value: 30 }, { label: 'J-14', value: 14 }, { label: 'J-7', value: 7 }, { label: 'J-3', value: 3 }, { label: 'J-1', value: 1 }].map(({ label, value }) => {
+                  const active = formReminderDays.includes(value)
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFormReminderDays(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value])}
+                      style={{
+                        padding: '6px 12px', borderRadius: 20, border: 'none',
+                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : 'var(--gray3, #E5E5EA)',
+                        color: active ? '#fff' : '#1C1C1E',
+                        transition: 'background 0.15s, color 0.15s',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="submit"

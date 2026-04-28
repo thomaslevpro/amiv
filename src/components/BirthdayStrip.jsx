@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
-import useLongPress from '../hooks/useLongPress'
-import BirthdayContextMenu from './BirthdayContextMenu'
+import BirthdayBottomSheet from './BirthdayBottomSheet'
 import BirthdayEditModal from './BirthdayEditModal'
 
-function StripItem({ birthday, onLongPress }) {
+function StripItem({ birthday, onAvatarTap }) {
   const { id, name, days } = birthday
   const offset = Math.max(0, Math.min(169.6, 169.6 * days / 30))
   const isUrgent = days <= 7
@@ -15,11 +13,8 @@ function StripItem({ birthday, onLongPress }) {
   const badgeText = days === 0 ? 'Auj.' : `J-${days}`
   const displayName = name.length > 8 ? name.slice(0, 7) + '…' : name
 
-  const longPressHandlers = useLongPress(onLongPress)
-
   return (
     <div
-      {...longPressHandlers}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         flexShrink: 0, width: 74,
@@ -27,7 +22,10 @@ function StripItem({ birthday, onLongPress }) {
         WebkitTouchCallout: 'none',
       }}
     >
-      <div style={{ position: 'relative', width: 64, height: 64, marginBottom: 5 }}>
+      <div
+        onClick={onAvatarTap}
+        style={{ position: 'relative', width: 64, height: 64, marginBottom: 5, cursor: 'pointer' }}
+      >
         <svg width="64" height="64" viewBox="0 0 64 64" style={{ position: 'absolute', inset: 0 }}>
           {isUrgent && (
             <defs>
@@ -77,24 +75,8 @@ function StripItem({ birthday, onLongPress }) {
 }
 
 export default function BirthdayStrip({ birthdays, onRefetch, onToast }) {
-  const [contextMenu, setContextMenu] = useState(null)
+  const [bottomSheet, setBottomSheet] = useState(null)
   const [editBirthday, setEditBirthday] = useState(null)
-
-  async function handleDelete(birthday) {
-    const confirmed = window.confirm(`Supprimer l'anniversaire de ${birthday.name} ?`)
-    if (!confirmed) return
-    const { error } = await supabase
-      .from('birthdays')
-      .delete()
-      .eq('id', birthday.id)
-    if (error) {
-      console.error('Birthday delete failed:', error)
-      onToast?.('Erreur lors de la suppression 😕', true)
-    } else {
-      onToast?.('Anniversaire supprimé 🗑️')
-      onRefetch?.()
-    }
-  }
 
   if (birthdays.length === 0) {
     return (
@@ -114,17 +96,18 @@ export default function BirthdayStrip({ birthdays, onRefetch, onToast }) {
           <StripItem
             key={b.id}
             birthday={b}
-            onLongPress={() => setContextMenu(b)}
+            onAvatarTap={() => setBottomSheet(b)}
           />
         ))}
       </div>
 
-      {contextMenu && (
-        <BirthdayContextMenu
-          birthday={contextMenu}
-          onEdit={() => { setEditBirthday(contextMenu); setContextMenu(null) }}
-          onDelete={() => { const b = contextMenu; setContextMenu(null); handleDelete(b) }}
-          onClose={() => setContextMenu(null)}
+      {bottomSheet && (
+        <BirthdayBottomSheet
+          birthday={bottomSheet}
+          onClose={() => setBottomSheet(null)}
+          onEdit={() => setEditBirthday(bottomSheet)}
+          onDeleted={() => onRefetch?.()}
+          onToast={onToast}
         />
       )}
 

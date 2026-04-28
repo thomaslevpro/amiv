@@ -3,11 +3,26 @@ import { supabase } from '../lib/supabase'
 
 const EMOJIS = ['🎂', '🎉', '🎈', '🥳', '🌟', '💫', '🎊', '🦋', '🌸', '💝', '🎁', '🎀']
 
+const REMINDER_OPTIONS = [
+  { label: 'J-30', value: 30 },
+  { label: 'J-14', value: 14 },
+  { label: 'J-7',  value: 7  },
+  { label: 'J-3',  value: 3  },
+  { label: 'J-1',  value: 1  },
+]
+
 export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast }) {
   const [emoji, setEmoji] = useState('🎂')
   const [name, setName] = useState(birthday.name)
   const [date, setDate] = useState(birthday.birthdate)
+  const [reminderDays, setReminderDays] = useState(birthday.reminder_days ?? [7])
   const [saving, setSaving] = useState(false)
+
+  function toggleReminder(value) {
+    setReminderDays(prev =>
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    )
+  }
 
   async function handleSave(e) {
     e.preventDefault()
@@ -15,7 +30,7 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
     setSaving(true)
     const { error } = await supabase
       .from('birthdays')
-      .update({ name: name.trim(), birthdate: date })
+      .update({ name: name.trim(), birthdate: date, reminder_days: reminderDays })
       .eq('id', birthday.id)
     if (error) {
       console.error('Birthday update failed:', error)
@@ -118,6 +133,35 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
               fontSize: 15, outline: 'none', color: '#1C1C1E', background: '#fff',
             }}
           />
+
+          {/* Reminder timing */}
+          <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#8E8E93', marginBottom: 10 }}>
+              Rappels
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {REMINDER_OPTIONS.map(({ label, value }) => {
+                const active = reminderDays.includes(value)
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => toggleReminder(value)}
+                    style={{
+                      padding: '7px 14px', borderRadius: 20, border: 'none',
+                      cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                      background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : 'var(--gray3, #E5E5EA)',
+                      color: active ? '#fff' : '#1C1C1E',
+                      transition: 'background 0.15s, color 0.15s',
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={saving}
