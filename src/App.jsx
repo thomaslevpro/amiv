@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import { useNotifications } from './hooks/useNotifications'
 import BottomNav from './components/BottomNav'
 import Onboarding from './screens/Onboarding'
+import OnboardingFlow from './pages/Onboarding'
 import Auth from './screens/Auth'
 import Home from './screens/Home'
 import Calendar from './screens/Calendar'
@@ -23,7 +24,7 @@ export default function App() {
   const [authInitLogin, setAuthInitLogin] = useState(false)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [profileComplete, setProfileComplete] = useState(null)
+  const [onboardingCompleted, setOnboardingCompleted] = useState(null)
   const [tab, setTab] = useState('home')
   const [screen, setScreen] = useState('home')
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -44,7 +45,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (!session) {
-        setProfileComplete(null)
+        setOnboardingCompleted(null)
       } else if (_event === 'SIGNED_IN') {
         const path = window.location.pathname
         if (path !== '/' && !path.startsWith('/invite/') && !path.startsWith('/events/')) {
@@ -56,11 +57,16 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!session || profileComplete !== null) return
-    supabase.from('profiles').select('name').eq('id', session.user.id).maybeSingle().then(({ data }) => {
-      setProfileComplete(!!(data?.name))
-    })
-  }, [session, profileComplete])
+    if (!session || onboardingCompleted !== null) return
+    supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setOnboardingCompleted(data?.onboarding_completed === true)
+      })
+  }, [session, onboardingCompleted])
 
   useEffect(() => {
     if (!session || !pendingEventId.current) return
@@ -75,7 +81,7 @@ export default function App() {
     })
   }, [session])
 
-  const isLoading = loading || (!!session && profileComplete === null)
+  const isLoading = loading || (!!session && onboardingCompleted === null)
 
   if (isLoading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
@@ -85,7 +91,7 @@ export default function App() {
 
   if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
   if (!session) return <Auth initialIsLogin={authInitLogin} />
-  if (!profileComplete) return <EditProfile isOnboarding={true} onSave={() => setProfileComplete(true)} />
+  if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => setOnboardingCompleted(true)} />
 
   const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
   const handleTabChange = (newTab) => {
