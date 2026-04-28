@@ -113,7 +113,7 @@ function QuickActions({ onCreateEvent, onAddBirthday, onShare }) {
   )
 }
 
-export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick }) {
+export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -265,7 +265,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
         <BirthdayStrip birthdays={displayedBirthdays} onRefetch={fetchBirthdays} onToast={showToast} />
         <MonthTimeline birthdays={birthdaysThisMonth} events={events} today={today} />
 
-        <SectionHeader title="Mes événements" link="Voir tout" onLink={() => {}} />
+        <SectionHeader title="Mes événements" link="Voir tout" onLink={onAllEventsClick} />
         {events.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, padding: '20px 0' }}>
             Aucun événement pour l'instant

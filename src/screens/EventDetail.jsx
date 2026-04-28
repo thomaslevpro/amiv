@@ -21,6 +21,14 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function formatPollDate(dateStr, timeStr) {
+  if (!dateStr) return ''
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const d = new Date(year, month - 1, day)
+  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return timeStr ? `${datePart} à ${timeStr.slice(0, 5)}` : datePart
+}
+
 const statusIcon = { pending: '⏳', accepted: '✅', declined: '❌' }
 const guestResponseIcon = { yes: '✅', no: '❌', maybe: '🤔' }
 
@@ -38,6 +46,15 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [editForm, setEditForm] = useState({ name: '', date: '', description: '', location: '' })
   const [saving, setSaving] = useState(false)
   const [eventOverrides, setEventOverrides] = useState({})
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  // Date poll state
+  const [dateOptions, setDateOptions] = useState([])
+  const [myVotes, setMyVotes] = useState({}) // option_id -> boolean
+  const [allVoteCounts, setAllVoteCounts] = useState({}) // option_id -> count of available=true
+  const [confirmingDate, setConfirmingDate] = useState(false)
 
   function handleShare() {
     const url = `${window.location.origin}/invite/${event.invite_token}`
@@ -57,6 +74,9 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
     setEventOverrides({})
     setEditing(false)
+    setDateOptions([])
+    setMyVotes({})
+    setAllVoteCounts({})
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -64,17 +84,42 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       setUserId(user.id)
 
       const isOrg = user.id === event.user_id
-      const queries = [
+
+      const [rsvpRes, invRes, optRes, guestRes] = await Promise.all([
         supabase.from('rsvps').select('status').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
         supabase.from('invitations').select('id, invited_email, status').eq('event_id', event.id).order('created_at', { ascending: true }),
-        ...(isOrg ? [supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })] : []),
-      ]
+        supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
+        isOrg
+          ? supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })
+          : Promise.resolve({ data: [] }),
+      ])
 
-      const results = await Promise.all(queries)
-      if (!cancelled) {
-        setRsvpStatus(results[0].data?.status ?? null)
-        setInvitations(results[1].data ?? [])
-        if (isOrg) setGuestRsvps(results[2].data ?? [])
+      if (cancelled) return
+
+      setRsvpStatus(rsvpRes.data?.status ?? null)
+      setInvitations(invRes.data ?? [])
+      if (isOrg) setGuestRsvps(guestRes.data ?? [])
+
+      const optionsData = optRes.data ?? []
+      setDateOptions(optionsData)
+
+      if (optionsData.length > 0) {
+        const optionIds = optionsData.map(o => o.id)
+        const { data: votes } = await supabase
+          .from('event_date_votes')
+          .select('option_id, user_id, available')
+          .in('option_id', optionIds)
+
+        if (cancelled) return
+        if (votes) {
+          const mine = {}
+          votes.filter(v => v.user_id === user.id).forEach(v => { mine[v.option_id] = v.available })
+          setMyVotes(mine)
+
+          const counts = {}
+          votes.forEach(v => { if (v.available) counts[v.option_id] = (counts[v.option_id] || 0) + 1 })
+          setAllVoteCounts(counts)
+        }
       }
     }
 
@@ -174,6 +219,43 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setLoading(false)
   }
 
+  async function handleDateVote(optionId, available) {
+    if (!userId) return
+    const { error } = await supabase
+      .from('event_date_votes')
+      .upsert({ option_id: optionId, user_id: userId, available }, { onConflict: 'option_id,user_id' })
+
+    if (!error) {
+      const prevAvailable = myVotes[optionId]
+      setMyVotes(prev => ({ ...prev, [optionId]: available }))
+      setAllVoteCounts(prev => {
+        const counts = { ...prev }
+        if (prevAvailable === true && !available) counts[optionId] = Math.max(0, (counts[optionId] || 0) - 1)
+        if (prevAvailable !== true && available) counts[optionId] = (counts[optionId] || 0) + 1
+        return counts
+      })
+    }
+  }
+
+  async function handleConfirmDate(option) {
+    setConfirmingDate(true)
+    const datetime = option.proposed_time
+      ? `${option.proposed_date}T${option.proposed_time}`
+      : `${option.proposed_date}T00:00`
+
+    const { error } = await supabase
+      .from('events')
+      .update({ date: datetime, poll_closed: true })
+      .eq('id', event.id)
+
+    if (!error) {
+      setEventOverrides(prev => ({ ...prev, date: datetime, poll_closed: true }))
+      setToast('Date confirmée ! 🎉')
+      setTimeout(() => setToast(null), 2500)
+    }
+    setConfirmingDate(false)
+  }
+
   function handleEditOpen() {
     setEditForm({
       name: event.name ?? '',
@@ -197,12 +279,13 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       })
       .eq('id', event.id)
     if (!error) {
-      setEventOverrides({
+      setEventOverrides(prev => ({
+        ...prev,
         name: editForm.name,
         date: editForm.date,
         description: editForm.description,
         location: editForm.location,
-      })
+      }))
       setEditing(false)
       setToast('Événement modifié !')
       setTimeout(() => setToast(null), 2500)
@@ -215,6 +298,20 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setInvitations(prev => prev.filter(i => i.id !== invId))
   }
 
+  async function handleDeleteEvent() {
+    setDeleting(true)
+    const { error } = await supabase.from('events').delete().eq('id', event.id)
+    if (error) {
+      console.error('Delete event error:', error)
+      setToast('Erreur lors de la suppression')
+      setTimeout(() => setToast(null), 2500)
+      setDeleting(false)
+      setShowDeleteModal(false)
+    } else {
+      onBack?.()
+    }
+  }
+
   if (!event) return null
 
   const isOrganizer = userId !== null && userId === event.user_id
@@ -223,6 +320,9 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const displayDate = eventOverrides.date ?? event.date
   const displayDescription = eventOverrides.description ?? event.description
   const displayLocation = eventOverrides.location ?? event.location
+  const pollClosed = eventOverrides.poll_closed ?? event.poll_closed ?? false
+  const isPollActive = dateOptions.length > 0 && !pollClosed
+
   const acceptedCount = invitations.filter(i => i.status === 'accepted').length
   const declinedCount = invitations.filter(i => i.status === 'declined').length
   const pendingCount = invitations.filter(i => !i.status || i.status === 'pending').length
@@ -231,11 +331,13 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const visibility = visibilityLabel[event.visibility] ?? event.visibility ?? 'Sur invitation'
 
   const infoRows = [
-    { icon: '📅', label: 'Date', value: formatDate(displayDate) },
+    { icon: '📅', label: 'Date', value: isPollActive ? 'Sondage en cours 📊' : formatDate(displayDate) },
     { icon: '📍', label: 'Lieu', value: displayLocation || 'Lieu non précisé' },
     { icon: '🎭', label: 'Type', value: `${emoji} ${event.type || 'Autre'}` },
     { icon: '👁', label: 'Visibilité', value: visibility },
   ]
+
+  const maxVoteCount = isPollActive ? Math.max(0, ...dateOptions.map(o => allVoteCounts[o.id] || 0)) : 0
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
@@ -271,7 +373,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
-        {/* Edit form — organizer only, shown inline when editing */}
+        {/* Edit form — organizer only */}
         {editing && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
@@ -353,6 +455,97 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           <div style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>Description</div>
             <div style={{ fontSize: 13, color: '#1C1C1E', lineHeight: 1.5 }}>{displayDescription}</div>
+          </div>
+        )}
+
+        {/* Date poll — organizer results view */}
+        {isPollActive && isOrganizer && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
+              Résultats du sondage 📊
+            </div>
+            {dateOptions.map(opt => {
+              const count = allVoteCounts[opt.id] || 0
+              const isWinner = maxVoteCount > 0 && count === maxVoteCount
+              return (
+                <div key={opt.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 12, marginBottom: 8,
+                  background: isWinner ? 'rgba(224,85,170,0.08)' : '#F2F2F7',
+                  border: isWinner ? '1.5px solid rgba(224,85,170,0.3)' : '1.5px solid transparent',
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>
+                      {formatPollDate(opt.proposed_date, opt.proposed_time)}
+                    </div>
+                    <div style={{ fontSize: 11, color: isWinner ? '#e055aa' : '#8E8E93', marginTop: 2, fontWeight: isWinner ? 700 : 400 }}>
+                      {count} disponible{count !== 1 ? 's' : ''}{isWinner && count > 0 ? ' 🏆' : ''}
+                    </div>
+                  </div>
+                  <div
+                    onClick={() => !confirmingDate && handleConfirmDate(opt)}
+                    style={{
+                      padding: '7px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                      background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
+                      cursor: confirmingDate ? 'default' : 'pointer',
+                      opacity: confirmingDate ? 0.6 : 1, whiteSpace: 'nowrap', flexShrink: 0,
+                    }}
+                  >
+                    {confirmingDate ? '…' : 'Confirmer'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Date poll — invitee voting view */}
+        {isPollActive && !isOrganizer && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>
+              Sondage de dates 📅
+            </div>
+            <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 12 }}>
+              Indiquez vos disponibilités pour chaque date proposée.
+            </div>
+            {dateOptions.map((opt, i) => {
+              const myVote = myVotes[opt.id]
+              return (
+                <div key={opt.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 0',
+                  borderTop: i > 0 ? '0.5px solid rgba(0,0,0,0.07)' : 'none',
+                }}>
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>
+                    {formatPollDate(opt.proposed_date, opt.proposed_time)}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <div
+                      onClick={() => handleDateVote(opt.id, true)}
+                      style={{
+                        padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                        background: myVote === true ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+                        color: myVote === true ? '#fff' : '#8E8E93',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      ✓
+                    </div>
+                    <div
+                      onClick={() => handleDateVote(opt.id, false)}
+                      style={{
+                        padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                        background: myVote === false ? '#FF3B30' : '#F2F2F7',
+                        color: myVote === false ? '#fff' : '#8E8E93',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      ✕
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -468,6 +661,20 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           💬 Messages
         </div>
 
+        {/* Delete button: organizer only */}
+        {isOrganizer && (
+          <div
+            onClick={() => setShowDeleteModal(true)}
+            style={{
+              background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center',
+              fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer',
+              marginBottom: 10,
+            }}
+          >
+            Supprimer l'événement
+          </div>
+        )}
+
         {/* RSVP buttons: guests only */}
         {!isOrganizer && (
           <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
@@ -511,6 +718,50 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           whiteSpace: 'nowrap',
         }}>
           {toast}
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 0 20px',
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 20, padding: '24px 20px 16px',
+            width: '100%', maxWidth: 430, boxShadow: '0 -4px 30px rgba(0,0,0,0.15)',
+          }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E', textAlign: 'center', marginBottom: 10 }}>
+              Supprimer l'événement ?
+            </div>
+            <div style={{ fontSize: 14, color: '#8E8E93', textAlign: 'center', lineHeight: 1.5, marginBottom: 24 }}>
+              Cette action est irréversible. Tous les invités seront notifiés de l'annulation.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: 12, border: 'none',
+                  background: '#F2F2F7', color: '#1C1C1E',
+                  fontSize: 15, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDeleteEvent}
+                disabled={deleting}
+                style={{
+                  flex: 1, padding: '13px', borderRadius: 12, border: 'none',
+                  background: '#FF3B30', color: '#fff',
+                  fontSize: 15, fontWeight: 700, cursor: deleting ? 'default' : 'pointer',
+                  opacity: deleting ? 0.6 : 1,
+                }}
+              >
+                {deleting ? '…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

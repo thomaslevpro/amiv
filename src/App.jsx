@@ -13,6 +13,7 @@ import Invitation from './screens/Invitation'
 import Profile from './screens/Profile'
 import EditProfile from './screens/EditProfile'
 import GuestRsvpPage from './screens/GuestRsvpPage'
+import AllEvents from './screens/AllEvents'
 
 export default function App() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
@@ -101,11 +102,13 @@ export default function App() {
   const isDetailScreen =
     screen === 'create' ||
     screen === 'editProfile' ||
+    screen === 'allEvents' ||
     (screen === 'invitation' && selectedEvent) ||
     (screen === 'eventDetail' && selectedEvent) ||
     (screen === 'messages' && selectedEvent)
 
   const renderCurrentScreen = () => {
+    if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
     if (screen === 'create') return <Create onBack={() => setScreen('home')} />
     if (screen === 'editProfile') return (
       <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
@@ -121,7 +124,7 @@ export default function App() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
       case 'messages':
         if (conversationEvent) {
