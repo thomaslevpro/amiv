@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getFriends } from '../lib/friendships'
 import StatusBar from '../components/StatusBar'
 
 function getInitials(name) {
@@ -66,6 +67,10 @@ export default function Messages({ event, onBack, onEventOpen, notifications = [
   const [conversations, setConversations] = useState([])
   const [listLoading, setListLoading] = useState(true)
 
+  // --- friends strip state ---
+  const [friends, setFriends] = useState([])
+  const [friendsLoading, setFriendsLoading] = useState(true)
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setUserId(user.id)
@@ -84,7 +89,15 @@ export default function Messages({ event, onBack, onEventOpen, notifications = [
   useEffect(() => {
     if (event || !userId) return
     fetchConversations()
+    fetchFriends()
   }, [event, userId])
+
+  async function fetchFriends() {
+    setFriendsLoading(true)
+    const { data } = await getFriends(userId)
+    if (data) setFriends(data)
+    setFriendsLoading(false)
+  }
 
   async function fetchMessages() {
     const { data } = await supabase
@@ -175,6 +188,60 @@ export default function Messages({ event, onBack, onEventOpen, notifications = [
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
+          {/* ── Friends strip ─────────────────────────────────────── */}
+          {!friendsLoading && (
+            <div style={{ padding: '12px 16px 0' }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: '#8E8E93',
+                textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
+              }}>
+                Amis
+              </div>
+              {friends.length === 0 ? (
+                <div style={{
+                  background: '#fff', borderRadius: 14, padding: 12,
+                  fontSize: 13, color: '#8E8E93', lineHeight: 1.4,
+                }}>
+                  Aucun ami pour l'instant — retrouvez vos suggestions sur l'accueil 👋
+                </div>
+              ) : (
+                <div style={{
+                  display: 'flex', gap: 16,
+                  overflowX: 'auto', paddingBottom: 4,
+                  scrollbarWidth: 'none',
+                }}>
+                  {friends.map(friend => (
+                    <div key={friend.friend_id} style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      gap: 4, flexShrink: 0, cursor: 'pointer',
+                    }}>
+                      {friend.friend_avatar ? (
+                        <img
+                          src={friend.friend_avatar}
+                          alt={friend.friend_name}
+                          style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 48, height: 48, borderRadius: '50%',
+                          background: '#FBBF9A',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 16, fontWeight: 700, color: '#fff',
+                        }}>
+                          {getInitials(friend.friend_name)}
+                        </div>
+                      )}
+                      <span style={{ fontSize: 11, color: '#8E8E93', textAlign: 'center', maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {(friend.friend_name ?? '').split(' ')[0]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {/* ──────────────────────────────────────────────────────── */}
+
           {listLoading ? (
             <div style={{ background: '#fff', borderRadius: 20, margin: '12px 16px', overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
               <SkeletonRow />

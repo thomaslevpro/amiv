@@ -115,7 +115,7 @@ export default function App() {
 
   const renderCurrentScreen = () => {
     if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
-    if (screen === 'create') return <Create onBack={() => setScreen('home')} />
+    if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} />
     if (screen === 'editProfile') return (
       <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
     )
@@ -130,7 +130,7 @@ export default function App() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} session={session} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
       case 'messages':
         if (conversationEvent) {

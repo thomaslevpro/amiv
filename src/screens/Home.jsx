@@ -5,6 +5,9 @@ import NotificationBell from '../components/NotificationBell'
 import HeroBirthdayCard from '../components/HeroBirthdayCard'
 import BirthdayStrip from '../components/BirthdayStrip'
 import MonthTimeline from '../components/MonthTimeline'
+import FriendRequests from '../components/FriendRequests'
+import FriendSuggestions from '../components/FriendSuggestions'
+import { useFriendships } from '../hooks/useFriendships'
 import { supabase } from '../lib/supabase'
 
 function daysUntilBirthday(birthdateStr) {
@@ -112,11 +115,15 @@ function QuickActions({ onCreateEvent, onAddBirthday, onShare }) {
   )
 }
 
-export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick }) {
+export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick, session }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
+  const userId = session?.user?.id
+  const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
+
   const [events, setEvents] = useState([])
+  const [invitations, setInvitations] = useState([])
   const [birthdays, setBirthdays] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [formName, setFormName] = useState('')
@@ -132,18 +139,50 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     setTimeout(() => setToast(null), 3000)
   }
 
-  useEffect(() => {
-    async function fetchEvents() {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('date', { ascending: true })
-        .limit(3)
-      if (error) console.error('Erreur lors du chargement des événements :', error)
-      else setEvents(data)
+  const fetchEvents = async () => {
+    if (!userId) return
+    const { data: goingRsvps } = await supabase
+      .from('rsvps')
+      .select('event_id')
+      .eq('user_id', userId)
+      .eq('status', 'going')
+    const goingIds = goingRsvps?.map(r => r.event_id) ?? []
+    let query = supabase.from('events').select('*').order('date', { ascending: true }).limit(3)
+    if (goingIds.length > 0) {
+      query = query.or(`organizer_id.eq.${userId},id.in.(${goingIds.join(',')})`)
+    } else {
+      query = query.eq('organizer_id', userId)
     }
+    const { data, error } = await query
+    if (error) console.error('Erreur lors du chargement des événements :', error)
+    else setEvents(data ?? [])
+  }
+
+  const fetchInvitations = async () => {
+    if (!userId) return
+    const { data: rsvps, error: rsvpError } = await supabase
+      .from('rsvps')
+      .select('id, event_id')
+      .eq('user_id', userId)
+      .eq('status', 'invited')
+    if (rsvpError) { console.error('Erreur invitations (rsvps):', rsvpError); return }
+    if (!rsvps?.length) { setInvitations([]); return }
+
+    const eventIds = rsvps.map(r => r.event_id)
+    const { data: eventsData, error: eventsError } = await supabase
+      .from('events')
+      .select('id, name, date')
+      .in('id', eventIds)
+    if (eventsError) { console.error('Erreur invitations (events):', eventsError); return }
+
+    const eventsById = Object.fromEntries((eventsData ?? []).map(e => [e.id, e]))
+    setInvitations(rsvps.map(r => ({ ...r, events: eventsById[r.event_id] ?? null })))
+  }
+
+  useEffect(() => {
     fetchEvents()
-  }, [])
+    fetchInvitations()
+  }, [userId])
 
   useEffect(() => {
     fetchBirthdays()
@@ -195,6 +234,21 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
       }
     }
     setSaving(false)
+  }
+
+  async function handleAcceptInvitation(rsvpId) {
+    const { error } = await supabase.from('rsvps').update({ status: 'going' }).eq('id', rsvpId)
+    if (!error) {
+      setInvitations(prev => prev.filter(i => i.id !== rsvpId))
+      fetchEvents()
+    }
+  }
+
+  async function handleDeclineInvitation(rsvpId) {
+    const { error } = await supabase.from('rsvps').update({ status: 'declined' }).eq('id', rsvpId)
+    if (!error) {
+      setInvitations(prev => prev.filter(i => i.id !== rsvpId))
+    }
   }
 
   function handleShare() {
@@ -249,6 +303,50 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           </div>
         </div>
 
+        {invitations.length > 0 && (
+          <>
+            <SectionHeader title="Invitations en attente" badge={invitations.length} />
+            {invitations.map(inv => {
+              const ev = inv.events ?? {}
+              const dateStr = ev.date
+                ? new Date(ev.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+                : ''
+              return (
+                <div key={inv.id} style={{
+                  background: '#fff', borderRadius: 16, padding: '14px',
+                  marginBottom: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', marginBottom: 2 }}>{ev.name ?? 'Événement'}</div>
+                  <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 10 }}>
+                    {dateStr}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => handleAcceptInvitation(inv.id)}
+                      style={{
+                        flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+                        background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                        color: '#fff', fontSize: 13, fontWeight: 700,
+                      }}
+                    >
+                      J'y serai ✓
+                    </button>
+                    <button
+                      onClick={() => handleDeclineInvitation(inv.id)}
+                      style={{
+                        flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+                        background: '#E5E5EA', color: '#3A3A3C', fontSize: 13, fontWeight: 600,
+                      }}
+                    >
+                      Décliner ✗
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
+
         <HeroBirthdayCard
           birthday={heroBirthday}
           onCreateEvent={onCreateClick}
@@ -300,6 +398,20 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           </div>
         ) : (
           events.map(e => <EventCardCompact key={e.id} event={e} onClick={onEventClick} />)
+        )}
+
+        {pendingRequests.length > 0 && (
+          <>
+            <SectionHeader title="Demandes d'amitié" badge={pendingRequests.length} />
+            <FriendRequests requests={pendingRequests} onAccept={acceptRequest} onDecline={declineRequest} />
+          </>
+        )}
+
+        {suggestions.length > 0 && (
+          <>
+            <SectionHeader title="Suggestions" />
+            <FriendSuggestions suggestions={suggestions} onAdd={sendRequest} />
+          </>
         )}
 
         <QuickActions

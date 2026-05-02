@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Cake } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { supabase } from '../lib/supabase'
+import { getFriends } from '../lib/friendships'
 
 const types = [<><Cake size={13} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Anniversaire</>, '🥂 Soirée', '🍽️ Repas', '🎉 Autre']
 const typeValues = ['Anniversaire', 'Soirée', 'Repas', 'Autre']
@@ -20,7 +21,13 @@ const labelStyle = {
   textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6,
 }
 
-export default function Create({ onBack }) {
+function friendProfile(f) {
+  return { id: f.friend_id, name: f.friend_name, avatar_url: f.friend_avatar }
+}
+
+export default function Create({ onBack, session }) {
+  const userId = session?.user?.id
+
   const [type, setType] = useState(0)
   const [vis, setVis] = useState(1)
   const [form, setForm] = useState({ name: '', date: '', location: '', desc: '' })
@@ -28,6 +35,30 @@ export default function Create({ onBack }) {
   const [pollDates, setPollDates] = useState([{ date: '', time: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [friends, setFriends] = useState([])
+  const [selectedFriendIds, setSelectedFriendIds] = useState([])
+  const [emailInput, setEmailInput] = useState('')
+  const [emailInvitees, setEmailInvitees] = useState([])
+
+  useEffect(() => {
+    if (!userId) return
+    getFriends(userId).then(({ data }) => {
+      if (data) setFriends(data)
+    })
+  }, [userId])
+
+  function toggleFriend(id) {
+    setSelectedFriendIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  function addEmail() {
+    const email = emailInput.trim().toLowerCase()
+    if (!email || emailInvitees.includes(email)) return
+    setEmailInvitees(prev => [...prev, email])
+    setEmailInput('')
+  }
 
   function updatePollDate(i, field, value) {
     setPollDates(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: value } : d))
@@ -70,6 +101,14 @@ export default function Create({ onBack }) {
           )
           if (optErr) console.error('Error inserting date options:', optErr)
         }
+      }
+
+      if (selectedFriendIds.length > 0) {
+        const { error: rsvpErr } = await supabase.rpc('invite_friends_to_event', {
+          p_event_id: eventData.id,
+          p_user_ids: selectedFriendIds
+        })
+        if (rsvpErr) console.error('Error inviting friends:', rsvpErr)
       }
 
       onBack()
@@ -230,6 +269,71 @@ export default function Create({ onBack }) {
             onChange={e => setForm({ ...form, desc: e.target.value })}
             style={fieldStyle}
           />
+        </div>
+
+        {/* Invitees */}
+        <div style={{ ...cardStyle, marginBottom: 10 }}>
+          <div style={labelStyle}>Invités</div>
+          {friends.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              {friends.map(f => {
+                const p = friendProfile(f)
+                if (!p) return null
+                const selected = selectedFriendIds.includes(p.id)
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => toggleFriend(p.id)}
+                    style={{
+                      padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                      background: selected ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+                      color: selected ? '#fff' : '#1C1C1E',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="email"
+              placeholder="Inviter par email…"
+              value={emailInput}
+              onChange={e => setEmailInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addEmail())}
+              style={{ ...fieldStyle, flex: 1 }}
+            />
+            {emailInput.trim() && (
+              <div
+                onClick={addEmail}
+                style={{
+                  padding: '6px 12px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+                  background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', cursor: 'pointer',
+                }}
+              >
+                +
+              </div>
+            )}
+          </div>
+          {emailInvitees.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+              {emailInvitees.map(email => (
+                <div
+                  key={email}
+                  onClick={() => setEmailInvitees(prev => prev.filter(e => e !== email))}
+                  style={{
+                    padding: '5px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                    background: 'rgba(224,85,170,0.10)', color: '#e055aa', cursor: 'pointer',
+                  }}
+                >
+                  {email} ×
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Visibility */}
