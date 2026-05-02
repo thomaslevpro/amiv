@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Cake } from 'lucide-react'
 import BirthdayBottomSheet from './BirthdayBottomSheet'
 import BirthdayEditModal from './BirthdayEditModal'
 
@@ -52,7 +53,7 @@ function StripItem({ birthday, onAvatarTap }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 22,
         }}>
-          🎂
+          <Cake size={20} strokeWidth={1.5} />
         </div>
       </div>
 
@@ -81,7 +82,7 @@ export default function BirthdayStrip({ birthdays, onRefetch, onToast }) {
   if (birthdays.length === 0) {
     return (
       <div style={{ color: '#AEAEB2', fontSize: 13, textAlign: 'center', padding: '12px 0' }}>
-        Aucun anniversaire ce mois-ci
+        Aucun anniversaire
       </div>
     )
   }

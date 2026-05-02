@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { Cake } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { supabase } from '../lib/supabase'
 
-const types = ['🎂 Anniversaire', '🥂 Soirée', '🍽️ Repas', '🎉 Autre']
+const types = [<><Cake size={13} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Anniversaire</>, '🥂 Soirée', '🍽️ Repas', '🎉 Autre']
 const typeValues = ['Anniversaire', 'Soirée', 'Repas', 'Autre']
 const visibilities = ['Privé 🔒', 'Sur invitation', 'Public 🌍']
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Cake } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import StatusBar from '../StatusBar'
 
@@ -45,7 +46,7 @@ export default function OnboardingBirthday({ userId, onNext }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 24px 0' }}>
 
         <div style={{ paddingTop: 12, marginBottom: 32 }}>
-          <div style={{ fontSize: 40, marginBottom: 14 }}>🎂</div>
+          <div style={{ marginBottom: 14 }}><Cake size={20} strokeWidth={1.5} /></div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#1C1C1E', letterSpacing: -0.5, marginBottom: 8 }}>
             Premier anniversaire
           </div>

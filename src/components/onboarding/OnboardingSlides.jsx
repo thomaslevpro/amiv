@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
+import { Cake } from 'lucide-react'
 import StatusBar from '../StatusBar'
 
 const SLIDES = [
   {
-    emoji: '🎂',
+    emoji: <Cake size={20} strokeWidth={1.5} />,
     title: "Ne manquez plus un anniversaire",
     desc: "Amiv vous rappelle chaque date importante.",
   },

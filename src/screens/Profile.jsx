@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Calendar, Bell, Mail, MessageCircle, Lock, LogOut, ChevronRight, CheckCircle2, Cake, User } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { supabase } from '../lib/supabase'
 
@@ -53,23 +54,23 @@ export default function Profile({ session, onEdit }) {
     {
       title: 'Intégrations',
       rows: [
-        { icon: '📅', label: 'Google Calendar', desc: 'Non connecté', arrow: true },
+        { icon: <Calendar size={18} strokeWidth={1.5} color="#7C5CBF" />, label: 'Google Calendar', desc: 'Non connecté', arrow: true },
         { icon: '🍎', label: 'Apple Calendar', desc: 'Non connecté', arrow: true },
       ],
     },
     {
       title: 'Notifications',
       rows: [
-        { icon: '🔔', label: "Rappels d'anniversaire", desc: '7 jours avant les anniversaires', toggle: 'bday' },
-        { icon: '✉️', label: 'Nouvelles invitations', desc: 'Activé', toggle: 'invites' },
-        { icon: '💬', label: 'Messages', desc: notifs.messages ? 'Activé' : 'Désactivé', toggle: 'messages' },
+        { icon: <Bell size={18} strokeWidth={1.5} color="#7C5CBF" />, label: "Rappels d'anniversaire", desc: '7 jours avant les anniversaires', toggle: 'bday' },
+        { icon: <Mail size={18} strokeWidth={1.5} color="#7C5CBF" />, label: 'Nouvelles invitations', desc: 'Activé', toggle: 'invites' },
+        { icon: <MessageCircle size={18} strokeWidth={1.5} color="#7C5CBF" />, label: 'Messages', desc: notifs.messages ? 'Activé' : 'Désactivé', toggle: 'messages' },
       ],
     },
     {
       title: 'Compte',
       rows: [
-        { icon: '🔒', label: 'Confidentialité', arrow: true },
-        { icon: '🚪', label: 'Se déconnecter', arrow: true, danger: true, onClick: () => supabase.auth.signOut() },
+        { icon: <Lock size={18} strokeWidth={1.5} color="#7C5CBF" />, label: 'Confidentialité', arrow: true },
+        { icon: <LogOut size={18} strokeWidth={1.5} color="#FF3B30" />, label: 'Se déconnecter', arrow: true, danger: true, onClick: () => supabase.auth.signOut() },
       ],
     },
   ]
@@ -98,11 +99,11 @@ export default function Profile({ session, onEdit }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 6 }}>
           {[
             { label: 'Événements créés', value: stats.events, icon: '🎉' },
-            { label: 'Participations', value: stats.rsvps, icon: '✅' },
-            { label: 'Anniversaires', value: stats.birthdays, icon: '🎂' },
+            { label: 'Participations', value: stats.rsvps, icon: <CheckCircle2 size={16} className="text-green-500" strokeWidth={1.5} /> },
+            { label: 'Anniversaires', value: stats.birthdays, icon: <Cake size={16} strokeWidth={1.5} /> },
           ].map(({ label, value, icon }) => (
             <div key={label} style={{ background: '#fff', borderRadius: 16, padding: '14px 10px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)', textAlign: 'center' }}>
-              <div style={{ fontSize: 22 }}>{icon}</div>
+              <div style={{ fontSize: 22, display: 'flex', justifyContent: 'center', alignItems: 'center', height: 28 }}>{icon}</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#1C1C1E', lineHeight: 1.2, marginTop: 4 }}>
                 {value === null ? '…' : value}
               </div>
@@ -146,11 +147,7 @@ export default function Profile({ session, onEdit }) {
                     </div>
                   </div>
                   {row.toggle && <Toggle on={notifs[row.toggle]} onToggle={() => toggle(row.toggle)}/>}
-                  {row.arrow && (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#AEAEB2" strokeWidth="2.2" strokeLinecap="round">
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                  )}
+                  {row.arrow && <ChevronRight size={16} strokeWidth={1.5} color="#AEAEB2" />}
                 </div>
               ))}
             </div>

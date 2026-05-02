@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import { Calendar, MapPin, User, CheckCircle2, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const typeEmoji = {
-  'Anniversaire': '🎂',
+  'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
   'Soirée': '🥂',
   'Repas': '🍽️',
   'Autre': '🎉',
@@ -90,10 +91,10 @@ export default function GuestRsvpPage({ token }) {
   const emoji = typeEmoji[event.type] ?? '🎉'
 
   const infoRows = [
-    { icon: '📅', label: 'Date', value: formatDate(event.date) },
-    { icon: '📍', label: 'Lieu', value: event.location || 'Lieu non précisé' },
-    organizerName ? { icon: '👤', label: 'Organisateur', value: organizerName } : null,
-    { icon: '✅', label: 'Confirmés', value: `${confirmedCount} participant${confirmedCount !== 1 ? 's' : ''}` },
+    { icon: <Calendar size={16} strokeWidth={1.5} />, label: 'Date', value: formatDate(event.date) },
+    { icon: <MapPin size={16} strokeWidth={1.5} />, label: 'Lieu', value: event.location || 'Lieu non précisé' },
+    organizerName ? { icon: <User size={16} strokeWidth={1.5} />, label: 'Organisateur', value: organizerName } : null,
+    { icon: <CheckCircle2 size={16} className="text-green-500" strokeWidth={1.5} />, label: 'Confirmés', value: `${confirmedCount} participant${confirmedCount !== 1 ? 's' : ''}` },
   ].filter(Boolean)
 
   return (
@@ -111,7 +112,7 @@ export default function GuestRsvpPage({ token }) {
         <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
           {infoRows.map((row, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: i < infoRows.length - 1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none' }}>
-              <div style={{ fontSize: 17, width: 28, textAlign: 'center', flexShrink: 0 }}>{row.icon}</div>
+              <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{row.icon}</div>
               <div>
                 <div style={{ fontSize: 10, color: '#8E8E93', fontWeight: 500 }}>{row.label}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{row.value}</div>

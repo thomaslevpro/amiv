@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
+import { Bell, CheckCircle2, Cake, Calendar } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useNotifications } from '../hooks/useNotifications'
 
-const typeEmoji = {
+const typeIcon = {
   invitation_received: '🎉',
-  rsvp_received: '✅',
+  rsvp_received: <CheckCircle2 size={16} className="text-green-500" strokeWidth={1.5} />,
   message_received: '💬',
-  birthday_reminder: '🎂',
-  event_updated: '📅',
+  birthday_reminder: <Cake size={16} strokeWidth={1.5} />,
+  event_updated: <Calendar size={16} strokeWidth={1.5} />,
 }
 
 function relativeTime(ts) {
@@ -66,10 +67,7 @@ export default function NotificationBell({ onEventClick }) {
           position: 'relative',
         }}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C1C1E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
+        <Bell size={16} strokeWidth={1.5} color="#1C1C1E" />
         {unreadCount > 0 && (
           <div style={{
             position: 'absolute', top: -2, right: -2,
@@ -124,8 +122,8 @@ export default function NotificationBell({ onEventClick }) {
                     display: 'flex', gap: 10, alignItems: 'flex-start',
                   }}
                 >
-                  <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>
-                    {typeEmoji[n.type] ?? '🔔'}
+                  <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginTop: 1 }}>
+                    {typeIcon[n.type] ?? '🔔'}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{

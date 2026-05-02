@@ -6,7 +6,7 @@ export const events = [
     age: '25 ans',
     date: 'Sam. 10 mai · 19h00',
     location: 'Rooftop · 45 rue de la Roquette',
-    emoji: '🎂',
+    emoji: '🎉',
     guests: 18,
     tags: [{ label: 'Surprise', type: 'pink' }, { label: 'RSVP requis', type: 'blue' }],
     organizer: 'Lucas Dupont',
@@ -53,7 +53,7 @@ export const birthdays = [
 export const conversations = [
   {
     id: 0,
-    name: 'Anniversaire Sophie 🎂',
+    name: 'Anniversaire Sophie',
     lastMessage: 'Lucas: On se retrouve à 18h30 !',
     time: '14:32',
     unread: 3,
@@ -63,7 +63,7 @@ export const conversations = [
       { me: false, text: 'On se retrouve à 18h30 samedi ?' },
       { me: true, text: 'Parfait pour moi !' },
       { me: false, text: "J'apporte les bouteilles 🍾" },
-      { me: true, text: "Moi j'apporte le gâteau 🎂" },
+      { me: true, text: "Moi j'apporte le gâteau" },
       { me: false, text: 'On se retrouve à 18h30 !' },
     ],
   },
@@ -100,7 +100,7 @@ export const conversations = [
     unread: 0,
     emoji: '👩',
     messages: [
-      { me: true, text: 'Bon anniversaire Marie ! 🎂' },
+      { me: true, text: 'Bon anniversaire Marie !' },
       { me: false, text: 'Merci beaucoup !! 😊' },
       { me: false, text: 'À bientôt 🎁' },
     ],

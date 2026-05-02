@@ -1,3 +1,5 @@
+import { Cake } from 'lucide-react'
+
 export default function HeroBirthdayCard({ birthday, onCreateEvent, onMessage }) {
   if (!birthday) {
     return (
@@ -6,7 +8,7 @@ export default function HeroBirthdayCard({ birthday, onCreateEvent, onMessage })
         textAlign: 'center', marginBottom: 16,
         boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
       }}>
-        <div style={{ fontSize: 36, marginBottom: 8 }}>🎂</div>
+        <div style={{ marginBottom: 8 }}><Cake size={20} strokeWidth={1.5} /></div>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#8E8E93' }}>
           Aucun anniversaire ce mois-ci
         </div>
@@ -31,8 +33,8 @@ export default function HeroBirthdayCard({ birthday, onCreateEvent, onMessage })
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
         <div style={{ flex: 1, paddingRight: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.8, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            🎂 Prochain anniversaire
+          <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.8, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Cake size={20} strokeWidth={1.5} /> Prochain anniversaire
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{name}</div>
           <div style={{ fontSize: 13, opacity: 0.85, marginTop: 5 }}>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import StatusBar from '../components/StatusBar'
 
-const typeEmoji = { 'Anniversaire': '🎂', 'Soirée': '🥂', 'Repas': '🍽️', 'Autre': '🎉' }
+const typeEmoji = { 'Anniversaire': <Cake size={20} strokeWidth={1.5} />, 'Soirée': '🥂', 'Repas': '🍽️', 'Autre': '🎉' }
 
 function EventCard({ event, onClick }) {
   const { name = 'Événement', date, location, type = 'Autre' } = event
@@ -33,9 +34,7 @@ function EventCard({ event, onClick }) {
           {dateStr}{location ? ` · ${location}` : ''}
         </div>
       </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#AEAEB2" strokeWidth="2" strokeLinecap="round">
-        <path d="M9 18l6-6-6-6" />
-      </svg>
+      <ChevronRight size={16} strokeWidth={1.5} color="#AEAEB2" />
     </div>
   )
 }
@@ -67,9 +66,7 @@ export default function AllEvents({ onBack, onEventClick }) {
       <div style={{ background: '#fff', padding: '10px 16px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
           <div onClick={onBack} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#007AFF', marginRight: 4 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2.2" strokeLinecap="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <ChevronLeft size={20} strokeWidth={1.5} color="#007AFF" />
             <span style={{ fontSize: 15, fontWeight: 500 }}>Retour</span>
           </div>
         </div>

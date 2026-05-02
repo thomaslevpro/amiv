@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Cake, Calendar, MapPin, User } from 'lucide-react'
 
 export default function Invitation({ event, onBack }) {
   const [rsvp, setRsvp] = useState('yes')
@@ -28,13 +29,13 @@ export default function Invitation({ event, onBack }) {
         {/* Info card */}
         <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
           {[
-            { icon: '🎂', label: 'Événement', value: `${event.eventName} — ${event.age}` },
-            { icon: '📅', label: 'Date', value: event.date },
-            { icon: '📍', label: 'Lieu', value: event.location },
-            { icon: '👤', label: 'Organisé par', value: event.organizer },
+            { icon: <Cake size={16} strokeWidth={1.5} />, label: 'Événement', value: `${event.eventName} — ${event.age}` },
+            { icon: <Calendar size={16} strokeWidth={1.5} />, label: 'Date', value: event.date },
+            { icon: <MapPin size={16} strokeWidth={1.5} />, label: 'Lieu', value: event.location },
+            { icon: <User size={16} strokeWidth={1.5} />, label: 'Organisé par', value: event.organizer },
           ].map((row, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: i < 3 ? '0.5px solid rgba(0,0,0,0.08)' : 'none' }}>
-              <div style={{ fontSize: 17, width: 28, textAlign: 'center', flexShrink: 0 }}>{row.icon}</div>
+              <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{row.icon}</div>
               <div>
                 <div style={{ fontSize: 10, color: '#8E8E93', fontWeight: 500 }}>{row.label}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{row.value}</div>
@@ -89,7 +90,8 @@ export default function Invitation({ event, onBack }) {
           fontSize: 12, fontWeight: 500, color: '#8E8E93', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
-          📅 Ajouter à mon calendrier
+          <Calendar size={16} strokeWidth={1.5} />
+          Ajouter à mon calendrier
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import { events } from '../data/mockData'
 
@@ -33,11 +34,11 @@ export default function Calendar({ onEventClick }) {
         <div style={{ background: '#fff', borderRadius: 20, padding: 14, marginBottom: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ width: 28, height: 28, background: '#F2F2F7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <ChevronLeft size={14} strokeWidth={1.5} color="#8E8E93" />
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>Mai 2025</div>
             <div style={{ width: 28, height: 28, background: '#F2F2F7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <ChevronRight size={14} strokeWidth={1.5} color="#8E8E93" />
             </div>
           </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import StatusBar from '../components/StatusBar'
 
@@ -75,9 +76,7 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false }) {
                 display: 'flex', alignItems: 'center',
               }}
             >
-              <svg width="11" height="19" viewBox="0 0 11 19" fill="none">
-                <polyline points="10 1 2 9.5 10 18" stroke="#1C1C1E" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <ChevronLeft size={22} strokeWidth={1.5} color="#1C1C1E" />
             </button>
           )}
           <div style={{ fontSize: 27, fontWeight: 700, letterSpacing: -0.4, color: '#1C1C1E' }}>

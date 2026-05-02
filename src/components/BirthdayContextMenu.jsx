@@ -1,3 +1,5 @@
+import { Cake } from 'lucide-react'
+
 function formatBirthdate(birthdate) {
   const [y, m, d] = birthdate.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
@@ -28,7 +30,7 @@ export default function BirthdayContextMenu({ birthday, onEdit, onDelete, onClos
           padding: '22px 20px 18px', textAlign: 'center',
           borderBottom: '1px solid #F2F2F7',
         }}>
-          <div style={{ fontSize: 42, marginBottom: 8 }}>🎂</div>
+          <div style={{ marginBottom: 8 }}><Cake size={20} strokeWidth={1.5} /></div>
           <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E' }}>{birthday.name}</div>
           <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 3 }}>
             {formatBirthdate(birthday.birthdate)}

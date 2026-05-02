@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import StatusBar from '../components/StatusBar'
 
@@ -35,9 +36,7 @@ function SkeletonRow({ isLast }) {
 function EmptyState({ onCreateClick }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 32px', gap: 12 }}>
-      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#AEAEB2" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
+      <MessageCircle size={56} strokeWidth={1.5} color="#AEAEB2" />
       <div style={{ fontSize: 17, fontWeight: 600, color: '#1C1C1E', textAlign: 'center' }}>Aucune conversation</div>
       <div style={{ fontSize: 14, color: '#8E8E93', textAlign: 'center' }}>Les discussions de tes événements apparaîtront ici</div>
       {onCreateClick && (

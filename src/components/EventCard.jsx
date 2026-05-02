@@ -1,3 +1,5 @@
+import { MapPin, Cake } from 'lucide-react'
+
 const tagStyles = {
   pink: { background: 'rgba(224,85,170,0.10)', color: '#e055aa' },
   blue: { background: 'rgba(0,122,255,0.10)', color: '#007AFF' },
@@ -6,7 +8,7 @@ const tagStyles = {
 }
 
 const typeEmoji = {
-  'Anniversaire': '🎂',
+  'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
   'Soirée': '🥂',
   'Repas': '🍽️',
   'Autre': '🎉',
@@ -76,7 +78,7 @@ export default function EventCard({ event = {}, onClick }) {
       <div style={{ padding: '12px 14px 6px' }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>{name}</div>
         {location ? (
-          <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 10 }}>📍 {location}</div>
+          <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} strokeWidth={1.5} />{location}</div>
         ) : (
           <div style={{ fontSize: 12, color: '#AEAEB2', marginBottom: 10 }}>Lieu non précisé</div>
         )}

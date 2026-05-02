@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { ChevronRight, Plus, Cake } from 'lucide-react'
 import StatusBar from '../components/StatusBar'
 import NotificationBell from '../components/NotificationBell'
 import HeroBirthdayCard from '../components/HeroBirthdayCard'
@@ -28,7 +29,7 @@ function getGreeting() {
   return 'Bonsoir'
 }
 
-const typeEmoji = { 'Anniversaire': '🎂', 'Soirée': '🥂', 'Repas': '🍽️', 'Autre': '🎉' }
+const typeEmoji = { 'Anniversaire': <Cake size={20} strokeWidth={1.5} />, 'Soirée': '🥂', 'Repas': '🍽️', 'Autre': '🎉' }
 
 function SectionHeader({ title, badge, link, onLink }) {
   return (
@@ -81,9 +82,7 @@ function EventCardCompact({ event, onClick }) {
           {dateStr}{location ? ` · ${location}` : ''}
         </div>
       </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#AEAEB2" strokeWidth="2" strokeLinecap="round">
-        <path d="M9 18l6-6-6-6" />
-      </svg>
+      <ChevronRight size={16} strokeWidth={1.5} color="#AEAEB2" />
     </div>
   )
 }
@@ -91,7 +90,7 @@ function EventCardCompact({ event, onClick }) {
 function QuickActions({ onCreateEvent, onAddBirthday, onShare }) {
   const actions = [
     { icon: '🎉', label: 'Créer fête', onClick: onCreateEvent },
-    { icon: '🎂', label: 'Ajouter anniv', onClick: onAddBirthday },
+    { icon: <Cake size={22} strokeWidth={1.5} />, label: 'Ajouter anniv', onClick: onAddBirthday },
     { icon: '📨', label: 'Inviter', onClick: onShare },
   ]
   return (
@@ -105,7 +104,7 @@ function QuickActions({ onCreateEvent, onAddBirthday, onShare }) {
             textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
           }}
         >
-          <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
+          <div style={{ fontSize: 22, marginBottom: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', height: 26 }}>{icon}</div>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#1C1C1E' }}>{label}</div>
         </div>
       ))}
@@ -125,7 +124,8 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   const [formReminderDays, setFormReminderDays] = useState([7])
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
-  const [birthdayFilter, setBirthdayFilter] = useState('Ce mois')
+  const [birthdayFilter, setBirthdayFilter] = useState('Tous')
+  const filterScrollRef = useRef(null)
 
   function showToast(message, isError = false) {
     setToast({ message, isError })
@@ -147,6 +147,15 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
 
   useEffect(() => {
     fetchBirthdays()
+  }, [])
+
+  useEffect(() => {
+    if (!filterScrollRef.current) return
+    const pills = filterScrollRef.current.querySelectorAll('button')
+    const currentMonthPill = pills[today.getMonth() + 1]
+    if (currentMonthPill) {
+      currentMonthPill.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+    }
   }, [])
 
   async function fetchBirthdays() {
@@ -181,7 +190,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
         setFormDate('')
         setFormReminderDays([7])
         setShowForm(false)
-        showToast('Anniversaire ajouté 🎂')
+        showToast('Anniversaire ajouté ✓')
         await fetchBirthdays()
       }
     }
@@ -198,12 +207,19 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   const dateStr = today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   const currentMonth = today.getMonth()
+  const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
   const birthdaysThisMonth = birthdays.filter(b =>
     parseInt(b.birthdate.split('-')[1], 10) - 1 === currentMonth
   )
   const heroBirthday = birthdaysThisMonth[0] ?? null
 
-  const displayedBirthdays = birthdayFilter === 'Ce mois' ? birthdaysThisMonth : birthdays
+  const displayedBirthdays = (() => {
+    if (birthdayFilter === 'Tous') return birthdays
+    const monthIdx = MONTH_LABELS.indexOf(birthdayFilter)
+    return birthdays
+      .filter(b => parseInt(b.birthdate.split('-')[1], 10) - 1 === monthIdx)
+      .sort((a, b) => parseInt(a.birthdate.split('-')[2], 10) - parseInt(b.birthdate.split('-')[2], 10))
+  })()
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden', position: 'relative' }}>
@@ -228,9 +244,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
+              <Plus size={18} strokeWidth={1.5} color="#fff" />
             </button>
           </div>
         </div>
@@ -241,28 +255,40 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           onMessage={onMessagesClick}
         />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ marginBottom: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Anniversaires
           </span>
-          <div style={{ display: 'flex', background: '#F2F2F7', borderRadius: 20, padding: 2, gap: 2 }}>
-            {['Ce mois', 'Tous'].map(opt => (
+        </div>
+        <style>{`[data-birthday-filter]::-webkit-scrollbar { display: none; }`}</style>
+        <div
+          ref={filterScrollRef}
+          data-birthday-filter
+          style={{
+            display: 'flex', gap: 6, overflowX: 'scroll', marginBottom: 12,
+            scrollbarWidth: 'none', msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch', padding: '2px 0 4px',
+          }}
+        >
+          {['Tous', ...MONTH_LABELS].map(opt => {
+            const isActive = birthdayFilter === opt
+            return (
               <button
                 key={opt}
                 onClick={() => setBirthdayFilter(opt)}
                 style={{
-                  padding: '4px 12px', borderRadius: 18, border: 'none', cursor: 'pointer',
-                  fontSize: 12, fontWeight: 600,
-                  background: birthdayFilter === opt ? 'white' : 'transparent',
-                  color: birthdayFilter === opt ? '#1C1C1E' : '#8E8E93',
-                  boxShadow: birthdayFilter === opt ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                  flexShrink: 0, padding: '5px 14px', borderRadius: 20, border: 'none',
+                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                  background: isActive ? 'linear-gradient(135deg,#e055aa,#f5a623)' : 'white',
+                  color: isActive ? '#fff' : '#8E8E93',
+                  boxShadow: isActive ? '0 2px 8px rgba(224,85,170,0.30)' : '0 1px 3px rgba(0,0,0,0.08)',
                   transition: 'all 0.15s ease',
                 }}
               >
                 {opt}
               </button>
-            ))}
-          </div>
+            )
+          })}
         </div>
         <BirthdayStrip birthdays={displayedBirthdays} onRefetch={fetchBirthdays} onToast={showToast} />
         <MonthTimeline birthdays={birthdaysThisMonth} events={events} today={today} />

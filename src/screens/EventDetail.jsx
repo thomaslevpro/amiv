@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, ExternalLink, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const typeEmoji = {
-  'Anniversaire': '🎂',
+  'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
   'Soirée': '🥂',
   'Repas': '🍽️',
   'Autre': '🎉',
@@ -56,7 +57,7 @@ function getAvatarColor(name) {
 
 const rsvpStatusColor = { going: '#34C759', declined: '#FF3B30', pending: '#FF9500' }
 const rsvpStatusLabel = { going: 'Confirmé', declined: 'Décliné', pending: 'En attente' }
-const guestResponseIcon = { yes: '✅', no: '❌', maybe: '🤔' }
+const guestResponseIcon = { yes: <CheckCircle2 size={16} className="text-green-500" />, no: <XCircle size={16} className="text-red-500" />, maybe: '🤔' }
 
 export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [rsvpStatus, setRsvpStatus] = useState(null)
@@ -301,9 +302,9 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const maxVoteCount = isPollActive ? Math.max(0, ...dateOptions.map(o => allVoteCounts[o.id] || 0)) : 0
 
   const infoRows = [
-    { icon: '📍', label: 'Lieu', value: displayLocation || 'Lieu non précisé', badge: false },
-    { icon: '🎭', label: 'Type', value: `${emoji} ${event.type || 'Autre'}`, badge: true },
-    { icon: '👁', label: 'Visibilité', value: visibility, badge: true },
+    { icon: <MapPin size={16} strokeWidth={1.5} />, label: 'Lieu', value: displayLocation || 'Lieu non précisé', badge: false },
+    { icon: null, label: 'Type', value: event.type || 'Autre', badge: true },
+    { icon: null, label: 'Visibilité', value: visibility, badge: true },
   ]
 
   return (
@@ -330,7 +331,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
             onClick={onBack}
             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff' }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <ChevronLeft size={14} strokeWidth={1.5} color="white" />
             Retour
           </div>
           {isOrganizer && (
@@ -385,10 +386,10 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
             style={{
               width: 42, height: 42, borderRadius: 10, background: '#F2F2F7',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 18, flexShrink: 0,
+              cursor: 'pointer', flexShrink: 0,
             }}
           >
-            📋
+            <ExternalLink size={18} strokeWidth={1.5} />
           </div>
         </div>
       )}
@@ -398,13 +399,12 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         {/* ── STATS ROW ── */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           {[
-            { icon: '✅', count: rsvpStats.confirmed, label: 'Confirmés' },
-            { icon: '⏳', count: rsvpStats.pending, label: 'En attente' },
-            { icon: '❌', count: rsvpStats.declined, label: 'Déclinés' },
+            { count: rsvpStats.confirmed, label: 'Confirmés' },
+            { count: rsvpStats.pending, label: 'En attente' },
+            { count: rsvpStats.declined, label: 'Déclinés' },
           ].map((s, i) => (
             <div key={i} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '12px 8px', textAlign: 'center', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-              <div style={{ fontSize: 20 }}>{s.icon}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E', marginTop: 4 }}>{s.count}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>{s.count}</div>
               <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginTop: 2 }}>{s.label}</div>
             </div>
           ))}
@@ -455,7 +455,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
           {infoRows.map((row, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: i < infoRows.length - 1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none' }}>
-              <div style={{ fontSize: 17, width: 28, textAlign: 'center', flexShrink: 0 }}>{row.icon}</div>
+              <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{row.icon}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 10, color: '#8E8E93', fontWeight: 500 }}>{row.label}</div>
                 {row.badge ? (
@@ -523,7 +523,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         {isPollActive && !isOrganizer && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>
-              Sondage de dates 📅
+              Sondage de dates <Calendar size={14} strokeWidth={1.5} />
             </div>
             <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 12 }}>
               Indiquez vos disponibilités pour chaque date proposée.
@@ -564,7 +564,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                     <div style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 500 }}>{g.guest_name}</div>
                     <div style={{ fontSize: 11, color: '#8E8E93' }}>{g.guest_email}</div>
                   </div>
-                  <div style={{ fontSize: 15 }}>{guestResponseIcon[g.response] ?? '⏳'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>{guestResponseIcon[g.response] ?? <Clock size={16} className="text-gray-400" />}</div>
                 </div>
               ))}
             </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const EMOJIS = ['🎂', '🎉', '🎈', '🥳', '🌟', '💫', '🎊', '🦋', '🌸', '💝', '🎁', '🎀']
+const EMOJIS = ['🎉', '🎈', '🥳', '🌟', '💫', '🎊', '🦋', '🌸', '💝', '🎁', '🎀']
 
 const REMINDER_OPTIONS = [
   { label: 'J-30', value: 30 },
@@ -12,7 +12,7 @@ const REMINDER_OPTIONS = [
 ]
 
 export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast }) {
-  const [emoji, setEmoji] = useState('🎂')
+  const [emoji, setEmoji] = useState('🎉')
   const [name, setName] = useState(birthday.name)
   const [date, setDate] = useState(birthday.birthdate)
   const [reminderDays, setReminderDays] = useState(birthday.reminder_days ?? [7])
