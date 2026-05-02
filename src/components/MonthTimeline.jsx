@@ -1,4 +1,4 @@
-export default function MonthTimeline({ birthdays, events, today }) {
+export default function MonthTimeline({ birthdays, events, today, onAddAmiv }) {
   const year = today.getFullYear()
   const month = today.getMonth()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -32,11 +32,31 @@ export default function MonthTimeline({ birthdays, events, today }) {
       padding: '12px 14px 10px', marginBottom: 16,
       boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>{monthLabelCapitalized}</span>
-        {subtitle ? (
-          <span style={{ fontSize: 12, color: '#8E8E93' }}>{subtitle}</span>
-        ) : null}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>{monthLabelCapitalized}</span>
+          {subtitle ? (
+            <span style={{ fontSize: 12, color: '#8E8E93' }}>{subtitle}</span>
+          ) : null}
+        </div>
+        {onAddAmiv && (
+          <button
+            onClick={onAddAmiv}
+            style={{
+              flexShrink: 0, padding: '5px 12px', borderRadius: 20, border: 'none',
+              cursor: 'pointer', background: '#fff',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.09)', marginLeft: 8,
+            }}
+          >
+            <span style={{
+              fontSize: 12, fontWeight: 700,
+              background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            }}>
+              + Ajouter un amiv
+            </span>
+          </button>
+        )}
       </div>
       <div style={{
         overflowX: 'auto', display: 'flex', gap: 4,

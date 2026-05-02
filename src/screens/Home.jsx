@@ -7,6 +7,7 @@ import BirthdayStrip from '../components/BirthdayStrip'
 import MonthTimeline from '../components/MonthTimeline'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
+import AddAmivModal from '../components/AddAmivModal'
 import { useFriendships } from '../hooks/useFriendships'
 import { supabase } from '../lib/supabase'
 
@@ -90,10 +91,8 @@ function EventCardCompact({ event, onClick }) {
   )
 }
 
-function QuickActions({ onCreateEvent, onAddBirthday, onShare }) {
+function QuickActions({ onShare }) {
   const actions = [
-    { icon: '🎉', label: 'Créer fête', onClick: onCreateEvent },
-    { icon: <Cake size={22} strokeWidth={1.5} />, label: 'Ajouter anniv', onClick: onAddBirthday },
     { icon: '📨', label: 'Inviter', onClick: onShare },
   ]
   return (
@@ -125,11 +124,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   const [events, setEvents] = useState([])
   const [invitations, setInvitations] = useState([])
   const [birthdays, setBirthdays] = useState([])
-  const [showForm, setShowForm] = useState(false)
-  const [formName, setFormName] = useState('')
-  const [formDate, setFormDate] = useState('')
-  const [formReminderDays, setFormReminderDays] = useState([7])
-  const [saving, setSaving] = useState(false)
+  const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [toast, setToast] = useState(null)
   const [birthdayFilter, setBirthdayFilter] = useState('Tous')
   const filterScrollRef = useRef(null)
@@ -210,30 +205,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
       return
     }
     setBirthdays(enrichBirthdays(data ?? []))
-  }
-
-  async function handleAddBirthday(e) {
-    e.preventDefault()
-    if (!formName.trim() || !formDate) return
-    setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { error } = await supabase
-        .from('birthdays')
-        .insert({ name: formName.trim(), birthdate: formDate, reminder_days: formReminderDays, user_id: user.id })
-      if (error) {
-        console.error('Birthday save failed:', error)
-        showToast('Erreur lors de la sauvegarde 😕', true)
-      } else {
-        setFormName('')
-        setFormDate('')
-        setFormReminderDays([7])
-        setShowForm(false)
-        showToast('Anniversaire ajouté ✓')
-        await fetchBirthdays()
-      }
-    }
-    setSaving(false)
   }
 
   async function handleAcceptInvitation(rsvpId) {
@@ -389,7 +360,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           })}
         </div>
         <BirthdayStrip birthdays={displayedBirthdays} onRefetch={fetchBirthdays} onToast={showToast} />
-        <MonthTimeline birthdays={birthdaysThisMonth} events={events} today={today} />
+        <MonthTimeline birthdays={birthdaysThisMonth} events={events} today={today} onAddAmiv={() => setShowAddAmiv(true)} />
 
         <SectionHeader title="Mes événements" link="Voir tout" onLink={onAllEventsClick} />
         {events.length === 0 ? (
@@ -414,95 +385,21 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           </>
         )}
 
-        <QuickActions
-          onCreateEvent={onCreateClick}
-          onAddBirthday={() => setShowForm(true)}
-          onShare={handleShare}
-        />
-
-        {showForm && (
-          <form
-            onSubmit={handleAddBirthday}
-            style={{
-              background: '#fff', borderRadius: 16, padding: 14,
-              marginBottom: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
-              display: 'flex', flexDirection: 'column', gap: 10,
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>Nouvel anniversaire</div>
-            <input
-              type="text"
-              placeholder="Nom"
-              value={formName}
-              onChange={e => setFormName(e.target.value)}
-              required
-              style={{ border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E' }}
-            />
-            <input
-              type="date"
-              value={formDate}
-              onChange={e => setFormDate(e.target.value)}
-              required
-              style={{ border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E' }}
-            />
-            {/* Reminder chips */}
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#8E8E93', marginBottom: 8 }}>Rappels</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {[{ label: 'J-30', value: 30 }, { label: 'J-14', value: 14 }, { label: 'J-7', value: 7 }, { label: 'J-3', value: 3 }, { label: 'J-1', value: 1 }].map(({ label, value }) => {
-                  const active = formReminderDays.includes(value)
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setFormReminderDays(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value])}
-                      style={{
-                        padding: '6px 12px', borderRadius: 20, border: 'none',
-                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                        background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : 'var(--gray3, #E5E5EA)',
-                        color: active ? '#fff' : '#1C1C1E',
-                        transition: 'background 0.15s, color 0.15s',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="submit"
-                disabled={saving}
-                style={{
-                  flex: 1, padding: 11, borderRadius: 10, border: 'none',
-                  background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
-                  fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer',
-                  opacity: saving ? 0.6 : 1,
-                }}
-              >
-                {saving ? 'Enregistrement…' : 'Ajouter'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setFormName(''); setFormDate('') }}
-                style={{
-                  padding: '11px 16px', borderRadius: 10, border: 'none',
-                  background: '#F2F2F7', color: '#1C1C1E',
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                Annuler
-              </button>
-            </div>
-          </form>
-        )}
+        <QuickActions onShare={handleShare} />
 
       </div>
 
+      {showAddAmiv && (
+        <AddAmivModal
+          onClose={() => setShowAddAmiv(false)}
+          onSaved={fetchBirthdays}
+          onToast={showToast}
+        />
+      )}
+
       {toast && (
         <div style={{
-          position: 'absolute', bottom: 100, left: 16, right: 16, zIndex: 200,
+          position: 'fixed', bottom: 100, left: 16, right: 16, zIndex: 400,
           background: toast.isError ? '#FF3B30' : '#34C759',
           color: '#fff', borderRadius: 14, padding: '13px 18px',
           textAlign: 'center', fontWeight: 600, fontSize: 14,
