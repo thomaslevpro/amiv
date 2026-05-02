@@ -21,6 +21,24 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function formatDateHero(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d)) return null
+  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const cap = datePart.charAt(0).toUpperCase() + datePart.slice(1)
+  return `${cap} · ${timePart}`
+}
+
+function countdownDays(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d)) return null
+  const diff = Math.ceil((d - Date.now()) / (1000 * 60 * 60 * 24))
+  return diff >= 0 ? diff : null
+}
+
 function formatPollDate(dateStr, timeStr) {
   if (!dateStr) return ''
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -29,6 +47,15 @@ function formatPollDate(dateStr, timeStr) {
   return timeStr ? `${datePart} à ${timeStr.slice(0, 5)}` : datePart
 }
 
+const AVATAR_COLORS = ['#e055aa', '#f5a623', '#34C759', '#007AFF', '#AF52DE', '#FF9500']
+function getAvatarColor(name) {
+  let hash = 0
+  for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+const rsvpStatusColor = { going: '#34C759', declined: '#FF3B30', pending: '#FF9500' }
+const rsvpStatusLabel = { going: 'Confirmé', declined: 'Décliné', pending: 'En attente' }
 const guestResponseIcon = { yes: '✅', no: '❌', maybe: '🤔' }
 
 export default function EventDetail({ event, onBack, onMessagesClick }) {
@@ -45,11 +72,18 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  // Date poll state
   const [dateOptions, setDateOptions] = useState([])
-  const [myVotes, setMyVotes] = useState({}) // option_id -> boolean
-  const [allVoteCounts, setAllVoteCounts] = useState({}) // option_id -> count of available=true
+  const [myVotes, setMyVotes] = useState({})
+  const [allVoteCounts, setAllVoteCounts] = useState({})
   const [confirmingDate, setConfirmingDate] = useState(false)
+
+  const [rsvpStats, setRsvpStats] = useState({ confirmed: 0, pending: 0, declined: 0 })
+  const [participants, setParticipants] = useState([])
+
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }
 
   function handleShare() {
     const url = `${window.location.origin}/invite/${event.invite_token}`
@@ -57,11 +91,13 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     if (navigator.share) {
       navigator.share({ title: event.name, text, url })
     } else {
-      navigator.clipboard.writeText(url).then(() => {
-        setToast('Lien copié !')
-        setTimeout(() => setToast(null), 2500)
-      })
+      navigator.clipboard.writeText(url).then(() => showToast('Lien copié !'))
     }
+  }
+
+  function handleCopyLink() {
+    const url = `${window.location.origin}/invite/${event.invite_token}`
+    navigator.clipboard.writeText(url).then(() => showToast('Lien copié !'))
   }
 
   useEffect(() => {
@@ -73,6 +109,8 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setDateOptions([])
     setMyVotes({})
     setAllVoteCounts({})
+    setRsvpStats({ confirmed: 0, pending: 0, declined: 0 })
+    setParticipants([])
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -81,18 +119,51 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
       const isOrg = user.id === event.user_id
 
-      const [rsvpRes, optRes, guestRes] = await Promise.all([
+      const [rsvpRes, optRes, guestRes, allRsvpsRes] = await Promise.all([
         supabase.from('rsvps').select('status').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
         supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
         isOrg
           ? supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })
           : Promise.resolve({ data: [] }),
+        supabase.from('rsvps').select('user_id, status').eq('event_id', event.id),
       ])
 
       if (cancelled) return
 
       setRsvpStatus(rsvpRes.data?.status ?? null)
-      if (isOrg) setGuestRsvps(guestRes.data ?? [])
+
+      const guestsData = guestRes.data ?? []
+      if (isOrg) setGuestRsvps(guestsData)
+
+      const rsvpsData = allRsvpsRes.data ?? []
+
+      // Stats
+      const confirmed = rsvpsData.filter(r => r.status === 'going').length + guestsData.filter(g => g.response === 'yes').length
+      const declined = rsvpsData.filter(r => r.status === 'declined').length + guestsData.filter(g => g.response === 'no').length
+      const pending = rsvpsData.filter(r => r.status !== 'going' && r.status !== 'declined').length + guestsData.filter(g => !g.response || g.response === 'maybe').length
+      setRsvpStats({ confirmed, pending, declined })
+
+      // Fetch profile names for rsvp users
+      const userIds = rsvpsData.map(r => r.user_id)
+      let profileMap = {}
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase.from('profiles').select('id, name').in('id', userIds)
+        if (profiles) profiles.forEach(p => { profileMap[p.id] = p.name })
+      }
+
+      if (cancelled) return
+
+      const userParts = rsvpsData.map(r => ({
+        id: r.user_id,
+        name: profileMap[r.user_id] || 'Invité',
+        status: r.status ?? 'pending',
+      }))
+      const guestParts = guestsData.map(g => ({
+        id: `guest_${g.id}`,
+        name: g.guest_name,
+        status: g.response === 'yes' ? 'going' : g.response === 'no' ? 'declined' : 'pending',
+      }))
+      setParticipants([...userParts, ...guestParts])
 
       const optionsData = optRes.data ?? []
       setDateOptions(optionsData)
@@ -109,7 +180,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           const mine = {}
           votes.filter(v => v.user_id === user.id).forEach(v => { mine[v.option_id] = v.available })
           setMyVotes(mine)
-
           const counts = {}
           votes.forEach(v => { if (v.available) counts[v.option_id] = (counts[v.option_id] || 0) + 1 })
           setAllVoteCounts(counts)
@@ -126,27 +196,19 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setLoading(true)
     const { error } = await supabase
       .from('rsvps')
-      .upsert(
-        { event_id: event.id, user_id: userId, status },
-        { onConflict: 'event_id,user_id' }
-      )
+      .upsert({ event_id: event.id, user_id: userId, status }, { onConflict: 'event_id,user_id' })
     if (!error) {
       setRsvpStatus(status)
       if (status === 'going' && event.user_id && event.user_id !== userId) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('name')
-          .eq('id', userId)
-          .maybeSingle()
+        const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
         const name = profile?.name ?? 'Quelqu\'un'
-        const { error: notifErr } = await supabase.from('notifications').insert({
+        await supabase.from('notifications').insert({
           user_id: event.user_id,
           type: 'rsvp_received',
           title: `${name} participe à ${event.name}`,
           body: 'Nouvelle réponse à votre événement',
           data: { event_id: event.id, sender_id: userId },
         })
-        if (notifErr) console.error('[Notifications] Insert RSVP error:', notifErr)
       }
     }
     setLoading(false)
@@ -175,16 +237,10 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     const datetime = option.proposed_time
       ? `${option.proposed_date}T${option.proposed_time}`
       : `${option.proposed_date}T00:00`
-
-    const { error } = await supabase
-      .from('events')
-      .update({ date: datetime, poll_closed: true })
-      .eq('id', event.id)
-
+    const { error } = await supabase.from('events').update({ date: datetime, poll_closed: true }).eq('id', event.id)
     if (!error) {
       setEventOverrides(prev => ({ ...prev, date: datetime, poll_closed: true }))
-      setToast('Date confirmée ! 🎉')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Date confirmée ! 🎉')
     }
     setConfirmingDate(false)
   }
@@ -202,26 +258,16 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   async function handleEditSubmit(e) {
     e.preventDefault()
     setSaving(true)
-    const { error } = await supabase
-      .from('events')
-      .update({
-        name: editForm.name,
-        date: editForm.date || null,
-        description: editForm.description,
-        location: editForm.location,
-      })
-      .eq('id', event.id)
+    const { error } = await supabase.from('events').update({
+      name: editForm.name,
+      date: editForm.date || null,
+      description: editForm.description,
+      location: editForm.location,
+    }).eq('id', event.id)
     if (!error) {
-      setEventOverrides(prev => ({
-        ...prev,
-        name: editForm.name,
-        date: editForm.date,
-        description: editForm.description,
-        location: editForm.location,
-      }))
+      setEventOverrides(prev => ({ ...prev, name: editForm.name, date: editForm.date, description: editForm.description, location: editForm.location }))
       setEditing(false)
-      setToast('Événement modifié !')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Événement modifié !')
     }
     setSaving(false)
   }
@@ -230,9 +276,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setDeleting(true)
     const { error } = await supabase.from('events').delete().eq('id', event.id)
     if (error) {
-      console.error('Delete event error:', error)
-      setToast('Erreur lors de la suppression')
-      setTimeout(() => setToast(null), 2500)
+      showToast('Erreur lors de la suppression')
       setDeleting(false)
       setShowDeleteModal(false)
     } else {
@@ -243,7 +287,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   if (!event) return null
 
   const isOrganizer = userId !== null && userId === event.user_id
-  console.log('isOrganizer', isOrganizer, userId, event.user_id)
   const displayName = eventOverrides.name ?? event.name
   const displayDate = eventOverrides.date ?? event.date
   const displayDescription = eventOverrides.description ?? event.description
@@ -253,20 +296,26 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
   const emoji = typeEmoji[event.type] ?? '🎉'
   const visibility = visibilityLabel[event.visibility] ?? event.visibility ?? 'Sur invitation'
+  const heroDate = isPollActive ? null : formatDateHero(displayDate)
+  const countdown = isPollActive ? null : countdownDays(displayDate)
+  const maxVoteCount = isPollActive ? Math.max(0, ...dateOptions.map(o => allVoteCounts[o.id] || 0)) : 0
 
   const infoRows = [
-    { icon: '📅', label: 'Date', value: isPollActive ? 'Sondage en cours 📊' : formatDate(displayDate) },
-    { icon: '📍', label: 'Lieu', value: displayLocation || 'Lieu non précisé' },
-    { icon: '🎭', label: 'Type', value: `${emoji} ${event.type || 'Autre'}` },
-    { icon: '👁', label: 'Visibilité', value: visibility },
+    { icon: '📍', label: 'Lieu', value: displayLocation || 'Lieu non précisé', badge: false },
+    { icon: '🎭', label: 'Type', value: `${emoji} ${event.type || 'Autre'}`, badge: true },
+    { icon: '👁', label: 'Visibilité', value: visibility, badge: true },
   ]
-
-  const maxVoteCount = isPollActive ? Math.max(0, ...dateOptions.map(o => allVoteCounts[o.id] || 0)) : 0
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-      {/* Hero gradient header */}
-      <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: '52px 20px 28px', textAlign: 'center', color: '#fff', flexShrink: 0, position: 'relative' }}>
+
+      {/* ── HERO ── */}
+      <div style={{
+        background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+        padding: '88px 20px 24px',
+        textAlign: 'center', color: '#fff', flexShrink: 0, position: 'relative',
+      }}>
+        {/* Status bar */}
         <div style={{ position: 'absolute', top: 14, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '0 28px', fontSize: 12, fontWeight: 700, color: '#fff' }}>
           <span>9:41</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -274,30 +323,94 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
             <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="white" strokeOpacity=".6"/><rect x="1.5" y="1.5" width="18" height="9" rx="2.2" fill="white"/></svg>
           </div>
         </div>
-        <div onClick={onBack} style={{ position: 'absolute', top: 40, left: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#fff' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-          <span style={{ fontSize: 16 }}>Retour</span>
-        </div>
-        <div style={{ position: 'absolute', top: 40, right: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+
+        {/* Top bar: back + modifier pills */}
+        <div style={{ position: 'absolute', top: 44, left: 16, right: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            onClick={onBack}
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Retour
+          </div>
           {isOrganizer && (
-            <div onClick={handleEditOpen} style={{ cursor: 'pointer', fontSize: 15, fontWeight: 700, color: '#fff' }}>
+            <div
+              onClick={handleEditOpen}
+              style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff' }}
+            >
               Modifier ✏️
             </div>
           )}
-          {event.invite_token && (
-            <div onClick={handleShare} style={{ cursor: 'pointer', fontSize: 15, fontWeight: 700, color: '#fff' }}>
-              Partager 🔗
-            </div>
-          )}
         </div>
-        <div style={{ fontSize: 48, marginBottom: 10 }}>{emoji}</div>
-        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 5, letterSpacing: -0.3 }}>{displayName}</div>
-        <div style={{ fontSize: 13, opacity: 0.85 }}>{event.type}</div>
+
+        {/* Emoji + title + subtitle */}
+        <div style={{ fontSize: 52, marginBottom: 10 }}>{emoji}</div>
+        <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, letterSpacing: -0.3 }}>{displayName}</div>
+        <div style={{ fontSize: 13, opacity: 0.8 }}>{event.type} · {visibility}</div>
+
+        {/* Date + countdown pills */}
+        {heroDate && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 14 }}>
+            <div style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff' }}>
+              {heroDate}
+            </div>
+            {countdown !== null && (
+              <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 700, color: '#e055aa' }}>
+                J-{countdown}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── SHARE CTA BAR ── */}
+      {event.invite_token && (
+        <div style={{
+          background: '#fff', borderRadius: '0 0 20px 20px',
+          padding: '12px 16px', display: 'flex', gap: 10, flexShrink: 0,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        }}>
+          <div
+            onClick={handleShare}
+            style={{
+              flex: 1, background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+              borderRadius: 12, padding: '13px 16px', textAlign: 'center',
+              fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer',
+            }}
+          >
+            Inviter des amis
+          </div>
+          <div
+            onClick={handleCopyLink}
+            style={{
+              width: 42, height: 42, borderRadius: 10, background: '#F2F2F7',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', fontSize: 18, flexShrink: 0,
+            }}
+          >
+            📋
+          </div>
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
-        {/* Edit form — organizer only */}
+        {/* ── STATS ROW ── */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          {[
+            { icon: '✅', count: rsvpStats.confirmed, label: 'Confirmés' },
+            { icon: '⏳', count: rsvpStats.pending, label: 'En attente' },
+            { icon: '❌', count: rsvpStats.declined, label: 'Déclinés' },
+          ].map((s, i) => (
+            <div key={i} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '12px 8px', textAlign: 'center', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+              <div style={{ fontSize: 20 }}>{s.icon}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E', marginTop: 4 }}>{s.count}</div>
+              <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── EDIT FORM ── */}
         {editing && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
@@ -306,54 +419,31 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
             <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Titre</div>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                  required
-                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
-                />
+                <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required
+                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }} />
               </div>
               <div>
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Date</div>
-                <input
-                  type="datetime-local"
-                  value={editForm.date}
-                  onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
-                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
-                />
+                <input type="datetime-local" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }} />
               </div>
               <div>
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Lieu</div>
-                <input
-                  type="text"
-                  value={editForm.location}
-                  onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))}
-                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
-                />
+                <input type="text" value={editForm.location} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))}
+                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }} />
               </div>
               <div>
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Description</div>
-                <textarea
-                  value={editForm.description}
-                  onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                  rows={3}
-                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', resize: 'none', boxSizing: 'border-box' }}
-                />
+                <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={3}
+                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', resize: 'none', boxSizing: 'border-box' }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setEditing(false)}
-                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#F2F2F7', color: '#8E8E93', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                >
+                <button type="button" onClick={() => setEditing(false)}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#F2F2F7', color: '#8E8E93', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                   Annuler
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}
-                >
+                <button type="submit" disabled={saving}
+                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}>
                   {saving ? '…' : 'Enregistrer'}
                 </button>
               </div>
@@ -361,20 +451,26 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
-        {/* Info card */}
+        {/* ── INFO CARD ── */}
         <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
           {infoRows.map((row, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: i < infoRows.length - 1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none' }}>
               <div style={{ fontSize: 17, width: 28, textAlign: 'center', flexShrink: 0 }}>{row.icon}</div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 10, color: '#8E8E93', fontWeight: 500 }}>{row.label}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{row.value}</div>
+                {row.badge ? (
+                  <div style={{ display: 'inline-block', background: '#F2F2F7', borderRadius: 8, padding: '3px 10px', fontSize: 12, fontWeight: 600, color: '#1C1C1E', marginTop: 2 }}>
+                    {row.value}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{row.value}</div>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Description */}
+        {/* ── DESCRIPTION ── */}
         {displayDescription && (
           <div style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>Description</div>
@@ -382,7 +478,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
-        {/* Date poll — organizer results view */}
+        {/* ── DATE POLL: organizer results ── */}
         {isPollActive && isOrganizer && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
@@ -423,7 +519,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
-        {/* Date poll — invitee voting view */}
+        {/* ── DATE POLL: invitee voting ── */}
         {isPollActive && !isOrganizer && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>
@@ -435,35 +531,17 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
             {dateOptions.map((opt, i) => {
               const myVote = myVotes[opt.id]
               return (
-                <div key={opt.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 0',
-                  borderTop: i > 0 ? '0.5px solid rgba(0,0,0,0.07)' : 'none',
-                }}>
+                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i > 0 ? '0.5px solid rgba(0,0,0,0.07)' : 'none' }}>
                   <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>
                     {formatPollDate(opt.proposed_date, opt.proposed_time)}
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <div
-                      onClick={() => handleDateVote(opt.id, true)}
-                      style={{
-                        padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-                        background: myVote === true ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
-                        color: myVote === true ? '#fff' : '#8E8E93',
-                        cursor: 'pointer', transition: 'all 0.15s',
-                      }}
-                    >
+                    <div onClick={() => handleDateVote(opt.id, true)}
+                      style={{ padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: myVote === true ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', color: myVote === true ? '#fff' : '#8E8E93', cursor: 'pointer', transition: 'all 0.15s' }}>
                       ✓
                     </div>
-                    <div
-                      onClick={() => handleDateVote(opt.id, false)}
-                      style={{
-                        padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-                        background: myVote === false ? '#FF3B30' : '#F2F2F7',
-                        color: myVote === false ? '#fff' : '#8E8E93',
-                        cursor: 'pointer', transition: 'all 0.15s',
-                      }}
-                    >
+                    <div onClick={() => handleDateVote(opt.id, false)}
+                      style={{ padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: myVote === false ? '#FF3B30' : '#F2F2F7', color: myVote === false ? '#fff' : '#8E8E93', cursor: 'pointer', transition: 'all 0.15s' }}>
                       ✕
                     </div>
                   </div>
@@ -473,7 +551,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
-        {/* Organizer only: guest RSVPs via public link */}
+        {/* ── GUEST RSVPs VIA LINK (organizer only) ── */}
         {isOrganizer && guestRsvps.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
@@ -493,35 +571,68 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
-        {/* Messages button */}
-        <div
-          onClick={() => onMessagesClick?.(event)}
-          style={{
-            background: '#fff', borderRadius: 14, padding: '14px', textAlign: 'center',
-            fontSize: 14, fontWeight: 700, color: '#1C1C1E', cursor: 'pointer',
-            boxShadow: '0 1px 8px rgba(0,0,0,0.07)', marginBottom: 10,
-          }}
-        >
-          💬 Messages
-        </div>
-
-        {/* Delete button: organizer only */}
-        {isOrganizer && (
-          <div
-            onClick={() => setShowDeleteModal(true)}
-            style={{
-              background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center',
-              fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer',
-              marginBottom: 10,
-            }}
-          >
-            Supprimer l'événement
+        {/* ── PARTICIPANTS LIST ── */}
+        {participants.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E' }}>Participants</div>
+              {participants.length > 4 && (
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#e055aa', cursor: 'pointer' }}>
+                  Voir tous
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {participants.slice(0, 4).map(p => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 18,
+                    background: getAvatarColor(p.name),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0,
+                  }}>
+                    {(p.name || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{p.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: rsvpStatusColor[p.status] ?? '#8E8E93' }}>
+                    {rsvpStatusLabel[p.status] ?? 'En attente'}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* RSVP buttons: guests only */}
+        {/* ── BOTTOM ACTIONS ── */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+          <div
+            onClick={() => onMessagesClick?.(event)}
+            style={{
+              flex: 1, background: '#fff', border: '1.5px solid #E5E5EA',
+              borderRadius: 14, padding: '14px', textAlign: 'center',
+              fontSize: 14, fontWeight: 700, color: '#1C1C1E', cursor: 'pointer',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
+            }}
+          >
+            💬 Messages
+          </div>
+          {isOrganizer && (
+            <div
+              onClick={() => setShowDeleteModal(true)}
+              style={{
+                flex: 1, background: 'rgba(255,59,48,0.08)',
+                borderRadius: 14, padding: '14px', textAlign: 'center',
+                fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer',
+              }}
+            >
+              Supprimer
+            </div>
+          )}
+        </div>
+
+        {/* ── RSVP BUTTONS (guests only) ── */}
         {!isOrganizer && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
             <div
               onClick={() => handleRsvp('going')}
               style={{
@@ -530,8 +641,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                 background: rsvpStatus !== 'declined' ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
                 color: rsvpStatus !== 'declined' ? '#fff' : '#8E8E93',
                 boxShadow: rsvpStatus === 'going' ? '0 4px 16px rgba(224,85,170,0.35)' : 'none',
-                transition: 'all 0.15s',
-                opacity: loading ? 0.6 : 1,
+                transition: 'all 0.15s', opacity: loading ? 0.6 : 1,
               }}
             >
               ✓ Participer
@@ -544,16 +654,17 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                 background: rsvpStatus === 'declined' ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
                 color: rsvpStatus === 'declined' ? '#fff' : '#8E8E93',
                 boxShadow: rsvpStatus === 'declined' ? '0 4px 16px rgba(224,85,170,0.35)' : 'none',
-                transition: 'all 0.15s',
-                opacity: loading ? 0.6 : 1,
+                transition: 'all 0.15s', opacity: loading ? 0.6 : 1,
               }}
             >
               ✕ Décliner
             </div>
           </div>
         )}
+
       </div>
 
+      {/* ── TOAST ── */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
@@ -565,15 +676,10 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         </div>
       )}
 
+      {/* ── DELETE MODAL ── */}
       {showDeleteModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 0 20px',
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: 20, padding: '24px 20px 16px',
-            width: '100%', maxWidth: 430, boxShadow: '0 -4px 30px rgba(0,0,0,0.15)',
-          }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 0 20px' }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: '24px 20px 16px', width: '100%', maxWidth: 430, boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E', textAlign: 'center', marginBottom: 10 }}>
               Supprimer l'événement ?
             </div>
@@ -581,33 +687,19 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
               Cette action est irréversible. Tous les invités seront notifiés de l'annulation.
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                disabled={deleting}
-                style={{
-                  flex: 1, padding: '13px', borderRadius: 12, border: 'none',
-                  background: '#F2F2F7', color: '#1C1C1E',
-                  fontSize: 15, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
+              <button onClick={() => setShowDeleteModal(false)} disabled={deleting}
+                style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: '#F2F2F7', color: '#1C1C1E', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
                 Annuler
               </button>
-              <button
-                onClick={handleDeleteEvent}
-                disabled={deleting}
-                style={{
-                  flex: 1, padding: '13px', borderRadius: 12, border: 'none',
-                  background: '#FF3B30', color: '#fff',
-                  fontSize: 15, fontWeight: 700, cursor: deleting ? 'default' : 'pointer',
-                  opacity: deleting ? 0.6 : 1,
-                }}
-              >
+              <button onClick={handleDeleteEvent} disabled={deleting}
+                style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: '#FF3B30', color: '#fff', fontSize: 15, fontWeight: 700, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.6 : 1 }}>
                 {deleting ? '…' : 'Supprimer'}
               </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   )
 }
