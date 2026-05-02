@@ -91,25 +91,86 @@ function EventCardCompact({ event, onClick }) {
   )
 }
 
-function QuickActions({ onShare }) {
-  const actions = [
-    { icon: '📨', label: 'Inviter', onClick: onShare },
-  ]
+const CONFETTI_PIECES = [
+  { left: '7%',  top: '18%', w: 8, h: 5, color: '#FF6B9D', rotate: 25,  circle: false },
+  { left: '17%', top: '68%', w: 6, h: 6, color: '#FFD93D', rotate: 0,   circle: true  },
+  { left: '24%', top: '28%', w: 5, h: 8, color: '#6BCB77', rotate: -15, circle: false },
+  { left: '34%', top: '55%', w: 6, h: 6, color: '#e055aa', rotate: 0,   circle: true  },
+  { left: '44%', top: '72%', w: 7, h: 5, color: '#4D96FF', rotate: 45,  circle: false },
+  { left: '53%', top: '14%', w: 6, h: 6, color: '#e055aa', rotate: 0,   circle: true  },
+  { left: '61%', top: '58%', w: 5, h: 7, color: '#f5a623', rotate: -30, circle: false },
+  { left: '70%', top: '22%', w: 8, h: 5, color: '#FF6B9D', rotate: 60,  circle: false },
+  { left: '79%', top: '76%', w: 6, h: 6, color: '#6BCB77', rotate: 0,   circle: true  },
+  { left: '86%', top: '38%', w: 5, h: 8, color: '#FFD93D', rotate: -45, circle: false },
+  { left: '93%', top: '16%', w: 7, h: 5, color: '#4D96FF', rotate: 30,  circle: false },
+]
+
+function InviteCard({ onShare }) {
   return (
-    <div style={{ display: 'flex', gap: 8, margin: '4px 0 16px' }}>
-      {actions.map(({ icon, label, onClick }) => (
+    <div
+      onClick={onShare}
+      style={{
+        background: '#fff',
+        borderRadius: 20,
+        boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+        overflow: 'hidden',
+        position: 'relative',
+        marginBottom: 12,
+        cursor: 'pointer',
+      }}
+    >
+      {CONFETTI_PIECES.map((c, i) => (
         <div
-          key={label}
-          onClick={onClick}
+          key={i}
           style={{
-            flex: 1, background: '#fff', borderRadius: 14, padding: '12px 8px',
-            textAlign: 'center', cursor: 'pointer', boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
+            position: 'absolute',
+            left: c.left,
+            top: c.top,
+            width: c.w,
+            height: c.h,
+            background: c.color,
+            borderRadius: c.circle ? '50%' : 2,
+            opacity: 0.75,
+            transform: `rotate(${c.rotate}deg)`,
+            zIndex: 1,
+            pointerEvents: 'none',
+          }}
+        />
+      ))}
+      <div style={{
+        position: 'relative',
+        zIndex: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        padding: '14px 16px',
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', lineHeight: 1.3 }}>
+            Offrez Amiv à vos proches
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 400, color: '#8E8E93', marginTop: 3, lineHeight: 1.4 }}>
+            Parce que les bons moments méritent d'être partagés
+          </div>
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); onShare() }}
+          style={{
+            background: 'linear-gradient(135deg, #e055aa, #f5a623)',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 700,
+            borderRadius: 12,
+            padding: '9px 14px',
+            border: 'none',
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
           }}
         >
-          <div style={{ fontSize: 22, marginBottom: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', height: 26 }}>{icon}</div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#1C1C1E' }}>{label}</div>
-        </div>
-      ))}
+          Envoyer le lien
+        </button>
+      </div>
     </div>
   )
 }
@@ -222,9 +283,18 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     }
   }
 
-  function handleShare() {
+  async function handleShare() {
+    const shareData = {
+      title: 'Amiv',
+      text: 'Rejoins-moi sur Amiv pour ne plus jamais rater un anniversaire 🎂',
+      url: 'https://amiv.app',
+    }
     if (navigator.share) {
-      navigator.share({ url: 'https://amiv.app' }).catch(() => {})
+      navigator.share(shareData).catch(() => {})
+    } else {
+      try { await navigator.clipboard.writeText('https://amiv.app') } catch { /* ignore */ }
+      setToast({ message: 'Lien copié !', isError: false })
+      setTimeout(() => setToast(null), 2000)
     }
   }
 
@@ -385,7 +455,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           </>
         )}
 
-        <QuickActions onShare={handleShare} />
+        <InviteCard onShare={handleShare} />
 
       </div>
 
