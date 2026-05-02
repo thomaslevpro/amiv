@@ -62,10 +62,6 @@ enabled = true
 policy = "oneshot"
 inspector_port = 8083
 
-[functions.birthday-reminders]
-enabled = true
-verify_jwt = false
-
 [functions.submit-guest-rsvp]
 enabled = true
 verify_jwt = false
@@ -74,7 +70,3 @@ verify_jwt = false
 enabled = true
 port = 54327
 backend = "postgres"
-
-# Cron job birthday-reminders (0 8 * * * → fonction birthday-reminders)
-# Géré directement depuis le Dashboard Supabase → Project > Edge Functions > Schedules
-# La section [crons.*] est incompatible avec Supabase CLI 2.90.0

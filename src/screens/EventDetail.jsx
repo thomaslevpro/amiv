@@ -29,17 +29,12 @@ function formatPollDate(dateStr, timeStr) {
   return timeStr ? `${datePart} à ${timeStr.slice(0, 5)}` : datePart
 }
 
-const statusIcon = { pending: '⏳', accepted: '✅', declined: '❌' }
 const guestResponseIcon = { yes: '✅', no: '❌', maybe: '🤔' }
 
 export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [userId, setUserId] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviting, setInviting] = useState(false)
-  const [inviteError, setInviteError] = useState(null)
-  const [invitations, setInvitations] = useState([])
   const [guestRsvps, setGuestRsvps] = useState([])
   const [toast, setToast] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -58,8 +53,9 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
   function handleShare() {
     const url = `${window.location.origin}/invite/${event.invite_token}`
+    const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
     if (navigator.share) {
-      navigator.share({ title: event.name, url })
+      navigator.share({ title: event.name, text, url })
     } else {
       navigator.clipboard.writeText(url).then(() => {
         setToast('Lien copié !')
@@ -85,9 +81,8 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
       const isOrg = user.id === event.user_id
 
-      const [rsvpRes, invRes, optRes, guestRes] = await Promise.all([
+      const [rsvpRes, optRes, guestRes] = await Promise.all([
         supabase.from('rsvps').select('status').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
-        supabase.from('invitations').select('id, invited_email, status').eq('event_id', event.id).order('created_at', { ascending: true }),
         supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
         isOrg
           ? supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })
@@ -97,7 +92,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       if (cancelled) return
 
       setRsvpStatus(rsvpRes.data?.status ?? null)
-      setInvitations(invRes.data ?? [])
       if (isOrg) setGuestRsvps(guestRes.data ?? [])
 
       const optionsData = optRes.data ?? []
@@ -126,67 +120,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     init()
     return () => { cancelled = true }
   }, [event?.id])
-
-  async function fetchInvitations() {
-    const { data } = await supabase
-      .from('invitations')
-      .select('id, invited_email, status')
-      .eq('event_id', event.id)
-      .order('created_at', { ascending: true })
-    setInvitations(data ?? [])
-  }
-
-  async function handleInvite(e) {
-    e.preventDefault()
-    const email = inviteEmail.trim().toLowerCase()
-    if (!email || !userId) return
-
-    if (invitations.some(inv => inv.invited_email.toLowerCase() === email)) {
-      setInviteError('Cet email a déjà été invité.')
-      return
-    }
-
-    setInviting(true)
-    setInviteError(null)
-    const { error } = await supabase
-      .from('invitations')
-      .insert({ event_id: event.id, invited_email: email, invited_by: userId })
-
-    if (error) {
-      setInviteError(error.code === '23505' ? 'Cet email a déjà été invité.' : 'Erreur lors de l\'invitation.')
-    } else {
-      setInviteEmail('')
-      await fetchInvitations()
-
-      const [{ data: senderProfile }, { data: invitedProfile }] = await Promise.all([
-        supabase.from('profiles').select('id, name').eq('id', userId).maybeSingle(),
-        supabase.from('profiles').select('id, name').eq('email', email).maybeSingle(),
-      ])
-
-      if (invitedProfile?.id) {
-        const { error: notifErr } = await supabase.from('notifications').insert({
-          user_id: invitedProfile.id,
-          type: 'invitation_received',
-          title: `Tu es invité(e) à ${event.name}`,
-          body: 'Quelqu\'un t\'a invité à un événement',
-          data: { event_id: event.id, sender_id: userId },
-        })
-        if (notifErr) console.error('[Notifications] Insert invitation error:', notifErr)
-      }
-
-      const invitationPayload = {
-        invitee_email: email,
-        invitee_name: invitedProfile?.name ?? '',
-        sender_name: senderProfile?.name ?? 'Quelqu\'un',
-        event_title: event.name,
-        event_date: formatDate(event.date),
-        event_id: event.id,
-      }
-      console.log('invitation email payload', invitationPayload)
-      await supabase.functions.invoke('send-invitation-email', { body: invitationPayload })
-    }
-    setInviting(false)
-  }
 
   async function handleRsvp(status) {
     if (!userId || loading) return
@@ -293,11 +226,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setSaving(false)
   }
 
-  async function handleDeleteInvitation(invId) {
-    await supabase.from('invitations').delete().eq('id', invId)
-    setInvitations(prev => prev.filter(i => i.id !== invId))
-  }
-
   async function handleDeleteEvent() {
     setDeleting(true)
     const { error } = await supabase.from('events').delete().eq('id', event.id)
@@ -322,10 +250,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const displayLocation = eventOverrides.location ?? event.location
   const pollClosed = eventOverrides.poll_closed ?? event.poll_closed ?? false
   const isPollActive = dateOptions.length > 0 && !pollClosed
-
-  const acceptedCount = invitations.filter(i => i.status === 'accepted').length
-  const declinedCount = invitations.filter(i => i.status === 'declined').length
-  const pendingCount = invitations.filter(i => !i.status || i.status === 'pending').length
 
   const emoji = typeEmoji[event.type] ?? '🎉'
   const visibility = visibilityLabel[event.visibility] ?? event.visibility ?? 'Sur invitation'
@@ -549,103 +473,23 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
-        {/* Counters: visible to everyone when invitations exist */}
-        {invitations.length > 0 && (
+        {/* Organizer only: guest RSVPs via public link */}
+        {isOrganizer && guestRsvps.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
-              Participants
+              Via lien public 🔗
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[
-                { icon: '✅', count: acceptedCount, label: 'confirmé' },
-                { icon: '❌', count: declinedCount, label: 'décliné' },
-                { icon: '⏳', count: pendingCount, label: 'en attente' },
-              ].map(({ icon, count, label }) => (
-                <div key={label} style={{ flex: 1, background: '#F2F2F7', borderRadius: 10, padding: '8px 6px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 16 }}>{icon}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>{count}</div>
-                  <div style={{ fontSize: 10, color: '#8E8E93' }}>{label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {guestRsvps.map(g => (
+                <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 500 }}>{g.guest_name}</div>
+                    <div style={{ fontSize: 11, color: '#8E8E93' }}>{g.guest_email}</div>
+                  </div>
+                  <div style={{ fontSize: 15 }}>{guestResponseIcon[g.response] ?? '⏳'}</div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Organizer only: invite form + full list with emails */}
-        {isOrganizer && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
-              Inviter des amis
-            </div>
-            <form onSubmit={handleInvite} style={{ display: 'flex', gap: 8, marginBottom: inviteError ? 6 : invitations.length ? 12 : 0 }}>
-              <input
-                type="email"
-                placeholder="Email"
-                value={inviteEmail}
-                onChange={e => { setInviteEmail(e.target.value); setInviteError(null) }}
-                required
-                style={{
-                  flex: 1, border: `1px solid ${inviteError ? '#FF3B30' : '#E5E5EA'}`, borderRadius: 10,
-                  padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E',
-                }}
-              />
-              <button
-                type="submit"
-                disabled={inviting}
-                style={{
-                  padding: '9px 14px', borderRadius: 10, border: 'none',
-                  background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
-                  fontSize: 13, fontWeight: 700, cursor: inviting ? 'default' : 'pointer',
-                  opacity: inviting ? 0.6 : 1, whiteSpace: 'nowrap',
-                }}
-              >
-                {inviting ? '…' : 'Inviter'}
-              </button>
-            </form>
-            {inviteError && (
-              <div style={{ fontSize: 12, color: '#FF3B30', marginBottom: invitations.length ? 10 : 0 }}>
-                {inviteError}
-              </div>
-            )}
-            {invitations.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {invitations.map(inv => (
-                  <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>
-                    <div style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 500 }}>{inv.invited_email}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontSize: 15 }}>{statusIcon[inv.status] ?? '⏳'}</div>
-                      {(!inv.status || inv.status === 'pending') && (
-                        <div
-                          onClick={() => handleDeleteInvitation(inv.id)}
-                          style={{ fontSize: 13, color: '#FF3B30', cursor: 'pointer', fontWeight: 700, padding: '2px 6px' }}
-                        >
-                          ✕
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {guestRsvps.length > 0 && (
-              <div style={{ marginTop: invitations.length ? 14 : 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>
-                  Via lien public 🔗
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {guestRsvps.map(g => (
-                    <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>
-                      <div>
-                        <div style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 500 }}>{g.guest_name}</div>
-                        <div style={{ fontSize: 11, color: '#8E8E93' }}>{g.guest_email}</div>
-                      </div>
-                      <div style={{ fontSize: 15 }}>{guestResponseIcon[g.response] ?? '⏳'}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
