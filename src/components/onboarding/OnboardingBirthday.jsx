@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Cake } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import StatusBar from '../StatusBar'
 
 export default function OnboardingBirthday({ userId, onNext }) {
   const [name, setName] = useState('')
@@ -41,8 +40,7 @@ export default function OnboardingBirthday({ userId, onNext }) {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#F2F2F7' }}>
-      <StatusBar />
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#F2F2F7', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 24px 0' }}>
 
         <div style={{ paddingTop: 12, marginBottom: 32 }}>

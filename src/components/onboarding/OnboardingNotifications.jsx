@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import StatusBar from '../StatusBar'
 
 export default function OnboardingNotifications({ onNext }) {
   const [loading, setLoading] = useState(false)
@@ -18,8 +17,7 @@ export default function OnboardingNotifications({ onNext }) {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#F2F2F7' }}>
-      <StatusBar />
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#F2F2F7', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
 
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',

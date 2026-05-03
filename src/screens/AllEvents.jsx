@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import StatusBar from '../components/StatusBar'
 
 const typeEmoji = { 'Anniversaire': <Cake size={20} strokeWidth={1.5} />, 'Soirée': '🥂', 'Repas': '🍽️', 'Autre': '🎉' }
 
@@ -60,7 +59,6 @@ export default function AllEvents({ onBack, onEventClick }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-      <StatusBar />
 
       {/* Header */}
       <div style={{ background: '#fff', padding: '10px 16px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0 }}>

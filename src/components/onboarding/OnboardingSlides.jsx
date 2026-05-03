@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react'
 import { Cake } from 'lucide-react'
-import StatusBar from '../StatusBar'
 
 const SLIDES = [
   {
@@ -49,11 +48,10 @@ export default function OnboardingSlides({ onNext, onLogin }) {
 
   return (
     <div
-      style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#fff', userSelect: 'none' }}
+      style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#fff', userSelect: 'none', paddingTop: 'env(safe-area-inset-top, 0px)' }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <StatusBar />
 
       {/* Logo */}
       <div style={{ textAlign: 'center', padding: '20px 0 0' }}>

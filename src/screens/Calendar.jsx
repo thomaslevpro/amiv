@@ -1,5 +1,4 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import StatusBar from '../components/StatusBar'
 import { events } from '../data/mockData'
 
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -19,7 +18,6 @@ export default function Calendar({ onEventClick }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-      <StatusBar />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
         {/* Header */}

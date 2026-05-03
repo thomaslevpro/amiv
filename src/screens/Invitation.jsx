@@ -9,15 +9,8 @@ export default function Invitation({ event, onBack }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
       {/* Hero */}
-      <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: '52px 20px 28px', textAlign: 'center', color: '#fff', flexShrink: 0, position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 14, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '0 28px', fontSize: 12, fontWeight: 700, color: '#fff' }}>
-          <span>9:41</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="17" height="12" viewBox="0 0 17 12" fill="white"><rect x="0" y="4" width="3" height="8" rx="0.6"/><rect x="4.5" y="2.5" width="3" height="9.5" rx="0.6"/><rect x="9" y="0.5" width="3" height="11.5" rx="0.6"/></svg>
-            <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="white" strokeOpacity=".6"/><rect x="1.5" y="1.5" width="18" height="9" rx="2.2" fill="white"/></svg>
-          </div>
-        </div>
-        <div onClick={onBack} style={{ position: 'absolute', top: 40, left: 16, cursor: 'pointer' }}>
+      <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: '16px 20px 28px', textAlign: 'center', color: '#fff', flexShrink: 0, position: 'relative' }}>
+        <div onClick={onBack} style={{ position: 'absolute', top: 14, left: 16, cursor: 'pointer' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         </div>
         <div style={{ fontSize: 52, display: 'block', marginBottom: 10 }}>🎉</div>

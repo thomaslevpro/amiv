@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronRight, Plus, Cake } from 'lucide-react'
-import StatusBar from '../components/StatusBar'
 import NotificationBell from '../components/NotificationBell'
 import HeroBirthdayCard from '../components/HeroBirthdayCard'
 import BirthdayStrip from '../components/BirthdayStrip'
@@ -318,7 +317,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden', position: 'relative' }}>
-      <StatusBar />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
 

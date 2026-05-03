@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import StatusBar from '../components/StatusBar'
 
 export default function EditProfile({ onSave, onBack, isOnboarding = false }) {
   const [name, setName] = useState('')
@@ -65,7 +64,6 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', minHeight: '100dvh' }}>
-      <StatusBar />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 20px 40px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
           {!isOnboarding && onBack && (

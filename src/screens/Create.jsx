@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Cake } from 'lucide-react'
-import StatusBar from '../components/StatusBar'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 
@@ -122,7 +121,6 @@ export default function Create({ onBack, session }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-      <StatusBar />
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 24px' }}>
 
         {/* Header */}

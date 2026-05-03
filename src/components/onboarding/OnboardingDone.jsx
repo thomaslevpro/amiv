@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react'
-import StatusBar from '../StatusBar'
 
 const COLORS = ['#e055aa', '#f5a623', '#34C759', '#007AFF', '#FF3B30', '#5856D6', '#FF9500']
 
@@ -64,9 +63,8 @@ export default function OnboardingDone({ onComplete }) {
   }, [])
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#fff' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#fff', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {showConfetti && <Confetti />}
-      <StatusBar />
 
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',

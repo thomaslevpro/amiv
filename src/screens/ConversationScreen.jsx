@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import StatusBar from '../components/StatusBar'
 
 function getInitials(name) {
   return (name ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -63,7 +62,6 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-      <StatusBar />
 
       {/* Header */}
       <div style={{

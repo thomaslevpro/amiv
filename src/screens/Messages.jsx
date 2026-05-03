@@ -3,7 +3,6 @@ import { MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { findOrCreateDirectConversation } from '../lib/conversations'
-import StatusBar from '../components/StatusBar'
 import FriendProfileModal from '../components/FriendProfileModal'
 
 function getInitials(name) {
@@ -185,7 +184,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   if (!event) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-        <StatusBar />
         <div style={{ padding: '12px 16px 14px', background: '#fff', borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0 }}>
           <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E' }}>Messages</div>
         </div>
@@ -336,7 +334,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   // ── CHAT VIEW ───────────────────────────────────────────────────────────────
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-      <StatusBar />
       <div style={{ padding: '10px 16px', background: '#fff', borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
         {onBack && (
           <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', color: '#007AFF', cursor: 'pointer' }}>
