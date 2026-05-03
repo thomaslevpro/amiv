@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
+import { findOrCreateDirectConversation } from '../lib/conversations'
 import StatusBar from '../components/StatusBar'
+import FriendProfileModal from '../components/FriendProfileModal'
 
 function getInitials(name) {
   return (name ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -56,7 +58,7 @@ function EmptyState({ onCreateClick }) {
   )
 }
 
-export default function Messages({ event, onBack, onEventOpen, notifications = [], markAsRead, onCreateClick }) {
+export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onCreateClick }) {
   // --- chat state ---
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -70,6 +72,7 @@ export default function Messages({ event, onBack, onEventOpen, notifications = [
   // --- friends strip state ---
   const [friends, setFriends] = useState([])
   const [friendsLoading, setFriendsLoading] = useState(true)
+  const [selectedFriend, setSelectedFriend] = useState(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -211,7 +214,7 @@ export default function Messages({ event, onBack, onEventOpen, notifications = [
                   scrollbarWidth: 'none',
                 }}>
                   {friends.map(friend => (
-                    <div key={friend.friend_id} style={{
+                    <div key={friend.friend_id} onClick={() => setSelectedFriend(friend)} style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center',
                       gap: 4, flexShrink: 0, cursor: 'pointer',
                     }}>
@@ -311,6 +314,21 @@ export default function Messages({ event, onBack, onEventOpen, notifications = [
             </div>
           )}
         </div>
+      {selectedFriend && (
+        <FriendProfileModal
+          friend={selectedFriend}
+          onClose={() => setSelectedFriend(null)}
+          onSendMessage={async (friend) => {
+            console.log('[Messages] onSendMessage appelé', { userId, friendId: friend.friend_id })
+            const { id, error } = await findOrCreateDirectConversation(userId, friend.friend_id)
+            console.log('[Messages] findOrCreateDirectConversation résultat', { id, error })
+            if (error) { console.error('[Messages] erreur', error); return }
+            setSelectedFriend(null)
+            console.log('[Messages] appel onDirectConvOpen', { conversationId: id, friend })
+            onDirectConvOpen?.({ conversationId: id, friend })
+          }}
+        />
+      )}
       </div>
     )
   }

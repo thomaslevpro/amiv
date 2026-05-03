@@ -15,6 +15,7 @@ import Profile from './screens/Profile'
 import EditProfile from './screens/EditProfile'
 import GuestRsvpPage from './screens/GuestRsvpPage'
 import AllEvents from './screens/AllEvents'
+import ConversationScreen from './screens/ConversationScreen'
 
 export default function App() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
@@ -29,6 +30,7 @@ export default function App() {
   const [screen, setScreen] = useState('home')
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [conversationEvent, setConversationEvent] = useState(null)
+  const [directConv, setDirectConv] = useState(null)
   const { notifications, markAsRead, markAllAsReadByType } = useNotifications(session?.user?.id)
   const unreadMessagesCount = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
@@ -99,6 +101,7 @@ export default function App() {
     setTab(newTab)
     setScreen('home')
     setConversationEvent(null)
+    setDirectConv(null)
   }
   const handleNotifEventClick = async (partialEvent) => {
     const { data } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
@@ -111,7 +114,8 @@ export default function App() {
     screen === 'allEvents' ||
     (screen === 'invitation' && selectedEvent) ||
     (screen === 'eventDetail' && selectedEvent) ||
-    (screen === 'messages' && selectedEvent)
+    (screen === 'messages' && selectedEvent) ||
+    !!directConv
 
   const renderCurrentScreen = () => {
     if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
@@ -133,10 +137,13 @@ export default function App() {
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} session={session} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} />
       case 'messages':
+        if (directConv) {
+          return <ConversationScreen conversationId={directConv.conversationId} friend={directConv.friend} onBack={() => setDirectConv(null)} />
+        }
         if (conversationEvent) {
           return <Messages event={conversationEvent} onBack={() => setConversationEvent(null)} notifications={notifications} markAsRead={markAsRead} />
         }
-        return <Messages onEventOpen={setConversationEvent} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => setScreen('create')} />
+        return <Messages onEventOpen={setConversationEvent} onDirectConvOpen={setDirectConv} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => setScreen('create')} />
       case 'profile': return <Profile session={session} onEdit={() => setScreen('editProfile')} />
       default: return null
     }
