@@ -224,6 +224,8 @@ function InvitedEventCard({ event, navigate }) {
 
   const rsvpChip = status === 'going'
     ? { label: "✓ J'y serai", bg: 'rgba(52,199,89,0.09)', color: '#1d7a38' }
+    : status === 'organizing'
+    ? { label: "✓ J'organise", bg: 'rgba(0,122,255,0.09)', color: '#0056CC' }
     : { label: 'En attente', bg: '#F2F2F7', color: '#6B6B6B' }
 
   const [datePart_str, timePart_str] = event.date.includes('T') ? event.date.split('T') : [event.date, null]
@@ -348,6 +350,8 @@ export default function CalendarPage({ navigate = () => {} }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [calendarDots, setCalendarDots] = useState([])
   const [invitedEvents, setInvitedEvents] = useState([])
+  const [organizedEvents, setOrganizedEvents] = useState([])
+  const [activeTab, setActiveTab] = useState('all')
   const [loading, setLoading] = useState(true)
 
   const fetchDots = useCallback(async (month) => {
@@ -372,25 +376,34 @@ export default function CalendarPage({ navigate = () => {} }) {
     const ninetyDaysLater = formatDate(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000))
 
     try {
-      const [dotsResult, invitedResult] = await Promise.all([
+      const [dotsResult, invitedResult, ownResult] = await Promise.all([
         supabase.rpc('get_calendar_dots', {
           month_start: formatDate(monthStart),
           month_end: formatDate(monthEnd),
         }),
         supabase
           .from('rsvps')
-          .select('status, events!inner(id, name, date, user_id, profiles!user_id(full_name))')
+          .select('status, events!inner(id, name, date, user_id, location, type, profiles!user_id(full_name))')
           .eq('user_id', user.id),
+        supabase
+          .from('events')
+          .select('id, name, date, user_id, location, type, profiles!user_id(full_name)')
+          .eq('user_id', user.id)
+          .gte('date', today)
+          .lte('date', ninetyDaysLater)
+          .order('date', { ascending: true }),
       ])
 
       if (dotsResult.error) throw dotsResult.error
       if (invitedResult.error) throw invitedResult.error
+      if (ownResult.error) throw ownResult.error
 
       setCalendarDots(dotsResult.data ?? [])
       const mapped = (invitedResult.data || [])
         .filter(row => row.events && row.events.user_id !== user.id && row.events.date >= today && row.events.date <= ninetyDaysLater)
         .map(row => ({ ...row.events, rsvpStatus: row.status }))
       setInvitedEvents(mapped)
+      setOrganizedEvents((ownResult.data ?? []).map(e => ({ ...e, rsvpStatus: 'organizing' })))
     } catch (err) {
       console.error(err)
     } finally {
@@ -435,16 +448,58 @@ export default function CalendarPage({ navigate = () => {} }) {
         }}
       />
 
-      {invitedEvents.length > 0 && (
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E', marginBottom: 12 }}>
-            Invité à ces amivs
-          </div>
-          {invitedEvents.map((event) => (
-            <InvitedEventCard key={event.id} event={event} navigate={navigate} />
-          ))}
-        </div>
-      )}
+      {(() => {
+        const goingEvents = invitedEvents.filter(e => e.rsvpStatus === 'going').sort((a, b) => a.date.localeCompare(b.date))
+        const pendingEvents = invitedEvents.filter(e => e.rsvpStatus === 'invited').sort((a, b) => a.date.localeCompare(b.date))
+        const allEventsMap = new Map()
+        ;[...organizedEvents, ...invitedEvents].forEach(e => { if (!allEventsMap.has(e.id)) allEventsMap.set(e.id, e) })
+        const allEvents = [...allEventsMap.values()].sort((a, b) => a.date.localeCompare(b.date))
+
+        const TABS = [
+          { key: 'all', label: 'Tous', events: allEvents },
+          { key: 'organizing', label: "J'organise", events: organizedEvents },
+          { key: 'going', label: "J'y participe", events: goingEvents },
+          { key: 'pending', label: 'En attente', events: pendingEvents },
+        ]
+        const currentEvents = TABS.find(t => t.key === activeTab)?.events ?? []
+
+        return (
+          <>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>
+              {TABS.map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    flexShrink: 0,
+                    background: activeTab === tab.key ? '#1C1C1E' : '#F2F2F7',
+                    color: activeTab === tab.key ? '#fff' : '#1C1C1E',
+                    border: 'none',
+                    borderRadius: 20,
+                    padding: '7px 14px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {currentEvents.length > 0
+              ? currentEvents.map(event => (
+                  <InvitedEventCard key={event.id} event={event} navigate={navigate} />
+                ))
+              : !loading && (
+                  <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, marginTop: 32 }}>
+                    Aucun événement
+                  </div>
+                )
+            }
+          </>
+        )
+      })()}
     </div>
   )
 }

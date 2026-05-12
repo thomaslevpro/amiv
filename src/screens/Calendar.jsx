@@ -205,7 +205,7 @@ export default function Calendar() {
   const [organizedEvents, setOrganizedEvents] = useState([])
   const [guestEvents, setGuestEvents] = useState([])
   const [loadingEvents, setLoadingEvents] = useState(true)
-  const [activeTab, setActiveTab] = useState('organizer')
+  const [activeTab, setActiveTab] = useState('all')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -321,156 +321,136 @@ export default function Calendar() {
         />
 
         {/* Section : Mes événements */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#8E8E93', marginBottom: 10, padding: '0 2px' }}>
-            Mes événements
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {[
-              { key: 'organizer', label: "J'organise", count: organizedEvents.length },
-              { key: 'guest',     label: "J'y participe", count: guestEvents.length },
-            ].map(({ key, label, count }) => {
-              const isActive = activeTab === key
-              return (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  style={{
-                    padding: '8px 16px', borderRadius: 20, border: 'none',
-                    cursor: 'pointer', fontSize: 13,
-                    fontWeight: isActive ? 600 : 500,
-                    background: isActive ? '#1C1C1E' : '#F2F2F7',
-                    color: isActive ? '#fff' : '#1C1C1E',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {label}{count > 0 ? ` (${count})` : ''}
-                </button>
-              )
-            })}
-          </div>
+        {(() => {
+          const goingItems = guestEvents.filter(item => item.status === 'accepted')
+          const pendingItems = guestEvents.filter(item => item.status !== 'accepted')
 
-          <div style={{ marginTop: 12 }}>
-            {loadingEvents ? null : activeTab !== 'organizer' ? null : (() => {
-              const items = organizedEvents
-              if (items.length === 0) {
-                return (
-                  <div style={{ textAlign: 'center', color: '#AEAEB2', fontSize: 14, padding: '20px 0' }}>
-                    Aucun événement pour l'instant
+          const TABS = [
+            { key: 'all',       label: 'Tous',          count: organizedEvents.length + guestEvents.length },
+            { key: 'organizer', label: "J'organise",    count: organizedEvents.length },
+            { key: 'guest',     label: "J'y participe", count: goingItems.length },
+            { key: 'pending',   label: 'En attente',    count: pendingItems.length },
+          ]
+
+          const renderOrgCard = (event) => (
+            <div key={event.id} onClick={() => navigate(`/events/${event.id}`)}
+              style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', cursor: 'pointer' }}>
+              <div style={{ height: 90, background: 'linear-gradient(135deg,rgba(224,85,170,0.10),rgba(245,166,35,0.10))', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                <span style={{ fontSize: 40 }}>{event.emoji || '🎉'}</span>
+              </div>
+              <div style={{ padding: '11px 14px 13px' }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>
+                  {event.name ? event.name.charAt(0).toUpperCase() + event.name.slice(1) : 'Mon événement'}
+                </div>
+                {event.location && (
+                  <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 5 }}>
+                    {event.location.charAt(0).toUpperCase() + event.location.slice(1)}
                   </div>
-                )
-              }
-              return items.map(event => (
-                <div key={event.id} onClick={() => navigate(`/events/${event.id}`)}
-                  style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', cursor: 'pointer' }}>
-                  <div style={{ height: 90, background: 'linear-gradient(135deg,rgba(224,85,170,0.10),rgba(245,166,35,0.10))', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                    <span style={{ fontSize: 40 }}>{event.emoji || '🎉'}</span>
+                )}
+                <div style={{ fontSize: 12, fontWeight: 600, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 7 }}>
+                  {(() => { const d = new Date(event.date); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })()}
+                </div>
+                {event.type && (
+                  <div style={{ display: 'inline-block', border: '1px solid #E5E5EA', borderRadius: 20, padding: '3px 9px', fontSize: 11, fontWeight: 500, color: '#8E8E93' }}>
+                    {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                   </div>
-                  <div style={{ padding: '11px 14px 13px' }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>
-                      {event.name ? event.name.charAt(0).toUpperCase() + event.name.slice(1) : 'Mon événement'}
+                )}
+              </div>
+            </div>
+          )
+
+          const renderGuestCard = (item) => {
+            const ev = item.events
+            const rsvpChip = item.status === 'accepted'
+              ? { label: "✓ J'y serai", bg: 'rgba(52,199,89,0.09)', color: '#1d7a38' }
+              : { label: 'En attente', bg: '#F2F2F7', color: '#6B6B6B' }
+            const displayName = ev.name ? ev.name.charAt(0).toUpperCase() + ev.name.slice(1) : 'Amiv'
+            return (
+              <div key={ev.id} onClick={() => navigate(`/events/${ev.id}`)}
+                style={{ background: '#fff', borderRadius: 16, marginBottom: 12, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', cursor: 'pointer' }}>
+                <div style={{ height: 110, position: 'relative', background: 'linear-gradient(135deg, rgba(224,85,170,0.10), rgba(245,166,35,0.10))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 44 }}>{ev.emoji || '🎂'}</span>
+                  <button onClick={(e) => e.stopPropagation()}
+                    style={{ position: 'absolute', top: 10, right: 12, background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: 32, height: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e055aa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                  </button>
+                </div>
+                <div style={{ padding: '11px 14px 13px' }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>{displayName}</div>
+                  {ev.location && <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 5 }}>{ev.location}</div>}
+                  <div style={{ fontSize: 12, fontWeight: 600, background: 'linear-gradient(135deg, #e055aa, #f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    {formatEventDate(ev.date)}
+                  </div>
+                  {ev.type && (
+                    <div style={{ display: 'inline-block', border: '1px solid #E5E5EA', borderRadius: 20, padding: '3px 9px', fontSize: 11, fontWeight: 500, color: '#8E8E93', marginTop: 7 }}>
+                      {ev.type}
                     </div>
-                    {event.location && (
-                      <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 5 }}>
-                        {event.location.charAt(0).toUpperCase() + event.location.slice(1)}
-                      </div>
-                    )}
-                    <div style={{ fontSize: 12, fontWeight: 600, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 7 }}>
-                      {(() => { const d = new Date(event.date); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })()}
-                    </div>
-                    {event.type && (
-                      <div style={{ display: 'inline-block', border: '1px solid #E5E5EA', borderRadius: 20, padding: '3px 9px', fontSize: 11, fontWeight: 500, color: '#8E8E93' }}>
-                        {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
-                      </div>
-                    )}
+                  )}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(224,85,170,0.09)', color: '#72243E' }}>🔒 Espace secret</span>
+                    <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: rsvpChip.bg, color: rsvpChip.color }}>{rsvpChip.label}</span>
                   </div>
                 </div>
-              ))
-            })()}
-          </div>
-        </div>
+              </div>
+            )
+          }
 
-        {/* Section : Invité à ces amivs */}
-        {!loadingEvents && activeTab === 'guest' && guestEvents.length > 0 && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, padding: '0 2px' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#8E8E93' }}>
-                Invité à ces amivs
-              </span>
+          const emptyState = (
+            <div style={{ textAlign: 'center', color: '#AEAEB2', fontSize: 14, padding: '20px 0' }}>
+              Aucun événement pour l'instant
             </div>
-            {guestEvents.map(item => {
-              const ev = item.events
-              const rsvpStatus = item.status
-              const displayName = ev.name
-                ? ev.name.charAt(0).toUpperCase() + ev.name.slice(1)
-                : 'Amiv'
-              const rsvpChip = rsvpStatus === 'accepted'
-                ? { label: "✓ J'y serai", bg: 'rgba(52,199,89,0.09)', color: '#1d7a38' }
-                : { label: 'En attente', bg: '#F2F2F7', color: '#6B6B6B' }
-              return (
-                <div key={ev.id}
-                  onClick={() => navigate(`/events/${ev.id}`)}
-                  style={{ background: '#fff', borderRadius: 16, marginBottom: 12, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', cursor: 'pointer' }}>
-                  <div style={{
-                    height: 110,
-                    position: 'relative',
-                    background: 'linear-gradient(135deg, rgba(224,85,170,0.10), rgba(245,166,35,0.10))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <span style={{ fontSize: 44 }}>{ev.emoji || '🎂'}</span>
+          )
+
+          let content = null
+          if (!loadingEvents) {
+            if (activeTab === 'all') {
+              const merged = [
+                ...organizedEvents.map(e => ({ _t: 'org', _d: e.date, data: e })),
+                ...guestEvents.map(item => ({ _t: 'guest', _d: item.events?.date, data: item })),
+              ].sort((a, b) => new Date(a._d) - new Date(b._d))
+              content = merged.length === 0 ? emptyState : merged.map(item => item._t === 'org' ? renderOrgCard(item.data) : renderGuestCard(item.data))
+            } else if (activeTab === 'organizer') {
+              content = organizedEvents.length === 0 ? emptyState : organizedEvents.map(renderOrgCard)
+            } else if (activeTab === 'guest') {
+              content = goingItems.length === 0 ? emptyState : goingItems.map(renderGuestCard)
+            } else {
+              content = pendingItems.length === 0 ? emptyState : pendingItems.map(renderGuestCard)
+            }
+          }
+
+          return (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#8E8E93', marginBottom: 10, padding: '0 2px' }}>
+                Mes événements
+              </div>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                {TABS.map(({ key, label, count }) => {
+                  const isActive = activeTab === key
+                  return (
                     <button
-                      onClick={(e) => e.stopPropagation()}
+                      key={key}
+                      onClick={() => setActiveTab(key)}
                       style={{
-                        position: 'absolute', top: 10, right: 12,
-                        background: 'rgba(255,255,255,0.85)',
-                        border: 'none', borderRadius: '50%',
-                        width: 32, height: 32, padding: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer',
+                        flexShrink: 0,
+                        padding: '8px 16px', borderRadius: 20, border: 'none',
+                        cursor: 'pointer', fontSize: 13,
+                        fontWeight: isActive ? 600 : 500,
+                        background: isActive ? '#1C1C1E' : '#F2F2F7',
+                        color: isActive ? '#fff' : '#1C1C1E',
+                        transition: 'all 0.15s ease',
                       }}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e055aa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                      </svg>
+                      {label}{count > 0 ? ` (${count})` : ''}
                     </button>
-                  </div>
-                  <div style={{ padding: '11px 14px 13px' }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>
-                      {displayName}
-                    </div>
-                    {ev.location && (
-                      <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 5 }}>
-                        {ev.location}
-                      </div>
-                    )}
-                    <div style={{
-                      fontSize: 12, fontWeight: 600,
-                      background: 'linear-gradient(135deg, #e055aa, #f5a623)',
-                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    }}>
-                      {formatEventDate(ev.date)}
-                    </div>
-                    {ev.type && (
-                      <div style={{
-                        display: 'inline-block', border: '1px solid #E5E5EA',
-                        borderRadius: 20, padding: '3px 9px',
-                        fontSize: 11, fontWeight: 500, color: '#8E8E93', marginTop: 7,
-                      }}>
-                        {ev.type}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: 'rgba(224,85,170,0.09)', color: '#72243E' }}>🔒 Espace secret</span>
-                      <span style={{ padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: rsvpChip.bg, color: rsvpChip.color }}>
-                        {rsvpChip.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </>
-        )}
+                  )
+                })}
+              </div>
+              <div style={{ marginTop: 12 }}>{content}</div>
+            </div>
+          )
+        })()}
 
       </div>
     </div>
