@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, ExternalLink, Cake } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import InviteFriendsSheet from '../components/InviteFriendsSheet'
+
 
 const typeEmoji = {
   'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
@@ -74,7 +75,9 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const [showInviteSheet, setShowInviteSheet] = useState(false)
+  const [friends, setFriends] = useState([])
+  const [invitedIds, setInvitedIds] = useState(new Set())
+  const [copySuccess, setCopySuccess] = useState(false)
 
   const [dateOptions, setDateOptions] = useState([])
   const [myVotes, setMyVotes] = useState({})
@@ -85,6 +88,9 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [participants, setParticipants] = useState([])
   const [organizerName, setOrganizerName] = useState(null)
   const [eventGuests, setEventGuests] = useState([])
+  const [isInvitedGuest, setIsInvitedGuest] = useState(false)
+
+  const navigate = useNavigate()
 
   function showToast(msg) {
     setToast(msg)
@@ -101,9 +107,12 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     }
   }
 
-  function handleCopyLink() {
-    const url = `${window.location.origin}/invite/${event.invite_token}`
-    navigator.clipboard.writeText(url).then(() => showToast('Lien copié !'))
+  async function handleCopyLink() {
+    await navigator.clipboard.writeText(
+      `https://amiv.app/invite/${event.invite_token}`
+    )
+    setCopySuccess(true)
+    setTimeout(() => setCopySuccess(false), 2000)
   }
 
   useEffect(() => {
@@ -119,6 +128,9 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setParticipants([])
     setOrganizerName(null)
     setEventGuests([])
+    setIsInvitedGuest(false)
+    setFriends([])
+    setInvitedIds(new Set())
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -137,6 +149,17 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       ])
 
       if (cancelled) return
+
+      const { data: isGuestResult } = await supabase.rpc(
+        'is_invited_to_event',
+        { p_event_id: event.id, p_user_id: user.id }
+      );
+      setIsInvitedGuest(!!isGuestResult);
+
+      console.log('DEBUG event.user_id:', event?.user_id);
+      console.log('DEBUG user.id:', user?.id);
+      console.log('DEBUG isOrganizer:', isOrganizer);
+      console.log('DEBUG isInvitedGuest:', isGuest);
 
       setRsvpStatus(rsvpRes.data?.status ?? null)
 
@@ -203,6 +226,34 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           setAllVoteCounts(counts)
         }
       }
+
+      const { data: friendshipsData } = await supabase
+        .from('friendships')
+        .select('requester_id, addressee_id')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq('status', 'accepted')
+
+      const friendIds = (friendshipsData || []).map(f =>
+        f.requester_id === user.id ? f.addressee_id : f.requester_id
+      )
+
+      let friendList = []
+      if (friendIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, first_name, avatar_url')
+          .in('id', friendIds)
+        friendList = profilesData || []
+      }
+      if (!cancelled) setFriends(friendList)
+
+      const { data: existingInvites } = await supabase
+        .from('invitations')
+        .select('invited_user_id')
+        .eq('event_id', event.id)
+        .not('invited_user_id', 'is', null)
+
+      if (!cancelled) setInvitedIds(new Set((existingInvites || []).map(i => i.invited_user_id)))
     }
 
     init()
@@ -303,6 +354,17 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     }
   }
 
+  async function handleInviteFriend(friendId) {
+    if (invitedIds.has(friendId)) return
+    await supabase.from('invitations').insert({
+      event_id: event.id,
+      invited_user_id: friendId,
+      invited_by: userId,
+      status: 'pending',
+    })
+    setInvitedIds(prev => new Set([...prev, friendId]))
+  }
+
   async function handleAddFriend(inviteeId) {
     setEventGuests(prev => prev.map(g => g.invitee_id === inviteeId ? { ...g, friend_request_sent: true } : g))
     const { error } = await supabase.from('friendships').insert({
@@ -387,35 +449,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         )}
       </div>
 
-      {/* ── SHARE CTA BAR ── */}
-      {isOrganizer && event.invite_token && (
-        <div style={{
-          background: '#fff', borderRadius: '0 0 20px 20px',
-          padding: '12px 16px', display: 'flex', gap: 10, flexShrink: 0,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        }}>
-          <div
-            onClick={() => setShowInviteSheet(true)}
-            style={{
-              flex: 1, background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-              borderRadius: 12, padding: '13px 16px', textAlign: 'center',
-              fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer',
-            }}
-          >
-            Inviter des amis
-          </div>
-          <div
-            onClick={handleCopyLink}
-            style={{
-              width: 42, height: 42, borderRadius: 10, background: '#F2F2F7',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', flexShrink: 0,
-            }}
-          >
-            <ExternalLink size={18} strokeWidth={1.5} />
-          </div>
-        </div>
-      )}
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
@@ -434,6 +467,79 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
             ))}
           </div>
         ) : null}
+
+        {/* ── ORGANIZER SPACE ENTRY ── */}
+        {isOrganizer && (
+          <div
+            onClick={() => navigate(`/events/${event.id}/organizer-space`)}
+            style={{
+              background: '#fff', borderRadius: 16, padding: '14px 16px',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
+              alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: 14,
+            }}
+          >
+            <div style={{
+              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(0,122,255,0.10)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="4" width="16" height="13" rx="2" stroke="#007AFF" strokeWidth="1.5" />
+                <path d="M6 4V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1" stroke="#007AFF" strokeWidth="1.5" />
+                <path d="M6 9h8M6 12.5h5" stroke="#007AFF" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Mon espace organisateur</div>
+              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Checklist & suivi</div>
+            </div>
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        )}
+
+        {/* ── SECRET SPACE ENTRY ── */}
+        {!isOrganizer && isInvitedGuest && (
+          <div
+            onClick={() => navigate(`/events/${event.id}/secret-space`)}
+            style={{
+              background: '#fff', borderRadius: 16, padding: '14px 16px',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
+              alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: 14,
+            }}
+          >
+            <div style={{
+              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(224,85,170,0.10)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="9" width="16" height="12" rx="2.5" stroke="#e055aa" strokeWidth="1.5" />
+                <path d="M5 9V6a4 4 0 0 1 8 0v3" stroke="#e055aa" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="9" cy="15" r="1.5" fill="#e055aa" />
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Espace secret</div>
+              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Cadeaux · Cagnotte · Carte</div>
+              {organizerName && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', marginTop: 6,
+                  padding: '3px 10px', borderRadius: 20,
+                  background: 'rgba(224,85,170,0.08)',
+                  border: '1px solid rgba(224,85,170,0.20)',
+                  fontSize: 10, fontWeight: 600, color: '#993556',
+                }}>
+                  🔒 Caché de {organizerName}
+                </div>
+              )}
+            </div>
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        )}
 
         {/* ── EDIT FORM ── */}
         {editing && (
@@ -675,6 +781,75 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
+        {/* ── INVITE FRIENDS (organizer only) ── */}
+        {isOrganizer && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
+              Inviter des amis
+            </div>
+
+            {friends.length === 0 ? (
+              <div style={{ background: '#F2F2F7', borderRadius: 16, padding: '20px', textAlign: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 13, color: '#8E8E93' }}>Aucun ami à inviter pour l'instant</div>
+              </div>
+            ) : (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', marginBottom: 10, overflow: 'hidden' }}>
+                {friends.map((friend, i) => (
+                  <div key={friend.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderTop: i > 0 ? '0.5px solid rgba(0,0,0,0.07)' : 'none' }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 18, background: '#e055aa',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0,
+                    }}>
+                      {(friend.first_name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>
+                      {friend.first_name}
+                    </div>
+                    {invitedIds.has(friend.id) ? (
+                      <div style={{
+                        background: 'rgba(52,199,89,0.10)', color: '#34C759',
+                        borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                      }}>
+                        Invité ✓
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => handleInviteFriend(friend.id)}
+                        style={{
+                          background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
+                          borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Inviter
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E', marginBottom: 8 }}>
+                Ou partage le lien
+              </div>
+              <div
+                onClick={handleCopyLink}
+                style={{
+                  width: '100%', borderRadius: 12, padding: 12, textAlign: 'center',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  background: copySuccess ? 'rgba(52,199,89,0.10)' : '#F2F2F7',
+                  color: copySuccess ? '#34C759' : '#1C1C1E',
+                  boxSizing: 'border-box',
+                }}
+              >
+                {copySuccess ? '✓ Lien copié !' : '🔗 Copier le lien d\'invitation'}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── BOTTOM ACTIONS ── */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
           <div
@@ -769,14 +944,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         </div>
       )}
 
-      {/* ── INVITE FRIENDS SHEET ── */}
-      {showInviteSheet && (
-        <InviteFriendsSheet
-          eventId={event.id}
-          onClose={() => setShowInviteSheet(false)}
-          onInvited={(count) => showToast(`${count} ami${count > 1 ? 's' : ''} invité${count > 1 ? 's' : ''} 🎉`)}
-        />
-      )}
+
 
     </div>
   )

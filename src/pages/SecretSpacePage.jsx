@@ -27,12 +27,15 @@ export default function SecretSpacePage() {
   const navigate = useNavigate()
   const [event, setEvent] = useState(null)
   const [activeTab, setActiveTab] = useState('cadeaux')
+  const [loading, setLoading] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState(null)
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { navigate('/'); return }
       console.log('[SecretSpace] currentUser.id:', user.id)
+      setCurrentUserId(user.id)
 
       const { data, error } = await supabase
         .from('events')
@@ -45,12 +48,18 @@ export default function SecretSpacePage() {
       if (error || !data) { navigate('/'); return }
 
       console.log('[SecretSpace] event.user_id:', data.user_id, '=== currentUser?', data.user_id === user.id)
-      if (data.user_id === user.id) { navigate('/'); return }
 
       setEvent(data)
+      setLoading(false)
     }
     init()
   }, [eventId, navigate])
+
+  useEffect(() => {
+    if (loading) return
+    if (!event) { navigate('/'); return }
+    if (event.user_id === currentUserId) { navigate('/') }
+  }, [event, loading])
 
   if (!event) return null
 
