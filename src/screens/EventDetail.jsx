@@ -84,6 +84,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [rsvpStats, setRsvpStats] = useState({ confirmed: 0, pending: 0, declined: 0 })
   const [participants, setParticipants] = useState([])
   const [organizerName, setOrganizerName] = useState(null)
+  const [eventGuests, setEventGuests] = useState([])
 
   function showToast(msg) {
     setToast(msg)
@@ -117,6 +118,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setRsvpStats({ confirmed: 0, pending: 0, declined: 0 })
     setParticipants([])
     setOrganizerName(null)
+    setEventGuests([])
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -160,6 +162,11 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       if (!isOrg && event.user_id) {
         const { data: orgProfile } = await supabase.from('profiles').select('name').eq('id', event.user_id).maybeSingle()
         if (!cancelled && orgProfile?.name) setOrganizerName(orgProfile.name.split(' ')[0])
+      }
+
+      if (!isOrg) {
+        const { data: inviteeGuests } = await supabase.rpc('get_event_guests', { p_event_id: event.id })
+        if (!cancelled && inviteeGuests) setEventGuests(inviteeGuests)
       }
 
       if (cancelled) return
@@ -296,6 +303,19 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     }
   }
 
+  async function handleAddFriend(inviteeId) {
+    setEventGuests(prev => prev.map(g => g.invitee_id === inviteeId ? { ...g, friend_request_sent: true } : g))
+    const { error } = await supabase.from('friendships').insert({
+      requester_id: userId,
+      addressee_id: inviteeId,
+      status: 'pending',
+    })
+    if (error) {
+      setEventGuests(prev => prev.map(g => g.invitee_id === inviteeId ? { ...g, friend_request_sent: false } : g))
+      showToast('Erreur lors de la demande')
+    }
+  }
+
   if (!event) return null
 
   const isOrganizer = userId !== null && userId === event.user_id
@@ -413,12 +433,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
               </div>
             ))}
           </div>
-        ) : rsvpStats.confirmed > 0 ? (
-          <div style={{ background: '#fff', borderRadius: 16, padding: '12px 16px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#8E8E93' }}>
-              👥 {rsvpStats.confirmed} personne{rsvpStats.confirmed > 1 ? 's' : ''} participe{rsvpStats.confirmed > 1 ? 'nt' : ''}
-            </div>
-          </div>
         ) : null}
 
         {/* ── EDIT FORM ── */}
@@ -486,6 +500,53 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           <div style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>Description</div>
             <div style={{ fontSize: 13, color: '#1C1C1E', lineHeight: 1.5 }}>{displayDescription}</div>
+          </div>
+        )}
+
+        {/* ── GUESTS LIST (invitee view) ── */}
+        {!isOrganizer && eventGuests.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
+              Invités ({eventGuests.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {eventGuests.map(guest => {
+                const chipBg = guest.rsvp_status === 'confirmed' ? 'rgba(52,199,89,0.10)' : guest.rsvp_status === 'declined' ? 'rgba(255,59,48,0.10)' : 'rgba(142,142,147,0.12)'
+                const chipColor = guest.rsvp_status === 'confirmed' ? '#34C759' : guest.rsvp_status === 'declined' ? '#FF3B30' : '#8E8E93'
+                const chipLabel = guest.rsvp_status === 'confirmed' ? 'Confirmé' : guest.rsvp_status === 'declined' ? 'Décliné' : 'En attente'
+                const btnDisabled = guest.is_friend || guest.friend_request_sent
+                const btnBg = guest.is_friend ? 'rgba(52,199,89,0.10)' : '#F2F2F7'
+                const btnColor = guest.is_friend ? '#34C759' : guest.friend_request_sent ? '#8E8E93' : '#1C1C1E'
+                const btnLabel = guest.is_friend ? 'Amis ✓' : guest.friend_request_sent ? 'Demande envoyée' : '+ Ajouter'
+                return (
+                  <div key={guest.invitee_id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {guest.avatar_url ? (
+                      <img src={guest.avatar_url} alt={guest.full_name} style={{ width: 36, height: 36, borderRadius: 18, objectFit: 'cover', flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 36, height: 36, borderRadius: 18, background: '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                        {(guest.full_name || '?').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {guest.full_name}
+                      </div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 3, padding: '2px 8px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: chipBg, color: chipColor }}>
+                        {chipLabel}
+                      </div>
+                    </div>
+                    {guest.invitee_id !== userId && (
+                      <div
+                        onClick={() => !btnDisabled && handleAddFriend(guest.invitee_id)}
+                        style={{ padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: btnDisabled ? 'default' : 'pointer', background: btnBg, color: btnColor, flexShrink: 0, whiteSpace: 'nowrap' }}
+                      >
+                        {btnLabel}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
