@@ -204,9 +204,9 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     const goingIds = goingRsvps?.map(r => r.event_id) ?? []
     let query = supabase.from('events').select('*').order('date', { ascending: true }).limit(3)
     if (goingIds.length > 0) {
-      query = query.or(`organizer_id.eq.${userId},id.in.(${goingIds.join(',')})`)
+      query = query.or(`user_id.eq.${userId},id.in.(${goingIds.join(',')})`)
     } else {
-      query = query.eq('organizer_id', userId)
+      query = query.eq('user_id', userId)
     }
     const { data, error } = await query
     if (error) console.error('Erreur lors du chargement des événements :', error)

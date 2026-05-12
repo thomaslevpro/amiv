@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, ExternalLink, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import InviteFriendsSheet from '../components/InviteFriendsSheet'
 
 const typeEmoji = {
   'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
@@ -73,6 +74,8 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  const [showInviteSheet, setShowInviteSheet] = useState(false)
+
   const [dateOptions, setDateOptions] = useState([])
   const [myVotes, setMyVotes] = useState({})
   const [allVoteCounts, setAllVoteCounts] = useState({})
@@ -80,6 +83,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
   const [rsvpStats, setRsvpStats] = useState({ confirmed: 0, pending: 0, declined: 0 })
   const [participants, setParticipants] = useState([])
+  const [organizerName, setOrganizerName] = useState(null)
 
   function showToast(msg) {
     setToast(msg)
@@ -112,6 +116,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setAllVoteCounts({})
     setRsvpStats({ confirmed: 0, pending: 0, declined: 0 })
     setParticipants([])
+    setOrganizerName(null)
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -150,6 +155,11 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       if (userIds.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('id, name').in('id', userIds)
         if (profiles) profiles.forEach(p => { profileMap[p.id] = p.name })
+      }
+
+      if (!isOrg && event.user_id) {
+        const { data: orgProfile } = await supabase.from('profiles').select('name').eq('id', event.user_id).maybeSingle()
+        if (!cancelled && orgProfile?.name) setOrganizerName(orgProfile.name.split(' ')[0])
       }
 
       if (cancelled) return
@@ -200,6 +210,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       .upsert({ event_id: event.id, user_id: userId, status }, { onConflict: 'event_id,user_id' })
     if (!error) {
       setRsvpStatus(status)
+      showToast('Réponse enregistrée ✓')
       if (status === 'going' && event.user_id && event.user_id !== userId) {
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
         const name = profile?.name ?? 'Quelqu\'un'
@@ -305,6 +316,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     { icon: <MapPin size={16} strokeWidth={1.5} />, label: 'Lieu', value: displayLocation || 'Lieu non précisé', badge: false },
     { icon: null, label: 'Type', value: event.type || 'Autre', badge: true },
     { icon: null, label: 'Visibilité', value: visibility, badge: true },
+    ...(!isOrganizer && organizerName ? [{ icon: null, label: 'Organisé par', value: organizerName, badge: false }] : []),
   ]
 
   return (
@@ -356,14 +368,14 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       </div>
 
       {/* ── SHARE CTA BAR ── */}
-      {event.invite_token && (
+      {isOrganizer && event.invite_token && (
         <div style={{
           background: '#fff', borderRadius: '0 0 20px 20px',
           padding: '12px 16px', display: 'flex', gap: 10, flexShrink: 0,
           boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         }}>
           <div
-            onClick={handleShare}
+            onClick={() => setShowInviteSheet(true)}
             style={{
               flex: 1, background: 'linear-gradient(135deg,#e055aa,#f5a623)',
               borderRadius: 12, padding: '13px 16px', textAlign: 'center',
@@ -388,18 +400,26 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
         {/* ── STATS ROW ── */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-          {[
-            { count: rsvpStats.confirmed, label: 'Confirmés' },
-            { count: rsvpStats.pending, label: 'En attente' },
-            { count: rsvpStats.declined, label: 'Déclinés' },
-          ].map((s, i) => (
-            <div key={i} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '12px 8px', textAlign: 'center', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>{s.count}</div>
-              <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginTop: 2 }}>{s.label}</div>
+        {isOrganizer ? (
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            {[
+              { count: rsvpStats.confirmed, label: 'Confirmés' },
+              { count: rsvpStats.pending, label: 'En attente' },
+              { count: rsvpStats.declined, label: 'Déclinés' },
+            ].map((s, i) => (
+              <div key={i} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '12px 8px', textAlign: 'center', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>{s.count}</div>
+                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        ) : rsvpStats.confirmed > 0 ? (
+          <div style={{ background: '#fff', borderRadius: 16, padding: '12px 16px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#8E8E93' }}>
+              👥 {rsvpStats.confirmed} personne{rsvpStats.confirmed > 1 ? 's' : ''} participe{rsvpStats.confirmed > 1 ? 'nt' : ''}
             </div>
-          ))}
-        </div>
+          </div>
+        ) : null}
 
         {/* ── EDIT FORM ── */}
         {editing && (
@@ -563,7 +583,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         )}
 
         {/* ── PARTICIPANTS LIST ── */}
-        {participants.length > 0 && (
+        {isOrganizer && participants.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E' }}>Participants</div>
@@ -623,33 +643,30 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
         {/* ── RSVP BUTTONS (guests only) ── */}
         {!isOrganizer && (
-          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-            <div
-              onClick={() => handleRsvp('going')}
-              style={{
-                flex: 1, padding: '14px', borderRadius: 14, textAlign: 'center',
-                fontSize: 14, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
-                background: rsvpStatus !== 'declined' ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
-                color: rsvpStatus !== 'declined' ? '#fff' : '#8E8E93',
-                boxShadow: rsvpStatus === 'going' ? '0 4px 16px rgba(224,85,170,0.35)' : 'none',
-                transition: 'all 0.15s', opacity: loading ? 0.6 : 1,
-              }}
-            >
-              ✓ Participer
-            </div>
-            <div
-              onClick={() => handleRsvp('declined')}
-              style={{
-                flex: 1, padding: '14px', borderRadius: 14, textAlign: 'center',
-                fontSize: 14, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
-                background: rsvpStatus === 'declined' ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
-                color: rsvpStatus === 'declined' ? '#fff' : '#8E8E93',
-                boxShadow: rsvpStatus === 'declined' ? '0 4px 16px rgba(224,85,170,0.35)' : 'none',
-                transition: 'all 0.15s', opacity: loading ? 0.6 : 1,
-              }}
-            >
-              ✕ Décliner
-            </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            {[
+              { status: 'going', label: "✓ J'y serai" },
+              { status: 'maybe', label: 'Peut-être' },
+              { status: 'declined', label: '✕ Je ne peux pas' },
+            ].map(({ status, label }) => {
+              const active = rsvpStatus === status
+              return (
+                <div
+                  key={status}
+                  onClick={() => !loading && handleRsvp(status)}
+                  style={{
+                    flex: 1, padding: '13px 6px', borderRadius: 14, textAlign: 'center',
+                    fontSize: 13, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+                    background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+                    color: active ? '#fff' : '#8E8E93',
+                    boxShadow: active ? '0 4px 16px rgba(224,85,170,0.35)' : 'none',
+                    transition: 'all 0.15s', opacity: loading ? 0.6 : 1,
+                  }}
+                >
+                  {label}
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -689,6 +706,15 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── INVITE FRIENDS SHEET ── */}
+      {showInviteSheet && (
+        <InviteFriendsSheet
+          eventId={event.id}
+          onClose={() => setShowInviteSheet(false)}
+          onInvited={(count) => showToast(`${count} ami${count > 1 ? 's' : ''} invité${count > 1 ? 's' : ''} 🎉`)}
+        />
       )}
 
     </div>

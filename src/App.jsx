@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useNotifications } from './hooks/useNotifications'
 import BottomNav from './components/BottomNav'
@@ -16,8 +17,22 @@ import EditProfile from './screens/EditProfile'
 import GuestRsvpPage from './screens/GuestRsvpPage'
 import AllEvents from './screens/AllEvents'
 import ConversationScreen from './screens/ConversationScreen'
+import SecretSpacePage from './pages/SecretSpacePage'
+import OrganizerSpacePage from './pages/OrganizerSpacePage'
 
 export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
+        <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
+        <Route path="*" element={<MainApp />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+function MainApp() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
 
@@ -74,6 +89,8 @@ export default function App() {
     if (!session || !pendingEventId.current) return
     const id = pendingEventId.current
     pendingEventId.current = null
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!UUID_REGEX.test(id)) return
     supabase.from('events').select('*').eq('id', id).maybeSingle().then(({ data }) => {
       if (data) {
         setSelectedEvent(data)
@@ -135,7 +152,7 @@ export default function App() {
 
     switch (tab) {
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} session={session} />
-      case 'calendar': return <Calendar onEventClick={handleEventClick} />
+      case 'calendar': return <Calendar />
       case 'messages':
         if (directConv) {
           return <ConversationScreen conversationId={directConv.conversationId} friend={directConv.friend} onBack={() => setDirectConv(null)} />

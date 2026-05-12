@@ -115,7 +115,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
 
     const [{ data: rsvpRows }, { data: ownRows }] = await Promise.all([
       supabase.from('rsvps').select('event_id').eq('user_id', userId),
-      supabase.from('events').select('id').eq('organizer_id', userId),
+      supabase.from('events').select('id').eq('user_id', userId),
     ])
 
     const allIds = [...new Set([
