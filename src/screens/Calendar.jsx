@@ -43,7 +43,7 @@ function formatEventDate(dateStr) {
   return `${datePart} · ${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`
 }
 
-export default function Calendar({ onEventClick }) {
+export default function Calendar() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [calendarDots, setCalendarDots] = useState([])
@@ -266,13 +266,7 @@ export default function Calendar({ onEventClick }) {
                 return (
                   <div
                     key={ev.id}
-                    onClick={() => {
-                      if (isGuest) {
-                        navigate(`/events/${ev.id}/secret-space`)
-                      } else {
-                        onEventClick(ev)
-                      }
-                    }}
+                    onClick={() => navigate(`/events/${ev.id}`)}
                     style={{
                       background: '#fff', borderRadius: 16, padding: '12px 14px',
                       display: 'flex', alignItems: 'center', gap: 12,
@@ -329,7 +323,7 @@ export default function Calendar({ onEventClick }) {
               const rsvpStatus = event.rsvps?.find(r => r.user_id)?.status
               return (
                 <div key={event.id}
-                  onClick={() => navigate(`/events/${event.id}/secret-space`)}
+                  onClick={() => navigate(`/events/${event.id}`)}
                   style={{ background: 'white', borderRadius: 16, marginBottom: 10, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 13px 11px' }}>
                     <div style={{ width: 40, height: 40, borderRadius: 13, fontSize: 18, background: 'rgba(224,85,170,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🎂</div>

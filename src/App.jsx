@@ -21,6 +21,7 @@ import AllEvents from './screens/AllEvents'
 import ConversationScreen from './screens/ConversationScreen'
 import SecretSpacePage from './pages/SecretSpacePage'
 import OrganizerSpacePage from './pages/OrganizerSpacePage'
+import EventPage from './pages/EventPage'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
       <Routes>
         <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
         <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
+        <Route path="/events/:id" element={<EventPage />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>
