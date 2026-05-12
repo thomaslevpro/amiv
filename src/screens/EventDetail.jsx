@@ -159,7 +159,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       console.log('DEBUG event.user_id:', event?.user_id);
       console.log('DEBUG user.id:', user?.id);
       console.log('DEBUG isOrganizer:', isOrganizer);
-      console.log('DEBUG isInvitedGuest:', isGuest);
+      console.log('DEBUG isInvitedGuest:', isInvitedGuest);
 
       setRsvpStatus(rsvpRes.data?.status ?? null)
 

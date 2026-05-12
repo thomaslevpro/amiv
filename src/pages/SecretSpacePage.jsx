@@ -39,7 +39,7 @@ export default function SecretSpacePage() {
 
       const { data, error } = await supabase
         .from('events')
-        .select('id, name, date, user_id, profiles!user_id(full_name)')
+        .select('id, name, date, user_id')
         .eq('id', eventId)
         .maybeSingle()
 
@@ -48,6 +48,15 @@ export default function SecretSpacePage() {
       if (error || !data) { navigate('/'); return }
 
       console.log('[SecretSpace] event.user_id:', data.user_id, '=== currentUser?', data.user_id === user.id)
+
+      if (data.user_id) {
+        const { data: orgProfile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', data.user_id)
+          .maybeSingle()
+        data.organizerName = orgProfile?.name ?? ''
+      }
 
       setEvent(data)
       setLoading(false)
@@ -63,7 +72,7 @@ export default function SecretSpacePage() {
 
   if (!event) return null
 
-  const firstName = event.profiles?.full_name?.split(' ')[0] ?? ''
+  const firstName = event.organizerName?.split(' ')[0] ?? ''
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', minHeight: '100dvh' }}>
