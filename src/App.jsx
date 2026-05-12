@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useNotifications } from './hooks/useNotifications'
 import BottomNav from './components/BottomNav'
+import CreateActionSheet from './components/CreateActionSheet'
+import AddAmivModal from './components/AddAmivModal'
 import Onboarding from './screens/Onboarding'
 import OnboardingFlow from './pages/Onboarding'
 import Auth from './screens/Auth'
@@ -43,6 +45,8 @@ function MainApp() {
   const [onboardingCompleted, setOnboardingCompleted] = useState(null)
   const [tab, setTab] = useState('home')
   const [screen, setScreen] = useState('home')
+  const [showCreateSheet, setShowCreateSheet] = useState(false)
+  const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [conversationEvent, setConversationEvent] = useState(null)
   const [directConv, setDirectConv] = useState(null)
@@ -152,7 +156,7 @@ function MainApp() {
 
     switch (tab) {
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} session={session} />
-      case 'calendar': return <Calendar />
+      case 'calendar': return <Calendar onEventClick={handleEventClick} />
       case 'messages':
         if (directConv) {
           return <ConversationScreen conversationId={directConv.conversationId} friend={directConv.friend} onBack={() => setDirectConv(null)} />
@@ -174,10 +178,24 @@ function MainApp() {
       <BottomNav
         current={tab}
         onChange={handleTabChange}
+        onCreateClick={() => setShowCreateSheet(true)}
         hasUnreadMessages={unreadMessagesCount > 0}
         hasUnreadNotifications={hasUnreadNotifications}
         hidden={isDetailScreen}
       />
+      {showCreateSheet && (
+        <CreateActionSheet
+          onClose={() => setShowCreateSheet(false)}
+          onCreateEvent={() => setScreen('create')}
+          onAddAmiv={() => setShowAddAmiv(true)}
+        />
+      )}
+      {showAddAmiv && (
+        <AddAmivModal
+          onClose={() => setShowAddAmiv(false)}
+          onSaved={() => setShowAddAmiv(false)}
+        />
+      )}
     </div>
   )
 }

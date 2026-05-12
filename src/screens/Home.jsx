@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronRight, Plus, Cake } from 'lucide-react'
 import NotificationBell from '../components/NotificationBell'
 import HeroBirthdayCard from '../components/HeroBirthdayCard'
 import BirthdayStrip from '../components/BirthdayStrip'
@@ -32,8 +31,6 @@ function getGreeting() {
   return 'Bonsoir'
 }
 
-const typeEmoji = { 'Anniversaire': <Cake size={20} strokeWidth={1.5} />, 'Soirée': '🥂', 'Repas': '🍽️', 'Autre': '🎉' }
-
 function SectionHeader({ title, badge, link, onLink }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 2px' }}>
@@ -52,40 +49,6 @@ function SectionHeader({ title, badge, link, onLink }) {
           {link}
         </span>
       )}
-    </div>
-  )
-}
-
-function EventCardCompact({ event, onClick }) {
-  const { name = 'Événement', date, location, type = 'Autre' } = event
-  const emoji = typeEmoji[type] ?? '🎉'
-  const dateStr = date
-    ? new Date(date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-    : ''
-  return (
-    <div
-      onClick={() => onClick?.(event)}
-      style={{
-        background: '#fff', borderRadius: 16, padding: '12px 14px',
-        display: 'flex', alignItems: 'center', gap: 12,
-        marginBottom: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', cursor: 'pointer',
-      }}
-    >
-      <div style={{
-        width: 40, height: 40, background: '#FFF5F0', borderRadius: 12,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
-      }}>
-        {emoji}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {name}
-        </div>
-        <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>
-          {dateStr}{location ? ` · ${location}` : ''}
-        </div>
-      </div>
-      <ChevronRight size={16} strokeWidth={1.5} color="#AEAEB2" />
     </div>
   )
 }
@@ -181,7 +144,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   const userId = session?.user?.id
   const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
 
-  const [events, setEvents] = useState([])
   const [invitations, setInvitations] = useState([])
   const [birthdays, setBirthdays] = useState([])
   const [showAddAmiv, setShowAddAmiv] = useState(false)
@@ -192,25 +154,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   function showToast(message, isError = false) {
     setToast({ message, isError })
     setTimeout(() => setToast(null), 3000)
-  }
-
-  const fetchEvents = async () => {
-    if (!userId) return
-    const { data: goingRsvps } = await supabase
-      .from('rsvps')
-      .select('event_id')
-      .eq('user_id', userId)
-      .eq('status', 'going')
-    const goingIds = goingRsvps?.map(r => r.event_id) ?? []
-    let query = supabase.from('events').select('*').order('date', { ascending: true }).limit(3)
-    if (goingIds.length > 0) {
-      query = query.or(`user_id.eq.${userId},id.in.(${goingIds.join(',')})`)
-    } else {
-      query = query.eq('user_id', userId)
-    }
-    const { data, error } = await query
-    if (error) console.error('Erreur lors du chargement des événements :', error)
-    else setEvents(data ?? [])
   }
 
   const fetchInvitations = async () => {
@@ -235,7 +178,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   }
 
   useEffect(() => {
-    fetchEvents()
     fetchInvitations()
   }, [userId])
 
@@ -271,7 +213,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     const { error } = await supabase.from('rsvps').update({ status: 'going' }).eq('id', rsvpId)
     if (!error) {
       setInvitations(prev => prev.filter(i => i.id !== rsvpId))
-      fetchEvents()
     }
   }
 
@@ -328,17 +269,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
             <NotificationBell onEventClick={onNotifEventClick ?? onEventClick} />
-            <button
-              onClick={onCreateClick}
-              style={{
-                width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                boxShadow: '0 2px 8px rgba(224,85,170,0.35)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}
-            >
-              <Plus size={18} strokeWidth={1.5} color="#fff" />
-            </button>
           </div>
         </div>
 
@@ -428,16 +358,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           })}
         </div>
         <BirthdayStrip birthdays={displayedBirthdays} onRefetch={fetchBirthdays} onToast={showToast} />
-        <MonthTimeline birthdays={birthdaysThisMonth} events={events} today={today} onAddAmiv={() => setShowAddAmiv(true)} />
-
-        <SectionHeader title="Mes événements" link="Voir tout" onLink={onAllEventsClick} />
-        {events.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, padding: '20px 0' }}>
-            Aucun événement pour l'instant
-          </div>
-        ) : (
-          events.map(e => <EventCardCompact key={e.id} event={e} onClick={onEventClick} />)
-        )}
+        <MonthTimeline birthdays={birthdaysThisMonth} events={[]} today={today} onAddAmiv={() => setShowAddAmiv(true)} />
 
         {pendingRequests.length > 0 && (
           <>

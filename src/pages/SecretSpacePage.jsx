@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 function frenchDate(dateStr) {
+  if (!dateStr) return ''
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }

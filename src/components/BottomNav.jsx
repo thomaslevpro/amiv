@@ -1,4 +1,4 @@
-import { Home, Calendar, MessageCircle, User } from 'lucide-react'
+import { Home, Calendar, MessageCircle, User, Plus } from 'lucide-react'
 
 const Badge = () => (
   <div style={{
@@ -14,7 +14,7 @@ const Badge = () => (
   }} />
 )
 
-export default function BottomNav({ current, onChange, hasUnreadMessages, hasUnreadNotifications, hidden }) {
+export default function BottomNav({ current, onChange, onCreateClick, hasUnreadMessages, hasUnreadNotifications, hidden }) {
   return (
     <div style={{
       position: 'fixed',
@@ -45,6 +45,8 @@ export default function BottomNav({ current, onChange, hasUnreadMessages, hasUnr
       borderRadius: 40,
       paddingTop: 10,
       paddingBottom: 10,
+      paddingLeft: 4,
+      paddingRight: 4,
       minHeight: 64,
       pointerEvents: 'auto',
     }}>
@@ -73,6 +75,33 @@ export default function BottomNav({ current, onChange, hasUnreadMessages, hasUnr
         color: current === 'calendar' ? '#1C1C1E' : '#8E8E93',
       }}>
         <Calendar size={26} strokeWidth={1.5} fill={current === 'calendar' ? 'currentColor' : 'none'} />
+      </div>
+
+      {/* Create (+) */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div
+          onClick={onCreateClick}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #e055aa, #f5a623)',
+            boxShadow: '0 4px 12px rgba(224,85,170,0.40)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transform: 'translateY(-6px)',
+            flexShrink: 0,
+          }}
+        >
+          <Plus size={24} strokeWidth={2} color="#fff" />
+        </div>
       </div>
 
       {/* Messages */}

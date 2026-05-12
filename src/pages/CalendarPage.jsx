@@ -189,108 +189,11 @@ function InvitedEventCard({ event, navigate }) {
   )
 }
 
-function SectionDivider({ label }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 14px' }}>
-      <div style={{ flex: 1, height: 1, background: '#E5E5EA' }} />
-      <span style={{ fontSize: 13, fontWeight: 600, color: '#8E8E93' }}>{label}</span>
-      <div style={{ flex: 1, height: 1, background: '#E5E5EA' }} />
-    </div>
-  )
-}
-
-function MyAmivCard({ event, navigate }) {
-  const days = daysUntil(event.date)
-  const dateLabel = frenchDate(event.date)
-  const progress = event.total_count > 0 ? (event.done_count / event.total_count) * 100 : 0
-
-  return (
-    <div
-      onClick={() => navigate(`/events/${event.id}/organizer-space`)}
-      style={{ background: '#fff', borderRadius: 16, padding: '12px 14px', cursor: 'pointer' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 40, height: 40,
-          background: 'rgba(0,122,255,0.10)',
-          borderRadius: 13,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 20, flexShrink: 0,
-        }}>
-          🥳
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#1C1C1E', marginBottom: 2 }}>
-            Mon anniversaire
-          </div>
-          <div style={{ fontSize: 12, color: '#8E8E93' }}>
-            {dateLabel} · J-{days}
-          </div>
-        </div>
-        <ChevronRight />
-      </div>
-
-      <div style={{ marginTop: 10 }}>
-        <div style={{ height: 5, borderRadius: 3, background: '#F2F2F7', overflow: 'hidden', marginBottom: 4 }}>
-          <div style={{
-            width: `${progress}%`,
-            height: '100%',
-            background: 'linear-gradient(90deg, #e055aa, #f5a623)',
-            borderRadius: 3,
-          }} />
-        </div>
-        <div style={{ fontSize: 10, color: '#8E8E93' }}>
-          Checklist · {event.done_count} / {event.total_count} tâches
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <div style={{
-          background: 'rgba(52,199,89,0.10)',
-          borderRadius: 20, padding: '3px 8px',
-          fontSize: 11, fontWeight: 600, color: '#1d7a38',
-        }}>
-          {event.confirmed_count} confirmés
-        </div>
-        <div style={{
-          background: 'rgba(255,149,0,0.10)',
-          borderRadius: 20, padding: '3px 8px',
-          fontSize: 11, fontWeight: 600, color: '#b35c00',
-        }}>
-          {event.pending_count} en attente
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function CreateAmivCard({ navigate }) {
-  return (
-    <div
-      onClick={() => navigate('/events/create', { state: { defaultType: 'birthday' } })}
-      style={{
-        border: '1.5px dashed #AEAEB2',
-        borderRadius: 16,
-        background: '#fff',
-        padding: 20,
-        textAlign: 'center',
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{ fontSize: 22, color: '#AEAEB2', marginBottom: 6 }}>+</div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Crée ton amiv</div>
-      <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 4 }}>
-        Organise ton propre anniversaire
-      </div>
-    </div>
-  )
-}
 
 export default function CalendarPage({ navigate = () => {} }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [calendarDots, setCalendarDots] = useState([])
   const [invitedEvents, setInvitedEvents] = useState([])
-  const [myEvent, setMyEvent] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchDots = useCallback(async (month) => {
@@ -314,35 +217,8 @@ export default function CalendarPage({ navigate = () => {} }) {
     const today = formatDate(now)
     const ninetyDaysLater = formatDate(new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000))
 
-    const fetchMyEvent = async () => {
-      const { data: event, error } = await supabase
-        .from('events')
-        .select('id, name, date')
-        .eq('user_id', user.id)
-        .eq('type', 'birthday')
-        .maybeSingle()
-
-      if (error) throw error
-      if (!event) return null
-
-      const [{ data: items, error: itemsError }, { data: rsvps, error: rsvpsError }] = await Promise.all([
-        supabase.from('checklist_items').select('done').eq('event_id', event.id),
-        supabase.from('rsvps').select('status').eq('event_id', event.id),
-      ])
-
-      if (itemsError) throw itemsError
-      if (rsvpsError) throw rsvpsError
-
-      const total_count = items?.length ?? 0
-      const done_count = items?.filter((i) => i.done).length ?? 0
-      const confirmed_count = rsvps?.filter((r) => r.status === 'going').length ?? 0
-      const pending_count = rsvps?.filter((r) => r.status !== 'going').length ?? 0
-
-      return { ...event, done_count, total_count, confirmed_count, pending_count }
-    }
-
     try {
-      const [dotsResult, invitedResult, myEventResult] = await Promise.all([
+      const [dotsResult, invitedResult] = await Promise.all([
         supabase.rpc('get_calendar_dots', {
           month_start: formatDate(monthStart),
           month_end: formatDate(monthEnd),
@@ -351,7 +227,6 @@ export default function CalendarPage({ navigate = () => {} }) {
           .from('rsvps')
           .select('status, events!inner(id, name, date, user_id, profiles!user_id(full_name))')
           .eq('user_id', user.id),
-        fetchMyEvent(),
       ])
 
       if (dotsResult.error) throw dotsResult.error
@@ -362,11 +237,9 @@ export default function CalendarPage({ navigate = () => {} }) {
         .filter(row => row.events && row.events.user_id !== user.id && row.events.date >= today && row.events.date <= ninetyDaysLater)
         .map(row => ({ ...row.events, rsvpStatus: row.status }))
       setInvitedEvents(mapped)
-      setMyEvent(myEventResult)
 
       console.log('calendarDots', dotsResult.data)
       console.log('invitedEvents', invitedResult.data)
-      console.log('myEvent', myEventResult)
     } catch (err) {
       console.error(err)
     } finally {
@@ -410,14 +283,6 @@ export default function CalendarPage({ navigate = () => {} }) {
         </div>
       )}
 
-      <div>
-        <SectionDivider label="Mon amiv" />
-        {myEvent ? (
-          <MyAmivCard event={myEvent} navigate={navigate} />
-        ) : (
-          <CreateAmivCard navigate={navigate} />
-        )}
-      </div>
     </div>
   )
 }

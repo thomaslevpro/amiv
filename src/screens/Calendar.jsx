@@ -43,7 +43,7 @@ function formatEventDate(dateStr) {
   return `${datePart} · ${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`
 }
 
-export default function Calendar() {
+export default function Calendar({ onEventClick }) {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [calendarDots, setCalendarDots] = useState([])
@@ -262,14 +262,17 @@ export default function Calendar() {
                 const isGuest = activeTab === 'guest'
                 const ev = isGuest ? item.events : item
                 if (!ev) return null
-                const route = isGuest
-                  ? `/events/${ev.id}/secret-space`
-                  : `/events/${ev.id}/organizer-space`
                 const rsvpStatus = isGuest ? item.status : null
                 return (
                   <div
                     key={ev.id}
-                    onClick={() => navigate(route)}
+                    onClick={() => {
+                      if (isGuest) {
+                        navigate(`/events/${ev.id}/secret-space`)
+                      } else {
+                        onEventClick(ev)
+                      }
+                    }}
                     style={{
                       background: '#fff', borderRadius: 16, padding: '12px 14px',
                       display: 'flex', alignItems: 'center', gap: 12,
@@ -348,42 +351,6 @@ export default function Calendar() {
           </>
         )}
 
-        {/* Divider Mon amiv */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0 10px' }}>
-          <div style={{ flex: 1, height: 0.5, background: '#AEAEB2', opacity: 0.35 }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#AEAEB2', letterSpacing: '.06em', textTransform: 'uppercase' }}>Mon amiv</span>
-          <div style={{ flex: 1, height: 0.5, background: '#AEAEB2', opacity: 0.35 }} />
-        </div>
-
-        {/* Section : Mon amiv */}
-        {!loading && (
-          myEvent ? (
-            <div onClick={() => navigate(`/events/${myEvent.id}/organizer-space`)}
-              style={{ background: 'white', borderRadius: 16, marginBottom: 10, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', cursor: 'pointer', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 13px 11px' }}>
-                <div style={{ width: 40, height: 40, borderRadius: 13, fontSize: 18, background: 'rgba(0,122,255,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🥳</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Mon anniversaire</div>
-                  <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 2 }}>{formatDate(myEvent.date)} · J-{daysLeft(myEvent.date)}</div>
-                </div>
-                <div style={{ width: 26, height: 26, background: '#F2F2F7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#AEAEB2' }}>›</div>
-              </div>
-              <div style={{ padding: '0 13px 12px' }}>
-                <div style={{ height: 5, background: '#F2F2F7', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 3, background: 'linear-gradient(90deg,#e055aa,#f5a623)', width: myEventStats.total > 0 ? `${Math.round(myEventStats.done / myEventStats.total * 100)}%` : '0%' }} />
-                </div>
-                <div style={{ fontSize: 10, color: '#8E8E93', marginTop: 4 }}>Checklist · {myEventStats.done} / {myEventStats.total} tâches</div>
-              </div>
-            </div>
-          ) : (
-            <div onClick={() => navigate('/events/create', { state: { defaultType: 'birthday' } })}
-              style={{ background: 'white', border: '1.5px dashed #AEAEB2', borderRadius: 16, padding: 20, textAlign: 'center', cursor: 'pointer', marginBottom: 10 }}>
-              <div style={{ fontSize: 22, color: '#AEAEB2', marginBottom: 6 }}>+</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Crée ton amiv</div>
-              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 4 }}>Organise ton propre anniversaire</div>
-            </div>
-          )
-        )}
 
       </div>
     </div>

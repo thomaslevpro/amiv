@@ -1,113 +1,122 @@
-import { MapPin, Cake } from 'lucide-react'
-
-const tagStyles = {
-  pink: { background: 'rgba(224,85,170,0.10)', color: '#e055aa' },
-  blue: { background: 'rgba(0,122,255,0.10)', color: '#007AFF' },
-  green: { background: 'rgba(52,199,89,0.10)', color: '#34C759' },
-  gray: { background: '#F2F2F7', color: '#6B6B6B' },
-}
-
-const typeEmoji = {
-  'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
-  'Soirée': '🥂',
-  'Repas': '🍽️',
-  'Autre': '🎉',
-}
-
-const visibilityStyle = {
-  'Privé 🔒': 'gray',
-  'Sur invitation': 'blue',
-  'Public 🌍': 'green',
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  if (isNaN(d)) return dateStr
-  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
-}
-
 export default function EventCard({ event = {}, onClick }) {
   const {
     name = 'Événement sans titre',
     date = '',
     location = '',
     type = 'Autre',
-    visibility = 'Sur invitation',
+    role,
   } = event
 
+  const typeEmoji = {
+    'Anniversaire': '🎂',
+    'Soirée': '🥂',
+    'Repas': '🍽️',
+    'Autre': '🎉',
+  }
   const emoji = typeEmoji[type] ?? '🎉'
-  const tags = [
-    { label: type, style: 'pink' },
-    { label: visibility, style: visibilityStyle[visibility] ?? 'gray' },
+
+  const d = date ? new Date(date) : null
+  const dateStr = d && !isNaN(d)
+    ? d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })
+    : 'Date à préciser'
+  const badgeStr = d && !isNaN(d)
+    ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    : '—'
+
+  const avatars = [
+    { initiale: 'M', key: 'M' },
+    { initiale: 'L', key: 'L' },
+    { initiale: 'C', key: 'C' },
   ]
 
   return (
-    <div onClick={() => onClick?.(event)} style={{
-      background: '#fff', borderRadius: 20, marginBottom: 20,
-      overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.08)', cursor: 'pointer',
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 38, height: 38, background: '#FBBF9A', borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-          }}>
-            {emoji}
-          </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{name}</div>
-            <div style={{ fontSize: 11, color: '#8E8E93' }}>{type}</div>
-          </div>
-        </div>
-        <div style={{ fontSize: 18, color: '#AEAEB2', letterSpacing: 1 }}>···</div>
-      </div>
-
-      {/* Banner */}
+    <div
+      onClick={() => onClick?.(event)}
+      style={{
+        borderRadius: 16,
+        overflow: 'hidden',
+        background: 'white',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+        marginBottom: 16,
+        cursor: 'pointer',
+      }}
+    >
+      {/* Cover */}
       <div style={{
-        background: '#FFF5F0', margin: '0 12px', borderRadius: 14,
-        padding: '22px 16px 16px', textAlign: 'center',
+        height: 110,
+        background: 'linear-gradient(135deg, #e055aa, #f5a623)',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}>
-        <span style={{ fontSize: 40, display: 'block', marginBottom: 7 }}>{emoji}</span>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>{name}</div>
-        <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 3 }}>{formatDate(date)}</div>
-      </div>
-
-      {/* Info */}
-      <div style={{ padding: '12px 14px 6px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>{name}</div>
-        {location ? (
-          <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} strokeWidth={1.5} />{location}</div>
-        ) : (
-          <div style={{ fontSize: 12, color: '#AEAEB2', marginBottom: 10 }}>Lieu non précisé</div>
-        )}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          {tags.map((tag, i) => (
-            <div key={i} style={{
-              padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-              ...tagStyles[tag.style],
-            }}>
-              {tag.label}
-            </div>
-          ))}
+        <span style={{ fontSize: 48 }}>{emoji}</span>
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          background: 'rgba(255,255,255,0.25)',
+          color: 'white',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          borderRadius: 20,
+          padding: '4px 10px',
+          fontSize: 11,
+          fontWeight: 700,
+        }}>
+          {badgeStr}
         </div>
       </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, padding: '0 14px 14px' }}>
-        <div style={{
-          flex: 1, padding: '11px 14px',
-          background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff',
-          borderRadius: 12, fontSize: 13, fontWeight: 600, textAlign: 'center',
-        }}>
-          Voir l'événement
+      {/* Body */}
+      <div style={{ padding: '12px 14px 14px' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1C1C1E', marginBottom: 2 }}>
+          {name}
         </div>
-        <div style={{
-          padding: '11px 16px', background: '#F2F2F7', color: '#1C1C1E',
-          borderRadius: 12, fontSize: 13, fontWeight: 600,
-        }}>
-          📤 Partager
+        <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 12 }}>
+          {dateStr} · {location || 'Lieu à préciser'}
+        </div>
+
+        {/* Bottom row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Avatars */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {avatars.map((a, i) => (
+              <div
+                key={a.key}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: '50%',
+                  background: '#FBBF9A',
+                  border: '2px solid white',
+                  marginLeft: i === 0 ? 0 : -6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 10,
+                  color: '#b06040',
+                  fontWeight: 700,
+                  zIndex: avatars.length - i,
+                  position: 'relative',
+                }}
+              >
+                {a.initiale}
+              </div>
+            ))}
+          </div>
+
+          {/* Pill button */}
+          <div style={{
+            background: '#1C1C1E',
+            color: 'white',
+            fontSize: 12,
+            fontWeight: 600,
+            padding: '7px 16px',
+            borderRadius: 20,
+          }}>
+            {role === 'organizer' ? 'Gérer' : 'Voir'}
+          </div>
         </div>
       </div>
     </div>
