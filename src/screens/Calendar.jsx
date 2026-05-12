@@ -32,6 +32,17 @@ function prenom(fullName) {
   return fullName?.split(' ')[0] || 'Quelqu\'un'
 }
 
+function formatEventDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })
+  const h = d.getHours()
+  const m = d.getMinutes()
+  const hasTime = h !== 0 || m !== 0
+  if (!hasTime) return datePart
+  return `${datePart} · ${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`
+}
+
 export default function Calendar() {
   const navigate = useNavigate()
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -40,6 +51,10 @@ export default function Calendar() {
   const [myEvent, setMyEvent] = useState(null)
   const [myEventStats, setMyEventStats] = useState({ done: 0, total: 0 })
   const [loading, setLoading] = useState(true)
+  const [organizedEvents, setOrganizedEvents] = useState([])
+  const [guestEvents, setGuestEvents] = useState([])
+  const [loadingEvents, setLoadingEvents] = useState(true)
+  const [activeTab, setActiveTab] = useState('organizer')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -95,6 +110,41 @@ export default function Calendar() {
   }, [currentMonth])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchEvents() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoadingEvents(false); return }
+
+      const [organizedRes, guestRes] = await Promise.all([
+        supabase
+          .from('events')
+          .select('id, name, emoji, date, location, type')
+          .eq('user_id', user.id)
+          .order('date', { ascending: true }),
+        supabase
+          .from('invitations')
+          .select('status, events(id, name, emoji, date, location, type)')
+          .eq('invited_user_id', user.id)
+          .neq('status', 'declined'),
+      ])
+
+      console.log('user id:', user?.id)
+      console.log('organizedEvents result:', organizedRes.data, 'error:', organizedRes.error)
+      console.log('guestEvents result:', guestRes.data, 'error:', guestRes.error)
+
+      if (cancelled) return
+      setOrganizedEvents(organizedRes.data ?? [])
+      const sorted = (guestRes.data ?? [])
+        .filter(item => item.events !== null)
+        .sort((a, b) => new Date(a.events.date) - new Date(b.events.date))
+      setGuestEvents(sorted)
+      setLoadingEvents(false)
+    }
+    fetchEvents()
+    return () => { cancelled = true }
+  }, [])
 
   const year = currentMonth.getFullYear()
   const month = currentMonth.getMonth()
@@ -164,6 +214,101 @@ export default function Calendar() {
                 </div>
               )
             })}
+          </div>
+        </div>
+
+        {/* Section : Mes événements */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10, padding: '0 2px' }}>
+            Mes événements
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { key: 'organizer', label: "J'organise", count: organizedEvents.length },
+              { key: 'guest',     label: "J'y participe", count: guestEvents.length },
+            ].map(({ key, label, count }) => {
+              const isActive = activeTab === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  style={{
+                    padding: '6px 16px', borderRadius: 20, border: 'none',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                    background: isActive ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#fff',
+                    color: isActive ? '#fff' : '#8E8E93',
+                    boxShadow: isActive ? '0 2px 8px rgba(224,85,170,0.30)' : '0 1px 3px rgba(0,0,0,0.08)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {label}{count > 0 ? ` (${count})` : ''}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Liste événements */}
+          <div style={{ marginTop: 12 }}>
+            {loadingEvents ? null : (() => {
+              const items = activeTab === 'organizer' ? organizedEvents : guestEvents
+              if (items.length === 0) {
+                return (
+                  <div style={{ textAlign: 'center', color: '#AEAEB2', fontSize: 14, padding: '20px 0' }}>
+                    Aucun événement pour l'instant
+                  </div>
+                )
+              }
+              return items.map(item => {
+                const isGuest = activeTab === 'guest'
+                const ev = isGuest ? item.events : item
+                if (!ev) return null
+                const route = isGuest
+                  ? `/events/${ev.id}/secret-space`
+                  : `/events/${ev.id}/organizer-space`
+                const rsvpStatus = isGuest ? item.status : null
+                return (
+                  <div
+                    key={ev.id}
+                    onClick={() => navigate(route)}
+                    style={{
+                      background: '#fff', borderRadius: 16, padding: '12px 14px',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      marginBottom: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+                      background: '#FFF5F0',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                    }}>
+                      {ev.emoji || '🎉'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ev.name || 'Événement'}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>
+                        {formatEventDate(ev.date)}{ev.location ? ` · ${ev.location}` : ''}
+                      </div>
+                      {isGuest && (
+                        <div style={{ marginTop: 6 }}>
+                          <span style={{
+                            padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                            background: rsvpStatus === 'accepted' ? 'rgba(52,199,89,0.10)' : '#F2F2F7',
+                            color: rsvpStatus === 'accepted' ? '#1d7a38' : '#6B6B6B',
+                          }}>
+                            {rsvpStatus === 'accepted' ? 'Confirmé' : 'En attente'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ width: 26, height: 26, background: '#F2F2F7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#AEAEB2', flexShrink: 0 }}>
+                      ›
+                    </div>
+                  </div>
+                )
+              })
+            })()}
           </div>
         </div>
 
