@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import CardContribute from '../components/card/CardContribute'
+import CardManage from '../components/card/CardManage'
+import CardView from '../components/card/CardView'
 
 
 const typeEmoji = {
@@ -810,6 +813,23 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ── GROUP CARD ── */}
+        {userId && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
+              Carte collective
+            </div>
+            {isOrganizer ? (
+              <>
+                <CardManage eventId={event.id} currentUserId={userId} />
+                <CardView eventId={event.id} currentUserId={userId} />
+              </>
+            ) : (
+              <CardContribute eventId={event.id} currentUserId={userId} />
+            )}
           </div>
         )}
 

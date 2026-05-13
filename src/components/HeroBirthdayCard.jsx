@@ -1,6 +1,6 @@
 import { Cake } from 'lucide-react'
 
-export default function HeroBirthdayCard({ birthday, onCreateEvent, onMessage }) {
+export default function HeroBirthdayCard({ birthday, onMessage }) {
   if (!birthday) {
     return (
       <div style={{
@@ -17,13 +17,10 @@ export default function HeroBirthdayCard({ birthday, onCreateEvent, onMessage })
   }
 
   const { name, birthdate, days } = birthday
-  const age = new Date().getFullYear() - new Date(birthdate).getFullYear()
+  const birthdayDate = new Date(birthdate)
+  const age = new Date().getFullYear() - birthdayDate.getFullYear()
+  const birthdayLabel = birthdayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
   const offset = Math.max(0, Math.min(169.6, 169.6 * days / 30))
-
-  let countdownLabel
-  if (days === 0) countdownLabel = "Aujourd'hui !"
-  else if (days === 1) countdownLabel = 'Demain'
-  else countdownLabel = `Dans ${days} jours`
 
   return (
     <div style={{
@@ -38,7 +35,7 @@ export default function HeroBirthdayCard({ birthday, onCreateEvent, onMessage })
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{name}</div>
           <div style={{ fontSize: 13, opacity: 0.85, marginTop: 5 }}>
-            {countdownLabel} · {age} ans
+            {birthdayLabel} · {age} ans
           </div>
         </div>
 
@@ -70,19 +67,6 @@ export default function HeroBirthdayCard({ birthday, onCreateEvent, onMessage })
           </div>
         </div>
       </div>
-
-      <button
-        onClick={onCreateEvent}
-        style={{
-          width: '100%', padding: '13px', borderRadius: 14, border: 'none',
-          background: 'rgba(255,255,255,0.2)',
-          backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-          color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-          marginBottom: 10,
-        }}
-      >
-        🎉 Organiser un événement
-      </button>
 
       <div
         onClick={onMessage}

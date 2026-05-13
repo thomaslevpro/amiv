@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import GroupCard from '../components/GroupCard'
 
 function frenchDate(dateStr) {
   if (!dateStr) return ''
@@ -68,8 +69,7 @@ export default function SecretSpacePage() {
   useEffect(() => {
     if (loading) return
     if (!event) { navigate('/'); return }
-    if (event.user_id === currentUserId) { navigate('/') }
-  }, [event, loading])
+  }, [event, loading, navigate])
 
   if (!event) return null
 
@@ -148,7 +148,13 @@ export default function SecretSpacePage() {
       <div style={{ padding: '16px' }}>
         {activeTab === 'cadeaux' && <p style={{ color: '#8E8E93', fontSize: 14 }}>Section cadeaux — à venir</p>}
         {activeTab === 'cagnotte' && <p style={{ color: '#8E8E93', fontSize: 14 }}>Section cagnotte — à venir</p>}
-        {activeTab === 'carte' && <p style={{ color: '#8E8E93', fontSize: 14 }}>Section carte — à venir</p>}
+        {activeTab === 'carte' && (
+          <GroupCard
+            eventId={event.id}
+            eventDate={event.date}
+            isOrganizer={currentUserId === event.user_id}
+          />
+        )}
       </div>
     </div>
   )

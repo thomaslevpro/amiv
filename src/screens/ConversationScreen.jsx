@@ -19,6 +19,9 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
 
   useEffect(() => {
     if (!conversationId) return
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(`last_seen_dm_${conversationId}`, new Date().toISOString())
+    }
 
     supabase
       .from('direct_messages')

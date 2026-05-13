@@ -1,15 +1,44 @@
-import { useState, useEffect, useRef } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { BellOff, MessageCircle, Mic, PenLine, Search, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { findOrCreateDirectConversation } from '../lib/conversations'
-import FriendProfileModal from '../components/FriendProfileModal'
+
+const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
+const BG = '#F2F2F7'
+const WHITE = '#FFFFFF'
+const BLACK = '#1C1C1E'
+const GRAY1 = '#8E8E93'
+const GRAY2 = '#AEAEB2'
+const CARD_SHADOW = '0 2px 16px rgba(0,0,0,0.08)'
+const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif"
+
+const typeEmoji = {
+  Anniversaire: '🎂',
+  Apéro: '🥂',
+  Dîner: '🍽️',
+  Brunch: '🥐',
+  Voyage: '✈️',
+  Soirée: '🎉',
+}
 
 function getInitials(name) {
-  return (name ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+  return (name ?? '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
+}
+
+function firstName(name) {
+  return (name ?? 'Ami').trim().split(/\s+/)[0] || 'Ami'
+}
+
+function getAvatarColor(name) {
+  const colors = ['#F7B7C8', '#BFD7FF', '#BDEBD0', '#FFD8A8', '#D8C7FF', '#BDE7F0']
+  let hash = 0
+  for (let i = 0; i < (name || '').length; i += 1) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return colors[Math.abs(hash) % colors.length]
 }
 
 function formatConvTime(ts) {
+  if (!ts) return ''
   const d = new Date(ts)
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -20,60 +49,349 @@ function formatConvTime(ts) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace('.', '')
 }
 
+function readSeen(key) {
+  if (typeof window === 'undefined') return 0
+  const value = window.localStorage.getItem(key)
+  return value ? new Date(value).getTime() : 0
+}
+
+function writeSeen(key) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(key, new Date().toISOString())
+}
+
+function parseVoice(content) {
+  const match = String(content || '').match(/^\[voice:(\d+):(\d+)\]/)
+  if (!match) return null
+  return `${Number(match[1])}:${String(match[2]).padStart(2, '0')}`
+}
+
+function previewMessage(content) {
+  const duration = parseVoice(content)
+  if (duration) return { voice: true, text: `Message vocal · ${duration}` }
+  return { voice: false, text: content || 'Aucun message' }
+}
+
+function Avatar({ name, url, size = 50 }) {
+  if (url) {
+    return <img src={url} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+  }
+  return (
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      background: getAvatarColor(name),
+      color: WHITE,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: size > 48 ? 16 : 15,
+      fontWeight: 700,
+      flexShrink: 0,
+    }}>
+      {getInitials(name)}
+    </div>
+  )
+}
+
+function IconButton({ children, gradient = false, label, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: '50%',
+        border: 'none',
+        background: gradient ? GRADIENT : WHITE,
+        boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        cursor: 'pointer',
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
 function SkeletonRow({ isLast }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: 12 }}>
-        <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#F2F2F7', flexShrink: 0 }} />
+        <div style={{ width: 50, height: 50, borderRadius: '50%', background: BG, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ width: '55%', height: 14, borderRadius: 7, background: '#F2F2F7', marginBottom: 8 }} />
-          <div style={{ width: '80%', height: 12, borderRadius: 6, background: '#F2F2F7' }} />
+          <div style={{ width: '55%', height: 14, borderRadius: 7, background: BG, marginBottom: 8 }} />
+          <div style={{ width: '80%', height: 12, borderRadius: 6, background: BG }} />
         </div>
       </div>
-      {!isLast && <div style={{ marginLeft: 78, height: '0.5px', background: 'rgba(0,0,0,0.08)' }} />}
+      {!isLast && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
     </>
   )
 }
 
-function EmptyState({ onCreateClick }) {
+function EmptyState({ activeTab, onNewMessage }) {
+  const subtitles = {
+    events: "Tes discussions d'événements apparaîtront ici",
+    directs: 'Tes messages privés apparaîtront ici',
+    unread: 'Tu es à jour pour le moment',
+    all: 'Tes discussions apparaîtront ici',
+  }
+  const showButton = activeTab === 'all' || activeTab === 'directs'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 32px', gap: 12 }}>
-      <MessageCircle size={56} strokeWidth={1.5} color="#AEAEB2" />
-      <div style={{ fontSize: 17, fontWeight: 600, color: '#1C1C1E', textAlign: 'center' }}>Aucune conversation</div>
-      <div style={{ fontSize: 14, color: '#8E8E93', textAlign: 'center' }}>Les discussions de tes événements apparaîtront ici</div>
-      {onCreateClick && (
-        <div
-          onClick={onCreateClick}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 32px', gap: 10 }}>
+      <MessageCircle size={48} strokeWidth={1.5} color={GRAY2} />
+      <div style={{ fontSize: 17, fontWeight: 600, color: BLACK, textAlign: 'center' }}>Aucune conversation</div>
+      <div style={{ fontSize: 13, color: GRAY1, textAlign: 'center', lineHeight: 1.35 }}>{subtitles[activeTab]}</div>
+      {showButton && (
+        <button
+          type="button"
+          onClick={onNewMessage}
           style={{
-            marginTop: 8, padding: '12px 24px', borderRadius: 24,
-            background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-            fontSize: 15, fontWeight: 600, color: '#fff', cursor: 'pointer',
+            marginTop: 8,
+            padding: '11px 18px',
+            borderRadius: 12,
+            border: 'none',
+            background: GRADIENT,
+            fontSize: 15,
+            fontWeight: 700,
+            color: WHITE,
+            cursor: 'pointer',
+            fontFamily: FONT,
           }}
         >
-          Créer un événement
-        </div>
+          Nouveau message
+        </button>
       )}
     </div>
   )
 }
 
-export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onCreateClick }) {
-  // --- chat state ---
+function NewMessageSheet({ friends, loading, onClose, onSelectFriend }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 20,
+        background: 'rgba(28,28,30,0.20)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxHeight: '72%',
+          background: WHITE,
+          borderRadius: '20px 20px 0 0',
+          boxShadow: '0 -8px 28px rgba(0,0,0,0.16)',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: BLACK }}>Nouveau message</div>
+            <div style={{ marginTop: 2, fontSize: 13, color: GRAY1 }}>Choisis un ami pour démarrer une conversation</div>
+          </div>
+          <button
+            type="button"
+            aria-label="Fermer"
+            onClick={onClose}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              border: 'none',
+              background: BG,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <X size={17} strokeWidth={2.2} color={BLACK} />
+          </button>
+        </div>
+
+        <div style={{ maxHeight: 360, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          {loading ? (
+            [0, 1, 2].map(item => <SkeletonRow key={item} isLast={item === 2} />)
+          ) : friends.length === 0 ? (
+            <div style={{ padding: 24, color: GRAY1, fontSize: 14, textAlign: 'center' }}>
+              Aucun ami disponible pour le moment
+            </div>
+          ) : friends.map((friend, index) => (
+            <div key={friend.friend_id}>
+              <button
+                type="button"
+                onClick={() => onSelectFriend(friend)}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  background: WHITE,
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontFamily: FONT,
+                }}
+              >
+                <Avatar name={friend.friend_name} url={friend.friend_avatar} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 650, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {friend.friend_name || 'Ami'}
+                  </div>
+                  <div style={{ marginTop: 3, fontSize: 13, color: GRAY1 }}>Envoyer un message</div>
+                </div>
+              </button>
+              {index !== friends.length - 1 && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EventAvatar({ emoji }) {
+  return (
+    <div style={{
+      width: 50,
+      height: 50,
+      borderRadius: 16,
+      background: 'linear-gradient(135deg, rgba(224,85,170,0.10), rgba(245,166,35,0.10))',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 22,
+      flexShrink: 0,
+    }}>
+      {emoji || '🎉'}
+    </div>
+  )
+}
+
+function ConversationRow({ conversation, isLast, onClick }) {
+  const unread = conversation.unreadCount > 0
+  const preview = previewMessage(conversation.lastMessage?.content)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          width: '100%',
+          border: 'none',
+          background: WHITE,
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontFamily: FONT,
+        }}
+      >
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          {conversation.kind === 'event' ? (
+            <EventAvatar emoji={conversation.emoji} />
+          ) : (
+            <Avatar name={conversation.title} url={conversation.avatarUrl} />
+          )}
+          {unread && (
+            <div style={{
+              position: 'absolute',
+              top: -2,
+              right: -2,
+              minWidth: 18,
+              height: 18,
+              padding: '0 5px',
+              borderRadius: 9,
+              background: GRADIENT,
+              border: `2px solid ${WHITE}`,
+              color: WHITE,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 10,
+              fontWeight: 800,
+              lineHeight: 1,
+            }}>
+              {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div style={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: 15,
+              fontWeight: unread ? 700 : 600,
+              color: BLACK,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {conversation.title}
+            </div>
+            {conversation.isMuted && <BellOff size={14} strokeWidth={1.8} color={GRAY2} />}
+            <div style={{ fontSize: 11, color: GRAY2, flexShrink: 0 }}>{formatConvTime(conversation.lastAt)}</div>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+            fontSize: 13,
+            color: unread ? BLACK : GRAY1,
+            fontWeight: unread ? 500 : 400,
+            minWidth: 0,
+          }}>
+            {preview.voice && <Mic size={13} strokeWidth={2} color={unread ? BLACK : GRAY1} />}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {preview.text}
+            </span>
+          </div>
+        </div>
+      </button>
+      {!isLast && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
+    </div>
+  )
+}
+
+export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [userId, setUserId] = useState(null)
   const bottomRef = useRef(null)
 
-  // --- conversations list state ---
   const [conversations, setConversations] = useState([])
   const [listLoading, setListLoading] = useState(true)
-
-  // --- friends strip state ---
   const [friends, setFriends] = useState([])
   const [friendsLoading, setFriendsLoading] = useState(true)
-  const [selectedFriend, setSelectedFriend] = useState(null)
+  const [activeTab, setActiveTab] = useState('all')
+  const [showNewMessage, setShowNewMessage] = useState(false)
+  const appOpenedAtRef = useRef(null)
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && !appOpenedAtRef.current) {
+      appOpenedAtRef.current = window.localStorage.getItem('last_app_opened_at') || new Date(0).toISOString()
+      window.localStorage.setItem('last_app_opened_at', new Date().toISOString())
+    }
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setUserId(user.id)
     })
@@ -81,6 +399,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
 
   useEffect(() => {
     if (!event?.id) return
+    writeSeen(`last_seen_event_${event.id}`)
     fetchMessages()
   }, [event?.id])
 
@@ -90,14 +409,16 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
 
   useEffect(() => {
     if (event || !userId) return
-    fetchConversations()
-    fetchFriends()
+    fetchAll()
   }, [event, userId])
 
-  async function fetchFriends() {
+  async function fetchAll() {
+    setListLoading(true)
     setFriendsLoading(true)
-    const { data } = await getFriends(userId)
-    if (data) setFriends(data)
+    const [convRows, friendRows] = await Promise.all([fetchConversations(), getFriends(userId)])
+    setConversations(convRows)
+    setFriends(friendRows.data ?? [])
+    setListLoading(false)
     setFriendsLoading(false)
   }
 
@@ -110,9 +431,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (data) setMessages(data)
   }
 
-  async function fetchConversations() {
-    setListLoading(true)
-
+  async function fetchEventConversations() {
     const [{ data: rsvpRows }, { data: ownRows }] = await Promise.all([
       supabase.from('rsvps').select('event_id').eq('user_id', userId),
       supabase.from('events').select('id').eq('user_id', userId),
@@ -123,40 +442,160 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       ...(ownRows?.map(e => e.id) ?? []),
     ])]
 
-    if (!allIds.length) { setConversations([]); setListLoading(false); return }
+    if (!allIds.length) return []
 
     const [{ data: eventsData }, { data: msgs }] = await Promise.all([
-      supabase.from('events').select('id, name, date').in('id', allIds),
-      supabase.from('messages').select('id, event_id, content, created_at, user_id')
-        .in('event_id', allIds)
-        .order('created_at', { ascending: false })
-        .limit(500),
+      supabase.from('events').select('id, name, emoji, type, date').in('id', allIds),
+      supabase.from('messages').select('id, event_id, content, created_at, user_id').in('event_id', allIds).order('created_at', { ascending: false }).limit(500),
     ])
 
-    const lastMsgByEvent = {}
-    msgs?.forEach(m => { if (!lastMsgByEvent[m.event_id]) lastMsgByEvent[m.event_id] = m })
+    const lastByEvent = {}
+    const unreadByEvent = {}
+    ;(msgs ?? []).forEach(message => {
+      if (!lastByEvent[message.event_id]) lastByEvent[message.event_id] = message
+      const seenAt = readSeen(`last_seen_event_${message.event_id}`)
+      if (message.user_id !== userId && new Date(message.created_at).getTime() > seenAt) {
+        unreadByEvent[message.event_id] = (unreadByEvent[message.event_id] || 0) + 1
+      }
+    })
 
-    const convList = (eventsData ?? [])
-      .filter(e => lastMsgByEvent[e.id])
-      .map(e => ({ event: e, lastMessage: lastMsgByEvent[e.id] }))
-      .sort((a, b) => new Date(b.lastMessage.created_at) - new Date(a.lastMessage.created_at))
-
-    setConversations(convList)
-    setListLoading(false)
+    return (eventsData ?? [])
+      .filter(ev => lastByEvent[ev.id])
+      .map(ev => ({
+        id: `event-${ev.id}`,
+        kind: 'event',
+        event: ev,
+        eventId: ev.id,
+        title: ev.name || 'Événement',
+        emoji: ev.emoji || typeEmoji[ev.type] || '🎉',
+        lastMessage: lastByEvent[ev.id],
+        lastAt: lastByEvent[ev.id]?.created_at,
+        unreadCount: unreadByEvent[ev.id] || 0,
+      }))
   }
 
-  function getUnreadCount(eventId) {
-    return notifications.filter(n =>
-      n.type === 'message_received' && !n.read && n.data?.event_id === eventId
-    ).length
+  async function fetchDirectConversations() {
+    let { data: myParticipants, error: participantsError } = await supabase
+      .from('direct_conversation_participants')
+      .select('conversation_id, is_muted, direct_conversations(created_at)')
+      .eq('user_id', userId)
+
+    if (participantsError) {
+      const fallback = await supabase
+        .from('direct_conversation_participants')
+        .select('conversation_id, direct_conversations(created_at)')
+        .eq('user_id', userId)
+      myParticipants = fallback.data
+    }
+
+    const convIds = (myParticipants ?? []).map(row => row.conversation_id)
+    if (!convIds.length) return []
+
+    const [{ data: allParticipants }, { data: directMessages }] = await Promise.all([
+      supabase.from('direct_conversation_participants').select('conversation_id, user_id').in('conversation_id', convIds),
+      supabase.from('direct_messages').select('id, conversation_id, content, created_at, sender_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(500),
+    ])
+
+    const otherByConv = {}
+    ;(allParticipants ?? []).forEach(participant => {
+      if (participant.user_id !== userId && !otherByConv[participant.conversation_id]) {
+        otherByConv[participant.conversation_id] = participant.user_id
+      }
+    })
+
+    const otherIds = [...new Set(Object.values(otherByConv).filter(Boolean))]
+    const { data: profiles } = otherIds.length
+      ? await supabase.from('profiles').select('id, name, first_name, avatar_url, email').in('id', otherIds)
+      : { data: [] }
+    const profileById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
+
+    const lastByConv = {}
+    const unreadByConv = {}
+    ;(directMessages ?? []).forEach(message => {
+      if (!lastByConv[message.conversation_id]) lastByConv[message.conversation_id] = message
+      const seenAt = readSeen(`last_seen_dm_${message.conversation_id}`)
+      if (message.sender_id !== userId && new Date(message.created_at).getTime() > seenAt) {
+        unreadByConv[message.conversation_id] = (unreadByConv[message.conversation_id] || 0) + 1
+      }
+    })
+
+    const participantByConv = Object.fromEntries((myParticipants ?? []).map(row => [row.conversation_id, row]))
+    return convIds.map(conversationId => {
+      const profile = profileById[otherByConv[conversationId]]
+      const displayName = profile?.name || profile?.first_name || profile?.email || 'Ami'
+      const createdAt = participantByConv[conversationId]?.direct_conversations?.created_at
+      return {
+        id: `dm-${conversationId}`,
+        kind: 'direct',
+        conversationId,
+        friend: {
+          friend_id: profile?.id || otherByConv[conversationId],
+          friend_name: displayName,
+          friend_avatar: profile?.avatar_url,
+        },
+        title: displayName,
+        avatarUrl: profile?.avatar_url,
+        lastMessage: lastByConv[conversationId] || { content: 'Aucun message', created_at: createdAt },
+        lastAt: lastByConv[conversationId]?.created_at || createdAt,
+        unreadCount: unreadByConv[conversationId] || 0,
+        isMuted: participantByConv[conversationId]?.is_muted === true,
+      }
+    })
+  }
+
+  async function fetchConversations() {
+    const [eventRows, directRows] = await Promise.all([
+      fetchEventConversations(),
+      fetchDirectConversations(),
+    ])
+    return [...eventRows, ...directRows].sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0))
+  }
+
+  const conversationsByFriendId = useMemo(() => {
+    const map = new Map()
+    conversations.filter(conv => conv.kind === 'direct').forEach(conv => {
+      if (conv.friend?.friend_id) map.set(conv.friend.friend_id, conv)
+    })
+    return map
+  }, [conversations])
+
+  const unreadTotal = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0)
+
+  const visibleConversations = conversations.filter(conv => {
+    if (activeTab === 'events') return conv.kind === 'event'
+    if (activeTab === 'directs') return conv.kind === 'direct'
+    if (activeTab === 'unread') return conv.unreadCount > 0
+    return true
+  })
+
+  async function openFriend(friend) {
+    if (!userId || !friend?.friend_id) return
+    const { id, error } = await findOrCreateDirectConversation(userId, friend.friend_id)
+    if (error) {
+      console.error('[Messages] direct conversation error:', error)
+      return
+    }
+    writeSeen(`last_seen_dm_${id}`)
+    setShowNewMessage(false)
+    onDirectConvOpen?.({ conversationId: id, friend })
+  }
+
+  function openNewMessage() {
+    if (!friendsLoading) setShowNewMessage(true)
   }
 
   async function handleConversationTap(conv) {
-    const unreadIds = notifications
-      .filter(n => n.type === 'message_received' && !n.read && n.data?.event_id === conv.event.id)
-      .map(n => n.id)
-    for (const id of unreadIds) markAsRead?.(id)
-    onEventOpen?.(conv.event)
+    if (conv.kind === 'event') {
+      writeSeen(`last_seen_event_${conv.eventId}`)
+      const unreadIds = notifications
+        .filter(n => n.type === 'message_received' && !n.read && n.data?.event_id === conv.eventId)
+        .map(n => n.id)
+      for (const id of unreadIds) markAsRead?.(id)
+      onEventOpen?.(conv.event)
+      return
+    }
+    writeSeen(`last_seen_dm_${conv.conversationId}`)
+    onDirectConvOpen?.({ conversationId: conv.conversationId, friend: conv.friend })
   }
 
   async function send() {
@@ -180,174 +619,158 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   }
 
-  // ── CONVERSATIONS LIST ──────────────────────────────────────────────────────
   if (!event) {
+    const tabs = [
+      { id: 'all', label: 'Tous' },
+      { id: 'events', label: 'Événements 🎉' },
+      { id: 'directs', label: 'Directs' },
+      { id: 'unread', label: 'Non lus', badge: unreadTotal },
+    ]
+
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px 14px', background: '#fff', borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0 }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E' }}>Messages</div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden', fontFamily: FONT }}>
+        <div style={{ padding: '18px 16px 10px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ margin: 0, fontSize: 27, lineHeight: 1.1, fontWeight: 800, color: BLACK, letterSpacing: 0 }}>
+                Messages
+              </h1>
+              <div style={{ marginTop: 4, fontSize: 13, color: GRAY1 }}>
+                {unreadTotal} non lu{unreadTotal > 1 ? 's' : ''}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <IconButton label="Rechercher"><Search size={17} strokeWidth={2.2} color={BLACK} /></IconButton>
+              <IconButton label="Composer" gradient onClick={openNewMessage}><PenLine size={16} strokeWidth={2.2} color={WHITE} /></IconButton>
+            </div>
+          </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
-          {/* ── Friends strip ─────────────────────────────────────── */}
-          {!friendsLoading && (
-            <div style={{ padding: '12px 16px 0' }}>
-              <div style={{
-                fontSize: 11, fontWeight: 600, color: '#8E8E93',
-                textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
-              }}>
-                Amis
-              </div>
-              {friends.length === 0 ? (
-                <div style={{
-                  background: '#fff', borderRadius: 14, padding: 12,
-                  fontSize: 13, color: '#8E8E93', lineHeight: 1.4,
-                }}>
-                  Aucun ami pour l'instant — retrouvez vos suggestions sur l'accueil 👋
-                </div>
-              ) : (
-                <div style={{
-                  display: 'flex', gap: 16,
-                  overflowX: 'auto', paddingBottom: 4,
-                  scrollbarWidth: 'none',
-                }}>
-                  {friends.map(friend => (
-                    <div key={friend.friend_id} onClick={() => setSelectedFriend(friend)} style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center',
-                      gap: 4, flexShrink: 0, cursor: 'pointer',
-                    }}>
-                      {friend.friend_avatar ? (
-                        <img
-                          src={friend.friend_avatar}
-                          alt={friend.friend_name}
-                          style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div style={{
-                          width: 48, height: 48, borderRadius: '50%',
-                          background: '#FBBF9A',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 16, fontWeight: 700, color: '#fff',
-                        }}>
-                          {getInitials(friend.friend_name)}
-                        </div>
-                      )}
-                      <span style={{ fontSize: 11, color: '#8E8E93', textAlign: 'center', maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {(friend.friend_name ?? '').split(' ')[0]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+        <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 90 }}>
+          <section style={{ padding: '8px 16px 0' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: GRAY1, textTransform: 'uppercase', letterSpacing: 0, marginBottom: 8 }}>
+              AMIS
             </div>
-          )}
-          {/* ──────────────────────────────────────────────────────── */}
-
-          {listLoading ? (
-            <div style={{ background: '#fff', borderRadius: 20, margin: '12px 16px', overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
-              <SkeletonRow />
-              <SkeletonRow />
-              <SkeletonRow isLast />
-            </div>
-          ) : conversations.length === 0 ? (
-            <EmptyState onCreateClick={onCreateClick} />
-          ) : (
-            <div style={{ background: '#fff', borderRadius: 20, margin: '12px 16px', overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.08)' }}>
-              {conversations.map((conv, i) => {
-                const unread = getUnreadCount(conv.event.id)
-                const isLast = i === conversations.length - 1
+            <div style={{ display: 'flex', gap: 14, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 6, scrollbarWidth: 'none' }}>
+              {friendsLoading ? (
+                [0, 1, 2, 3].map(item => <div key={item} style={{ width: 58, height: 68, flexShrink: 0, borderRadius: 16, background: 'rgba(255,255,255,0.7)' }} />)
+              ) : friends.length === 0 ? (
+                <div style={{ fontSize: 13, color: GRAY1, padding: '8px 0 12px' }}>Aucun ami pour l'instant</div>
+              ) : friends.map(friend => {
+                const conv = conversationsByFriendId.get(friend.friend_id)
+                const openedAt = new Date(appOpenedAtRef.current || 0).getTime()
+                const hasFreshMessages = conv?.lastMessage?.sender_id !== userId && new Date(conv?.lastAt || 0).getTime() > openedAt
                 return (
-                  <div key={conv.event.id}>
-                    <div
-                      onClick={() => handleConversationTap(conv)}
-                      style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: 12, cursor: 'pointer' }}
-                    >
-                      <div style={{
-                        width: 50, height: 50, borderRadius: '50%', flexShrink: 0,
-                        background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 16, fontWeight: 700, color: '#fff',
-                      }}>
-                        {getInitials(conv.event.name)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
-                          <span style={{
-                            fontSize: 15, fontWeight: unread ? 700 : 600, color: '#1C1C1E',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8,
-                          }}>
-                            {conv.event.name}
-                          </span>
-                          <span style={{ fontSize: 12, color: unread ? '#e055aa' : '#8E8E93', fontWeight: unread ? 600 : 400, flexShrink: 0 }}>
-                            {formatConvTime(conv.lastMessage.created_at)}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{
-                            fontSize: 14, color: unread ? '#1C1C1E' : '#8E8E93',
-                            fontWeight: unread ? 500 : 400,
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-                          }}>
-                            {conv.lastMessage.content.length > 40
-                              ? conv.lastMessage.content.slice(0, 40) + '…'
-                              : conv.lastMessage.content}
-                          </span>
-                          {unread > 0 && (
-                            <div style={{
-                              minWidth: 18, height: 18, borderRadius: 9, background: '#FF3B30',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0, marginLeft: 8,
-                              padding: '0 4px',
-                            }}>
-                              {unread > 9 ? '9+' : unread}
-                            </div>
-                          )}
-                        </div>
+                  <button
+                    key={friend.friend_id}
+                    type="button"
+                    onClick={() => openFriend(friend)}
+                    style={{ border: 'none', background: 'transparent', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, width: 58, flexShrink: 0, cursor: 'pointer', fontFamily: FONT }}
+                  >
+                    <div style={{ padding: 2, borderRadius: '50%', background: hasFreshMessages ? GRADIENT : '#E5E5EA' }}>
+                      <div style={{ padding: 2, borderRadius: '50%', background: BG }}>
+                        <Avatar name={friend.friend_name} url={friend.friend_avatar} size={48} />
                       </div>
                     </div>
-                    {!isLast && <div style={{ marginLeft: 78, height: '0.5px', background: 'rgba(0,0,0,0.08)' }} />}
-                  </div>
+                    <span style={{ maxWidth: 58, fontSize: 11, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {firstName(friend.friend_name)}
+                    </span>
+                  </button>
                 )
               })}
             </div>
-          )}
+          </section>
+
+          <section style={{ padding: '14px 16px 0' }}>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', paddingBottom: 2 }}>
+              {tabs.map(tab => {
+                const isActive = tab.id === activeTab
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      border: 'none',
+                      borderRadius: 20,
+                      background: isActive ? GRADIENT : WHITE,
+                      color: isActive ? WHITE : BLACK,
+                      padding: '8px 14px',
+                      minHeight: 34,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      flexShrink: 0,
+                      boxShadow: isActive ? '0 2px 8px rgba(224,85,170,0.20)' : 'none',
+                      fontFamily: FONT,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {tab.label}
+                    {tab.badge > 0 && (
+                      <span style={{ minWidth: 17, height: 17, padding: '0 5px', borderRadius: 9, background: '#FF3B30', color: WHITE, fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {tab.badge > 9 ? '9+' : tab.badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <section style={{ padding: '12px 16px 0' }}>
+            {listLoading ? (
+              <div style={{ background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+                <SkeletonRow />
+                <SkeletonRow />
+                <SkeletonRow isLast />
+              </div>
+            ) : visibleConversations.length === 0 ? (
+              <EmptyState activeTab={activeTab} onNewMessage={openNewMessage} />
+            ) : (
+              <div style={{ background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+                {visibleConversations.map((conv, index) => (
+                  <ConversationRow
+                    key={conv.id}
+                    conversation={conv}
+                    isLast={index === visibleConversations.length - 1}
+                    onClick={() => handleConversationTap(conv)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
-      {selectedFriend && (
-        <FriendProfileModal
-          friend={selectedFriend}
-          onClose={() => setSelectedFriend(null)}
-          onSendMessage={async (friend) => {
-            console.log('[Messages] onSendMessage appelé', { userId, friendId: friend.friend_id })
-            const { id, error } = await findOrCreateDirectConversation(userId, friend.friend_id)
-            console.log('[Messages] findOrCreateDirectConversation résultat', { id, error })
-            if (error) { console.error('[Messages] erreur', error); return }
-            setSelectedFriend(null)
-            console.log('[Messages] appel onDirectConvOpen', { conversationId: id, friend })
-            onDirectConvOpen?.({ conversationId: id, friend })
-          }}
-        />
-      )}
+        {showNewMessage && (
+          <NewMessageSheet
+            friends={friends}
+            loading={friendsLoading}
+            onClose={() => setShowNewMessage(false)}
+            onSelectFriend={openFriend}
+          />
+        )}
       </div>
     )
   }
 
-  // ── CHAT VIEW ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
-      <div style={{ padding: '10px 16px', background: '#fff', borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden', fontFamily: FONT }}>
+      <div style={{ padding: '10px 16px', background: WHITE, borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
         {onBack && (
           <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', color: '#007AFF', cursor: 'pointer' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
             <span style={{ fontSize: 16 }}>Retour</span>
           </div>
         )}
-        <div style={{ flex: 1, textAlign: onBack ? 'center' : 'left', fontSize: 18, fontWeight: 700, color: '#1C1C1E' }}>{event?.name ?? 'Messages'}</div>
+        <div style={{ flex: 1, textAlign: onBack ? 'center' : 'left', fontSize: 18, fontWeight: 700, color: BLACK }}>{event?.name ?? 'Messages'}</div>
         {onBack && <div style={{ width: 68 }} />}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {messages.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, marginTop: 40 }}>
+          <div style={{ textAlign: 'center', color: GRAY1, fontSize: 14, marginTop: 40 }}>
             Aucun message pour l'instant
           </div>
         ) : (
@@ -357,14 +780,14 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
               <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
                 <div style={{
                   maxWidth: '72%', padding: '10px 14px', fontSize: 14, lineHeight: 1.4,
-                  background: isMe ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#fff',
-                  color: isMe ? '#fff' : '#1C1C1E',
+                  background: isMe ? GRADIENT : WHITE,
+                  color: isMe ? WHITE : BLACK,
                   borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                   boxShadow: isMe ? 'none' : '0 1px 4px rgba(0,0,0,0.08)',
                 }}>
                   {m.content}
                 </div>
-                <div style={{ fontSize: 10, color: '#8E8E93', marginTop: 2, paddingLeft: 4, paddingRight: 4 }}>
+                <div style={{ fontSize: 10, color: GRAY1, marginTop: 2, paddingLeft: 4, paddingRight: 4 }}>
                   {formatTime(m.created_at)}
                 </div>
               </div>
@@ -374,19 +797,19 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         <div ref={bottomRef} />
       </div>
 
-      <div style={{ padding: '10px 16px 20px', background: '#fff', display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ padding: '10px 16px 20px', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
           placeholder="Message..."
           style={{
-            flex: 1, padding: '10px 14px', borderRadius: 20, background: '#F2F2F7',
-            fontSize: 14, color: '#1C1C1E', border: 'none', outline: 'none', fontFamily: 'inherit',
+            flex: 1, padding: '10px 14px', borderRadius: 20, background: BG,
+            fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: 'inherit',
           }}
         />
         <div onClick={send} style={{
-          width: 36, height: 36, background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+          width: 36, height: 36, background: GRADIENT,
           borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">

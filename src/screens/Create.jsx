@@ -24,12 +24,12 @@ function friendProfile(f) {
   return { id: f.friend_id, name: f.friend_name, avatar_url: f.friend_avatar }
 }
 
-export default function Create({ onBack, session }) {
+export default function Create({ onBack, session, initialData = null }) {
   const userId = session?.user?.id
 
   const [type, setType] = useState(0)
   const [vis, setVis] = useState(1)
-  const [form, setForm] = useState({ name: '', date: '', location: '', desc: '' })
+  const [form, setForm] = useState({ name: initialData?.title ?? '', date: '', location: '', desc: '' })
   const [usePoll, setUsePoll] = useState(false)
   const [pollDates, setPollDates] = useState([{ date: '', time: '' }])
   const [loading, setLoading] = useState(false)

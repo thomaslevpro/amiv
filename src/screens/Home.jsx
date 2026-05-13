@@ -1,35 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import NotificationBell from '../components/NotificationBell'
-import HeroBirthdayCard from '../components/HeroBirthdayCard'
-import BirthdayStrip from '../components/BirthdayStrip'
-import MonthTimeline from '../components/MonthTimeline'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
-import AddAmivModal from '../components/AddAmivModal'
+import TrendingNow from '../components/TrendingNow'
+import BirthdaySection from '../components/home/BirthdaySection'
 import { useFriendships } from '../hooks/useFriendships'
 import { supabase } from '../lib/supabase'
-
-function daysUntilBirthday(birthdateStr) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const b = new Date(birthdateStr)
-  const next = new Date(today.getFullYear(), b.getMonth(), b.getDate())
-  if (next < today) next.setFullYear(today.getFullYear() + 1)
-  return Math.round((next - today) / 86400000)
-}
-
-function enrichBirthdays(rows) {
-  return rows
-    .map(b => ({ ...b, days: daysUntilBirthday(b.birthdate) }))
-    .sort((a, b) => a.days - b.days)
-}
-
-function getGreeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Bonjour'
-  if (h < 18) return 'Bon après-midi'
-  return 'Bonsoir'
-}
 
 function SectionHeader({ title, badge, link, onLink }) {
   return (
@@ -232,7 +208,7 @@ function MyEventsSection({ events, onSeeAll, onEventClick }) {
   )
 }
 
-export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick, onCalendarClick, session }) {
+export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick, onCalendarClick, onTrendingClick, session }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -242,11 +218,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
 
   const [invitations, setInvitations] = useState([])
   const [myEvents, setMyEvents] = useState([])
-  const [birthdays, setBirthdays] = useState([])
-  const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [toast, setToast] = useState(null)
-  const [birthdayFilter, setBirthdayFilter] = useState('Tous')
-  const filterScrollRef = useRef(null)
 
   function showToast(message, isError = false) {
     setToast({ message, isError })
@@ -334,34 +306,6 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     return () => { cancelled = true }
   }, [userId])
 
-  useEffect(() => {
-    fetchBirthdays()
-  }, [])
-
-  useEffect(() => {
-    if (!filterScrollRef.current) return
-    const pills = filterScrollRef.current.querySelectorAll('button')
-    const currentMonthPill = pills[today.getMonth() + 1]
-    if (currentMonthPill) {
-      currentMonthPill.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
-    }
-  }, [])
-
-  async function fetchBirthdays() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data, error } = await supabase
-      .from('birthdays')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('birthdate', { ascending: true })
-    if (error) {
-      console.error('Erreur lors du chargement des anniversaires :', error)
-      return
-    }
-    setBirthdays(enrichBirthdays(data ?? []))
-  }
-
   async function handleAcceptInvitation(rsvpId, eventId) {
     const orParts = [`invited_user_id.eq.${userId}`]
     if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
@@ -409,23 +353,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     }
   }
 
-  const greeting = getGreeting()
   const dateStr = today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-
-  const currentMonth = today.getMonth()
-  const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
-  const birthdaysThisMonth = birthdays.filter(b =>
-    parseInt(b.birthdate.split('-')[1], 10) - 1 === currentMonth
-  )
-  const heroBirthday = birthdaysThisMonth[0] ?? null
-
-  const displayedBirthdays = (() => {
-    if (birthdayFilter === 'Tous') return birthdays
-    const monthIdx = MONTH_LABELS.indexOf(birthdayFilter)
-    return birthdays
-      .filter(b => parseInt(b.birthdate.split('-')[1], 10) - 1 === monthIdx)
-      .sort((a, b) => parseInt(a.birthdate.split('-')[2], 10) - parseInt(b.birthdate.split('-')[2], 10))
-  })()
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden', position: 'relative' }}>
@@ -435,7 +363,15 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, padding: '6px 2px 0' }}>
           <div>
-            <div style={{ fontSize: 27, fontWeight: 700, letterSpacing: -0.4, color: '#1C1C1E' }}>{greeting}</div>
+            <div style={{
+              fontSize: 32,
+              fontWeight: 900,
+              background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              Amiv
+            </div>
             <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>{dateStr}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
@@ -487,49 +423,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           </>
         )}
 
-        <HeroBirthdayCard
-          birthday={heroBirthday}
-          onCreateEvent={onCreateClick}
-          onMessage={onMessagesClick}
-        />
-
-        <div style={{ marginBottom: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Anniversaires
-          </span>
-        </div>
-        <style>{`[data-birthday-filter]::-webkit-scrollbar { display: none; }`}</style>
-        <div
-          ref={filterScrollRef}
-          data-birthday-filter
-          style={{
-            display: 'flex', gap: 6, overflowX: 'scroll', marginBottom: 12,
-            scrollbarWidth: 'none', msOverflowStyle: 'none',
-            WebkitOverflowScrolling: 'touch', padding: '2px 0 4px',
-          }}
-        >
-          {['Tous', ...MONTH_LABELS].map(opt => {
-            const isActive = birthdayFilter === opt
-            return (
-              <button
-                key={opt}
-                onClick={() => setBirthdayFilter(opt)}
-                style={{
-                  flexShrink: 0, padding: '5px 14px', borderRadius: 20, border: 'none',
-                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                  background: isActive ? 'linear-gradient(135deg,#e055aa,#f5a623)' : 'white',
-                  color: isActive ? '#fff' : '#8E8E93',
-                  boxShadow: isActive ? '0 2px 8px rgba(224,85,170,0.30)' : '0 1px 3px rgba(0,0,0,0.08)',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {opt}
-              </button>
-            )
-          })}
-        </div>
-        <BirthdayStrip birthdays={displayedBirthdays} onRefetch={fetchBirthdays} onToast={showToast} />
-        <MonthTimeline birthdays={birthdaysThisMonth} events={[]} today={today} onAddAmiv={() => setShowAddAmiv(true)} />
+        <BirthdaySection user={session?.user} onToast={showToast} onMessage={onMessagesClick} />
 
         {pendingRequests.length > 0 && (
           <>
@@ -551,17 +445,16 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
           onEventClick={onNotifEventClick ?? onEventClick}
         />
 
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#1C1C1E', marginBottom: 12 }}>
+            Trending now
+          </div>
+          <TrendingNow onCardClick={onTrendingClick} />
+        </div>
+
         <InviteCard onShare={handleShare} />
 
       </div>
-
-      {showAddAmiv && (
-        <AddAmivModal
-          onClose={() => setShowAddAmiv(false)}
-          onSaved={fetchBirthdays}
-          onToast={showToast}
-        />
-      )}
 
       {toast && (
         <div style={{

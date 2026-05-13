@@ -52,6 +52,7 @@ function MainApp() {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [conversationEvent, setConversationEvent] = useState(null)
   const [directConv, setDirectConv] = useState(null)
+  const [createInitialData, setCreateInitialData] = useState(null)
   const { notifications, markAsRead, markAllAsReadByType } = useNotifications(session?.user?.id)
   const unreadMessagesCount = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
@@ -142,7 +143,7 @@ function MainApp() {
 
   const renderCurrentScreen = () => {
     if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
-    if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} />
+    if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} initialData={createInitialData} />
     if (screen === 'editProfile') return (
       <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
     )
@@ -157,8 +158,8 @@ function MainApp() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} />
-      case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} />
+      case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
           return <ConversationScreen conversationId={directConv.conversationId} friend={directConv.friend} onBack={() => setDirectConv(null)} />
@@ -166,7 +167,7 @@ function MainApp() {
         if (conversationEvent) {
           return <Messages event={conversationEvent} onBack={() => setConversationEvent(null)} notifications={notifications} markAsRead={markAsRead} />
         }
-        return <Messages onEventOpen={setConversationEvent} onDirectConvOpen={setDirectConv} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => setScreen('create')} />
+        return <Messages onEventOpen={setConversationEvent} onDirectConvOpen={setDirectConv} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} />
       case 'profile': return <Profile session={session} onEdit={() => setScreen('editProfile')} />
       default: return null
     }
@@ -188,7 +189,7 @@ function MainApp() {
       {showCreateSheet && (
         <CreateActionSheet
           onClose={() => setShowCreateSheet(false)}
-          onCreateEvent={() => setScreen('create')}
+          onCreateEvent={() => { setCreateInitialData(null); setScreen('create') }}
           onAddAmiv={() => setShowAddAmiv(true)}
         />
       )}
