@@ -655,6 +655,11 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
 
     const organized = organizedRes.data ?? []
     const guests = (guestRes.data ?? []).filter(item => item.events)
+
+    console.log('[CALENDAR PARTICIPE] Query: invitations WHERE invited_user_id =', user.id, 'AND status != declined')
+    console.log('[CALENDAR PARTICIPE] guestRes raw:', guestRes.data, guestRes.error)
+    console.log('[CALENDAR PARTICIPE] guests après filtre item.events:', guests)
+
     const allEvents = [...organized, ...guests.map(item => item.events)]
     const eventIds = [...new Set(allEvents.map(event => event.id).filter(Boolean))]
 
@@ -665,6 +670,9 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
         supabase.from('rsvps').select('event_id, user_id, status').in('event_id', eventIds),
         supabase.from('public_rsvps').select('event_id, status').in('event_id', eventIds),
       ])
+
+      console.log('[CALENDAR PARTICIPE] Query: rsvps WHERE event_id IN', eventIds)
+      console.log('[CALENDAR PARTICIPE] rsvpRes raw:', rsvpRes.data, rsvpRes.error)
 
       memberRows = rsvpRes.data ?? []
       publicRows = publicRes.data ?? []
@@ -691,7 +699,9 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     setCurrentUser(user)
     setProfile(profileRes.data ?? { id: user.id, email: user.email })
     setOrganizedEvents(organized)
-    setGuestEvents(guests.sort((a, b) => new Date(a.events.date || '9999-12-31') - new Date(b.events.date || '9999-12-31')))
+    const sortedGuests = guests.sort((a, b) => new Date(a.events.date || '9999-12-31') - new Date(b.events.date || '9999-12-31'))
+    console.log('[CALENDAR PARTICIPE] guestEvents final (status invitation + event):', sortedGuests.map(g => ({ status: g.status, event_id: g.events?.id, event_name: g.events?.name })))
+    setGuestEvents(sortedGuests)
     setRsvpsByEvent(groupByEvent(memberRows))
     setPublicRsvpsByEvent(groupByEvent(publicRows))
     setProfilesById(profileMap)

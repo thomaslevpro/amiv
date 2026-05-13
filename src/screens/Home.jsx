@@ -53,91 +53,186 @@ function SectionHeader({ title, badge, link, onLink }) {
   )
 }
 
-const CONFETTI_PIECES = [
-  { left: '7%',  top: '18%', w: 8, h: 5, color: '#FF6B9D', rotate: 25,  circle: false },
-  { left: '17%', top: '68%', w: 6, h: 6, color: '#FFD93D', rotate: 0,   circle: true  },
-  { left: '24%', top: '28%', w: 5, h: 8, color: '#6BCB77', rotate: -15, circle: false },
-  { left: '34%', top: '55%', w: 6, h: 6, color: '#e055aa', rotate: 0,   circle: true  },
-  { left: '44%', top: '72%', w: 7, h: 5, color: '#4D96FF', rotate: 45,  circle: false },
-  { left: '53%', top: '14%', w: 6, h: 6, color: '#e055aa', rotate: 0,   circle: true  },
-  { left: '61%', top: '58%', w: 5, h: 7, color: '#f5a623', rotate: -30, circle: false },
-  { left: '70%', top: '22%', w: 8, h: 5, color: '#FF6B9D', rotate: 60,  circle: false },
-  { left: '79%', top: '76%', w: 6, h: 6, color: '#6BCB77', rotate: 0,   circle: true  },
-  { left: '86%', top: '38%', w: 5, h: 8, color: '#FFD93D', rotate: -45, circle: false },
-  { left: '93%', top: '16%', w: 7, h: 5, color: '#4D96FF', rotate: 30,  circle: false },
-]
-
 function InviteCard({ onShare }) {
   return (
     <div
       onClick={onShare}
       style={{
         background: '#fff',
-        borderRadius: 20,
-        boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
-        overflow: 'hidden',
-        position: 'relative',
+        borderRadius: 16,
+        padding: '16px 18px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
         marginBottom: 12,
         cursor: 'pointer',
       }}
     >
-      {CONFETTI_PIECES.map((c, i) => (
-        <div
-          key={i}
-          style={{
-            position: 'absolute',
-            left: c.left,
-            top: c.top,
-            width: c.w,
-            height: c.h,
-            background: c.color,
-            borderRadius: c.circle ? '50%' : 2,
-            opacity: 0.75,
-            transform: `rotate(${c.rotate}deg)`,
-            zIndex: 1,
-            pointerEvents: 'none',
-          }}
-        />
-      ))}
-      <div style={{
-        position: 'relative',
-        zIndex: 2,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        padding: '14px 16px',
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', lineHeight: 1.3 }}>
-            Offrez Amiv à vos proches
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 400, color: '#8E8E93', marginTop: 3, lineHeight: 1.4 }}>
-            Parce que les bons moments méritent d'être partagés
-          </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
+          {['#e055aa', '#f5a623', '#4D96FF', '#6BCB77'].map(color => (
+            <span key={color} style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />
+          ))}
         </div>
-        <button
-          onClick={e => { e.stopPropagation(); onShare() }}
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>
+          Offrez Amiv à vos proches
+        </div>
+        <div style={{ fontSize: 12, color: '#6B6B6D', lineHeight: 1.4 }}>
+          Parce que les bons moments méritent d'être partagés
+        </div>
+      </div>
+      <button
+        onClick={e => { e.stopPropagation(); onShare() }}
+        style={{
+          flexShrink: 0,
+          padding: '10px 14px',
+          borderRadius: 14,
+          background: 'linear-gradient(135deg, #e055aa, #f5a623)',
+          fontSize: 12,
+          fontWeight: 700,
+          color: '#fff',
+          textAlign: 'center',
+          whiteSpace: 'normal',
+          width: 80,
+          border: 'none',
+          cursor: 'pointer',
+          lineHeight: 1.15,
+        }}
+      >
+        Envoyer<br />le lien
+      </button>
+    </div>
+  )
+}
+
+function formatCompactEventDate(dateStr) {
+  if (!dateStr) return 'Date à définir'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return 'Date à définir'
+  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function getEventDaysLeft(dateStr) {
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return null
+  return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24))
+}
+
+function MyEventCard({ item, onClick }) {
+  const daysLeft = getEventDaysLeft(item.date)
+  const badgeColor = daysLeft === null
+    ? '#AEAEB2'
+    : daysLeft < 14
+      ? '#e055aa'
+      : daysLeft < 60
+        ? '#f5a623'
+        : '#AEAEB2'
+  const isOrganizer = item.role === 'organise'
+  const meta = [formatCompactEventDate(item.date), item.location].filter(Boolean).join(' · ')
+
+  return (
+    <div
+      onClick={() => onClick?.(item)}
+      style={{
+        background: '#fff',
+        borderRadius: 16,
+        marginBottom: 10,
+        overflow: 'hidden',
+        display: 'flex',
+        boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
+        cursor: 'pointer',
+      }}
+    >
+      <div
+        style={{
+          width: 4,
+          flexShrink: 0,
+          background: isOrganizer ? 'linear-gradient(to bottom, #e055aa, #f5a623)' : '#34C759',
+        }}
+      />
+      <div style={{ flex: 1, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        <div
           style={{
-            background: 'linear-gradient(135deg, #e055aa, #f5a623)',
-            color: '#fff',
-            fontSize: 12,
-            fontWeight: 700,
-            borderRadius: 12,
-            padding: '9px 14px',
-            border: 'none',
-            cursor: 'pointer',
+            width: 44,
+            height: 44,
+            borderRadius: 13,
+            background: 'rgba(224,85,170,0.08)',
+            fontSize: 22,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             flexShrink: 0,
-            whiteSpace: 'nowrap',
           }}
         >
-          Envoyer le lien
-        </button>
+          {item.emoji || '🎉'}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#1C1C1E',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {item.name || 'Événement'}
+          </div>
+          <div style={{ fontSize: 12, color: '#6B6B6D', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {meta}
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: badgeColor }}>
+            {daysLeft === null ? 'J-?' : `J-${Math.max(daysLeft, 0)}`}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: isOrganizer ? '#e055aa' : '#34C759' }} />
+            <span style={{ fontSize: 10, color: '#AEAEB2', whiteSpace: 'nowrap' }}>
+              {isOrganizer ? "J'organise" : "J'y serai"}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   )
 }
 
-export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick, session }) {
+function MyEventsSection({ events, onSeeAll, onEventClick }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 2px' }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E' }}>Mes événements</div>
+        <button
+          onClick={onSeeAll}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: '#e055aa',
+            fontSize: 13,
+            fontWeight: 600,
+            padding: 0,
+            cursor: 'pointer',
+          }}
+        >
+          Voir tout
+        </button>
+      </div>
+      {events.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: 16, padding: 20, textAlign: 'center', boxShadow: '0 1px 8px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 24, marginBottom: 6 }}>📅</div>
+          <div style={{ fontSize: 13, color: '#8E8E93' }}>Aucun événement à venir</div>
+        </div>
+      ) : (
+        events.map(event => <MyEventCard key={event.id} item={event} onClick={onEventClick} />)
+      )}
+    </div>
+  )
+}
+
+export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick, onCalendarClick, session }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -146,6 +241,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
 
   const [invitations, setInvitations] = useState([])
+  const [myEvents, setMyEvents] = useState([])
   const [birthdays, setBirthdays] = useState([])
   const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [toast, setToast] = useState(null)
@@ -180,6 +276,62 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
 
   useEffect(() => {
     fetchInvitations()
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId) {
+      setMyEvents([])
+      return
+    }
+
+    let cancelled = false
+
+    async function fetchMyEvents() {
+      const now = new Date().toISOString()
+      const [organizedRes, invitationsRes] = await Promise.all([
+        supabase
+          .from('events')
+          .select('id, name, emoji, date, location')
+          .eq('user_id', userId)
+          .gte('date', now)
+          .order('date', { ascending: true })
+          .limit(5),
+        supabase
+          .from('invitations')
+          .select('status, events(id, name, emoji, date, location)')
+          .eq('invited_user_id', userId)
+          .neq('status', 'declined')
+      ])
+
+      if (cancelled) return
+
+      if (organizedRes.error) console.error('Erreur événements organisés :', organizedRes.error)
+      if (invitationsRes.error) console.error('Erreur invitations événements participés :', invitationsRes.error)
+
+      const guestEvents = (invitationsRes.data ?? [])
+        .filter(item => item.events)
+        .map(item => ({
+          ...item.events,
+          role: 'participe',
+        }))
+
+      const byId = new Map()
+      ;(organizedRes.data ?? []).filter(event => !event.date || new Date(event.date) >= new Date()).forEach(event => {
+        if (event?.id) byId.set(event.id, { ...event, role: 'organise' })
+      })
+      guestEvents.filter(event => !event.date || new Date(event.date) >= new Date(now)).forEach(event => {
+        if (event?.id && !byId.has(event.id)) byId.set(event.id, event)
+      })
+
+      const merged = [...byId.values()]
+        .sort((a, b) => new Date(a.date || '9999-12-31') - new Date(b.date || '9999-12-31'))
+        .slice(0, 3)
+
+      setMyEvents(merged)
+    }
+
+    fetchMyEvents()
+    return () => { cancelled = true }
   }, [userId])
 
   useEffect(() => {
@@ -392,6 +544,12 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
             <FriendSuggestions suggestions={suggestions} onAdd={sendRequest} />
           </>
         )}
+
+        <MyEventsSection
+          events={myEvents}
+          onSeeAll={onCalendarClick ?? onAllEventsClick}
+          onEventClick={onNotifEventClick ?? onEventClick}
+        />
 
         <InviteCard onShare={handleShare} />
 
