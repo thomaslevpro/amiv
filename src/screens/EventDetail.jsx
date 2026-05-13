@@ -64,6 +64,7 @@ const guestResponseIcon = { yes: <CheckCircle2 size={16} className="text-green-5
 export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [userId, setUserId] = useState(null)
+  const [userEmail, setUserEmail] = useState(null)
   const [loading, setLoading] = useState(false)
   const [guestRsvps, setGuestRsvps] = useState([])
   const [toast, setToast] = useState(null)
@@ -136,6 +137,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || cancelled) return
       setUserId(user.id)
+      setUserEmail(user.email)
 
       const isOrg = user.id === event.user_id
 
@@ -263,6 +265,36 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   async function handleRsvp(status) {
     if (!userId || loading) return
     setLoading(true)
+
+    // Les invitations utilisent accepted/declined, les rsvps utilisent going/not_going
+    const invitationStatus = status === 'going' ? 'accepted'
+      : status === 'not_going' ? 'declined'
+      : status // 'maybe' reste 'maybe', 'pending' reste 'pending'
+
+    // Étape 1 : retrouver l'invitation par event_id + user
+    const orParts = [`invited_user_id.eq.${userId}`]
+    if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
+
+    const { data: inv, error: selErr } = await supabase
+      .from('invitations')
+      .select('id')
+      .eq('event_id', event.id)
+      .or(orParts.join(','))
+      .maybeSingle()
+
+    if (selErr) console.error('SELECT invitation error:', selErr)
+    if (!inv) {
+      console.warn('Invitation introuvable — userId:', userId, '/ event.id:', event.id)
+    } else {
+      // Étape 2 : update par clé primaire
+      const { error: updErr } = await supabase
+        .from('invitations')
+        .update({ status: invitationStatus })
+        .eq('id', inv.id)
+      if (updErr) console.error('UPDATE invitation error:', updErr)
+    }
+
+    // Keep rsvps in sync
     const { error } = await supabase
       .from('rsvps')
       .upsert({ event_id: event.id, user_id: userId, status }, { onConflict: 'event_id,user_id' })

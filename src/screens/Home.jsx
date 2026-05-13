@@ -142,6 +142,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   today.setHours(0, 0, 0, 0)
 
   const userId = session?.user?.id
+  const userEmail = session?.user?.email
   const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
 
   const [invitations, setInvitations] = useState([])
@@ -209,14 +210,32 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     setBirthdays(enrichBirthdays(data ?? []))
   }
 
-  async function handleAcceptInvitation(rsvpId) {
+  async function handleAcceptInvitation(rsvpId, eventId) {
+    const orParts = [`invited_user_id.eq.${userId}`]
+    if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
+    const { count } = await supabase
+      .from('invitations')
+      .update({ status: 'going' }, { count: 'exact' })
+      .eq('event_id', eventId)
+      .or(orParts.join(','))
+    if (count === 0) console.warn('RSVP update matched 0 rows — check invited_user_id or email match')
+
     const { error } = await supabase.from('rsvps').update({ status: 'going' }).eq('id', rsvpId)
     if (!error) {
       setInvitations(prev => prev.filter(i => i.id !== rsvpId))
     }
   }
 
-  async function handleDeclineInvitation(rsvpId) {
+  async function handleDeclineInvitation(rsvpId, eventId) {
+    const orParts = [`invited_user_id.eq.${userId}`]
+    if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
+    const { count } = await supabase
+      .from('invitations')
+      .update({ status: 'declined' }, { count: 'exact' })
+      .eq('event_id', eventId)
+      .or(orParts.join(','))
+    if (count === 0) console.warn('RSVP update matched 0 rows — check invited_user_id or email match')
+
     const { error } = await supabase.from('rsvps').update({ status: 'declined' }).eq('id', rsvpId)
     if (!error) {
       setInvitations(prev => prev.filter(i => i.id !== rsvpId))
@@ -291,7 +310,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
-                      onClick={() => handleAcceptInvitation(inv.id)}
+                      onClick={() => handleAcceptInvitation(inv.id, inv.event_id)}
                       style={{
                         flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
                         background: 'linear-gradient(135deg,#e055aa,#f5a623)',
@@ -301,7 +320,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
                       J'y serai ✓
                     </button>
                     <button
-                      onClick={() => handleDeclineInvitation(inv.id)}
+                      onClick={() => handleDeclineInvitation(inv.id, inv.event_id)}
                       style={{
                         flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
                         background: '#E5E5EA', color: '#3A3A3C', fontSize: 13, fontWeight: 600,
