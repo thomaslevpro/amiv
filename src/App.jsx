@@ -158,7 +158,7 @@ function MainApp() {
 
     switch (tab) {
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} session={session} />
-      case 'calendar': return <Calendar onEventClick={handleEventClick} />
+      case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => setScreen('create')} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
           return <ConversationScreen conversationId={directConv.conversationId} friend={directConv.friend} onBack={() => setDirectConv(null)} />
