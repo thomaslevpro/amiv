@@ -5,6 +5,10 @@ function getInitials(name) {
   return (name ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 }
 
+function friendName(friend) {
+  return friend?.friend_name || friend?.full_name || friend?.name || friend?.email || 'Ami'
+}
+
 export default function ConversationScreen({ conversationId, friend, onBack }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -41,7 +45,11 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
           table: 'direct_messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => setMessages(prev => [...prev, payload.new])
+        (payload) => setMessages(prev => {
+          if (prev.find(m => m.id === payload.new.id)) return prev
+          const withoutOptimistic = prev.filter(m => !(m.isOptimistic && m.sender_id === payload.new.sender_id && m.content === payload.new.content))
+          return [...withoutOptimistic, payload.new]
+        })
       )
       .subscribe()
 
@@ -50,17 +58,32 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (conversationId && typeof window !== 'undefined') {
+      window.localStorage.setItem(`last_seen_dm_${conversationId}`, new Date().toISOString())
+    }
+  }, [messages, conversationId])
 
   async function handleSend() {
     const text = input.trim()
     if (!text || !currentUserId) return
+    const optimistic = {
+      id: crypto.randomUUID(),
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      content: text,
+      created_at: new Date().toISOString(),
+      isOptimistic: true,
+    }
     setInput('')
-    await supabase.from('direct_messages').insert({
+    setMessages(prev => [...prev, optimistic])
+    const { error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
       sender_id: currentUserId,
       content: text,
     })
+    if (error) {
+      setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+    }
   }
 
   return (
@@ -83,7 +106,7 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
           {friend?.friend_avatar ? (
             <img
               src={friend.friend_avatar}
-              alt={friend.friend_name}
+              alt={friendName(friend)}
               style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
             />
           ) : (
@@ -93,11 +116,11 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0,
             }}>
-              {getInitials(friend?.friend_name)}
+              {getInitials(friendName(friend))}
             </div>
           )}
           <span style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E' }}>
-            {friend?.friend_name}
+            {friendName(friend)}
           </span>
         </div>
 

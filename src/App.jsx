@@ -53,7 +53,7 @@ function MainApp() {
   const [conversationEvent, setConversationEvent] = useState(null)
   const [directConv, setDirectConv] = useState(null)
   const [createInitialData, setCreateInitialData] = useState(null)
-  const { notifications, markAsRead, markAllAsReadByType } = useNotifications(session?.user?.id)
+  const { notifications, markAsRead } = useNotifications(session?.user?.id)
   const unreadMessagesCount = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
   const pendingEventId = useRef(
@@ -121,7 +121,6 @@ function MainApp() {
 
   const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
   const handleTabChange = (newTab) => {
-    if (newTab === 'messages') markAllAsReadByType('message_received')
     setTab(newTab)
     setScreen('home')
     setConversationEvent(null)
@@ -148,7 +147,7 @@ function MainApp() {
       <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
     )
     if (screen === 'messages' && selectedEvent) return (
-      <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} />
+      <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} notifications={notifications} markAsRead={markAsRead} />
     )
     if (screen === 'eventDetail' && selectedEvent) return (
       <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />

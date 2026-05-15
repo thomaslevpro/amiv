@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { BellOff, MessageCircle, Mic, PenLine, Search, X } from 'lucide-react'
+import { BellOff, MessageCircle, Mic, PenLine, Search, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -12,6 +12,7 @@ const GRAY1 = '#8E8E93'
 const GRAY2 = '#AEAEB2'
 const CARD_SHADOW = '0 2px 16px rgba(0,0,0,0.08)'
 const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif"
+const DELETE_REVEAL_WIDTH = 86
 
 const typeEmoji = {
   Anniversaire: '🎂',
@@ -28,6 +29,18 @@ function getInitials(name) {
 
 function firstName(name) {
   return (name ?? 'Ami').trim().split(/\s+/)[0] || 'Ami'
+}
+
+function directProfileDisplayName(profile) {
+  return profile?.first_name || profile?.name || profile?.email || 'Utilisateur'
+}
+
+function profileDisplayName(profile, fallback = 'Ami') {
+  return profile?.first_name || profile?.name || profile?.email || fallback
+}
+
+function notificationConversationId(notification) {
+  return notification?.data?.conversation_id || notification?.data?.direct_conversation_id
 }
 
 function getAvatarColor(name) {
@@ -58,6 +71,42 @@ function readSeen(key) {
 function writeSeen(key) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(key, new Date().toISOString())
+}
+
+function hiddenConversationsKey(userId) {
+  return `hidden_conversations_${userId}`
+}
+
+function readHiddenConversations(userId) {
+  if (typeof window === 'undefined' || !userId) return {}
+  try {
+    return JSON.parse(window.localStorage.getItem(hiddenConversationsKey(userId)) || '{}')
+  } catch {
+    return {}
+  }
+}
+
+function writeHiddenConversations(userId, hidden) {
+  if (typeof window === 'undefined' || !userId) return
+  window.localStorage.setItem(hiddenConversationsKey(userId), JSON.stringify(hidden))
+}
+
+function isConversationHidden(conversation, hiddenConversations) {
+  const hiddenAt = hiddenConversations[conversation.id]
+  if (!hiddenAt) return false
+  const hiddenTime = new Date(hiddenAt).getTime()
+  const lastTime = new Date(conversation.lastAt || 0).getTime()
+  return !lastTime || lastTime <= hiddenTime
+}
+
+async function fetchProfilesByIds(ids) {
+  if (!ids.length) return []
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, name, first_name, avatar_url, email')
+    .in('id', ids)
+
+  return data ?? []
 }
 
 function parseVoice(content) {
@@ -284,91 +333,184 @@ function EventAvatar({ emoji }) {
   )
 }
 
-function ConversationRow({ conversation, isLast, onClick }) {
+function ConversationRow({ conversation, isLast, onClick, onDelete }) {
   const unread = conversation.unreadCount > 0
   const preview = previewMessage(conversation.lastMessage?.content)
+  const [offset, setOffset] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const pointerRef = useRef(null)
+  const suppressClickRef = useRef(false)
+
+  function handlePointerDown(event) {
+    pointerRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      offset,
+      active: true,
+    }
+    suppressClickRef.current = false
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  function handlePointerMove(event) {
+    const pointer = pointerRef.current
+    if (!pointer?.active) return
+    const dx = event.clientX - pointer.x
+    const dy = event.clientY - pointer.y
+    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+    if (Math.abs(dy) > Math.abs(dx) && offset === 0) return
+    const nextOffset = Math.min(0, Math.max(-DELETE_REVEAL_WIDTH, pointer.offset + dx))
+    setOffset(nextOffset)
+    setDragging(true)
+    if (Math.abs(dx) > 8) suppressClickRef.current = true
+  }
+
+  function handlePointerUp(event) {
+    pointerRef.current = null
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    setOffset(current => (current < -DELETE_REVEAL_WIDTH / 2 ? -DELETE_REVEAL_WIDTH : 0))
+    window.setTimeout(() => setDragging(false), 0)
+  }
+
+  function handleClick(event) {
+    if (suppressClickRef.current || offset < 0) {
+      event.preventDefault()
+      setOffset(0)
+      suppressClickRef.current = false
+      return
+    }
+    onClick()
+  }
+
+  function handleDelete(event) {
+    event.stopPropagation()
+    setOffset(0)
+    onDelete()
+  }
+
   return (
-    <div>
+    <div style={{ position: 'relative', overflow: 'hidden', background: '#FF3B30' }}>
       <button
         type="button"
-        onClick={onClick}
+        aria-label={`Supprimer ${conversation.title}`}
+        onClick={handleDelete}
         style={{
-          width: '100%',
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: isLast ? 0 : 0.5,
+          width: DELETE_REVEAL_WIDTH,
           border: 'none',
-          background: WHITE,
-          padding: '12px 16px',
+          background: '#FF3B30',
+          color: WHITE,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 12,
-          textAlign: 'left',
-          cursor: 'pointer',
+          justifyContent: 'center',
+          gap: 4,
+          fontSize: 11,
+          fontWeight: 750,
           fontFamily: FONT,
+          cursor: 'pointer',
         }}
       >
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          {conversation.kind === 'event' ? (
-            <EventAvatar emoji={conversation.emoji} />
-          ) : (
-            <Avatar name={conversation.title} url={conversation.avatarUrl} />
-          )}
-          {unread && (
-            <div style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              minWidth: 18,
-              height: 18,
-              padding: '0 5px',
-              borderRadius: 9,
-              background: GRADIENT,
-              border: `2px solid ${WHITE}`,
-              color: WHITE,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 10,
-              fontWeight: 800,
-              lineHeight: 1,
-            }}>
-              {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
-            </div>
-          )}
-        </div>
+        <Trash2 size={18} strokeWidth={2.2} color={WHITE} />
+        Supprimer
+      </button>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <div style={{
-              flex: 1,
-              minWidth: 0,
-              fontSize: 15,
-              fontWeight: unread ? 700 : 600,
-              color: BLACK,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {conversation.title}
-            </div>
-            {conversation.isMuted && <BellOff size={14} strokeWidth={1.8} color={GRAY2} />}
-            <div style={{ fontSize: 11, color: GRAY2, flexShrink: 0 }}>{formatConvTime(conversation.lastAt)}</div>
-          </div>
-          <div style={{
+      <div
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: dragging ? 'none' : 'transform 0.18s ease',
+          touchAction: 'pan-y',
+          background: WHITE,
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleClick}
+          style={{
+            width: '100%',
+            border: 'none',
+            background: WHITE,
+            padding: '12px 16px',
             display: 'flex',
             alignItems: 'center',
-            gap: 5,
-            fontSize: 13,
-            color: unread ? BLACK : GRAY1,
-            fontWeight: unread ? 500 : 400,
-            minWidth: 0,
-          }}>
-            {preview.voice && <Mic size={13} strokeWidth={2} color={unread ? BLACK : GRAY1} />}
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {preview.text}
-            </span>
+            gap: 12,
+            textAlign: 'left',
+            cursor: 'pointer',
+            fontFamily: FONT,
+          }}
+        >
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            {conversation.kind === 'event' ? (
+              <EventAvatar emoji={conversation.emoji} />
+            ) : (
+              <Avatar name={conversation.title} url={conversation.avatarUrl} />
+            )}
+            {unread && (
+              <div style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                minWidth: 18,
+                height: 18,
+                padding: '0 5px',
+                borderRadius: 9,
+                background: GRADIENT,
+                border: `2px solid ${WHITE}`,
+                color: WHITE,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 10,
+                fontWeight: 800,
+                lineHeight: 1,
+              }}>
+                {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
+              </div>
+            )}
           </div>
-        </div>
-      </button>
-      {!isLast && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <div style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 15,
+                fontWeight: unread ? 700 : 600,
+                color: BLACK,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {conversation.title}
+              </div>
+              {conversation.isMuted && <BellOff size={14} strokeWidth={1.8} color={GRAY2} />}
+              <div style={{ fontSize: 11, color: GRAY2, flexShrink: 0 }}>{formatConvTime(conversation.lastAt)}</div>
+            </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 13,
+              color: unread ? BLACK : GRAY1,
+              fontWeight: unread ? 500 : 400,
+              minWidth: 0,
+            }}>
+              {preview.voice && <Mic size={13} strokeWidth={2} color={unread ? BLACK : GRAY1} />}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {preview.text}
+              </span>
+            </div>
+          </div>
+        </button>
+        {!isLast && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
+      </div>
     </div>
   )
 }
@@ -385,7 +527,9 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [friendsLoading, setFriendsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('all')
   const [showNewMessage, setShowNewMessage] = useState(false)
+  const [hiddenConversations, setHiddenConversations] = useState({})
   const appOpenedAtRef = useRef(null)
+  const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !appOpenedAtRef.current) {
@@ -393,15 +537,58 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       window.localStorage.setItem('last_app_opened_at', new Date().toISOString())
     }
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id)
+      if (user) {
+        setUserId(user.id)
+        setHiddenConversations(readHiddenConversations(user.id))
+      }
     })
   }, [])
 
   useEffect(() => {
     if (!event?.id) return
     writeSeen(`last_seen_event_${event.id}`)
+    const unreadIds = notifications
+      .filter(n => n.type === 'message_received' && !n.read && n.data?.event_id === event.id)
+      .map(n => n.id)
+    unreadIds.forEach(id => markAsRead?.(id))
     fetchMessages()
   }, [event?.id])
+
+  useEffect(() => {
+    if (!event?.id || !userId) return undefined
+
+    const suffix = Math.random().toString(36).slice(2, 8)
+    const channel = supabase
+      .channel(`messages:${event.id}:${suffix}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `event_id=eq.${event.id}`,
+        },
+        async (payload) => {
+          const { data } = await supabase
+            .from('messages')
+            .select('*, profiles!messages_user_id_fkey(name, first_name, avatar_url)')
+            .eq('id', payload.new.id)
+            .single()
+
+          if (!data) return
+
+          const message = { ...data, profile: data.profiles ?? null }
+          setMessages(prev => {
+            if (prev.find(m => m.id === message.id)) return prev
+            const withoutOptimistic = prev.filter(m => !(m.isOptimistic && m.user_id === message.user_id && m.content === message.content))
+            return [...withoutOptimistic, message]
+          })
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [event?.id, userId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -410,12 +597,34 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   useEffect(() => {
     if (event || !userId) return
     fetchAll()
+  }, [event, userId, messageNotificationVersion])
+
+  useEffect(() => {
+    if (event || !userId) return undefined
+
+    const suffix = Math.random().toString(36).slice(2, 8)
+    const channel = supabase
+      .channel(`messages-list:${userId}:${suffix}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        () => fetchAll()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'direct_messages' },
+        () => fetchAll()
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [event, userId])
 
   async function fetchAll() {
     setListLoading(true)
     setFriendsLoading(true)
-    const [convRows, friendRows] = await Promise.all([fetchConversations(), getFriends(userId)])
+    const friendRows = await getFriends(userId)
+    const convRows = await fetchConversations(friendRows.data ?? [])
     setConversations(convRows)
     setFriends(friendRows.data ?? [])
     setListLoading(false)
@@ -425,10 +634,12 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   async function fetchMessages() {
     const { data } = await supabase
       .from('messages')
-      .select('*')
+      .select('*, profiles!messages_user_id_fkey(id, name, first_name, avatar_url)')
       .eq('event_id', event.id)
       .order('created_at', { ascending: true })
-    if (data) setMessages(data)
+    if (!data) return
+
+    setMessages(data.map(message => ({ ...message, profile: message.profiles ?? null })))
   }
 
   async function fetchEventConversations() {
@@ -474,7 +685,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       }))
   }
 
-  async function fetchDirectConversations() {
+  async function fetchDirectConversations(friendRows = []) {
     let { data: myParticipants, error: participantsError } = await supabase
       .from('direct_conversation_participants')
       .select('conversation_id, is_muted, direct_conversations(created_at)')
@@ -491,23 +702,20 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     const convIds = (myParticipants ?? []).map(row => row.conversation_id)
     if (!convIds.length) return []
 
-    const [{ data: allParticipants }, { data: directMessages }] = await Promise.all([
-      supabase.from('direct_conversation_participants').select('conversation_id, user_id').in('conversation_id', convIds),
+    const [{ data: otherParticipants }, { data: directMessages }] = await Promise.all([
+      supabase.rpc('get_conversation_other_participants', { conv_ids: convIds }),
       supabase.from('direct_messages').select('id, conversation_id, content, created_at, sender_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(500),
     ])
 
     const otherByConv = {}
-    ;(allParticipants ?? []).forEach(participant => {
-      if (participant.user_id !== userId && !otherByConv[participant.conversation_id]) {
-        otherByConv[participant.conversation_id] = participant.user_id
-      }
+    ;(otherParticipants ?? []).forEach(row => {
+      otherByConv[row.conversation_id] = row.other_user_id
     })
 
     const otherIds = [...new Set(Object.values(otherByConv).filter(Boolean))]
-    const { data: profiles } = otherIds.length
-      ? await supabase.from('profiles').select('id, name, first_name, avatar_url, email').in('id', otherIds)
-      : { data: [] }
+    const profiles = await fetchProfilesByIds(otherIds)
     const profileById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
+    const friendById = Object.fromEntries((friendRows ?? []).map(friend => [friend.friend_id, friend]))
 
     const lastByConv = {}
     const unreadByConv = {}
@@ -521,20 +729,22 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
 
     const participantByConv = Object.fromEntries((myParticipants ?? []).map(row => [row.conversation_id, row]))
     return convIds.map(conversationId => {
-      const profile = profileById[otherByConv[conversationId]]
-      const displayName = profile?.name || profile?.first_name || profile?.email || 'Ami'
+      const otherUserId = otherByConv[conversationId]
+      const profile = profileById[otherUserId] ?? null
+      const friend = friendById[otherUserId]
+      const displayName = directProfileDisplayName(profile)
       const createdAt = participantByConv[conversationId]?.direct_conversations?.created_at
       return {
         id: `dm-${conversationId}`,
         kind: 'direct',
         conversationId,
         friend: {
-          friend_id: profile?.id || otherByConv[conversationId],
+          friend_id: profile?.id || friend?.friend_id || otherUserId,
           friend_name: displayName,
-          friend_avatar: profile?.avatar_url,
+          friend_avatar: profile?.avatar_url || friend?.friend_avatar || '',
         },
         title: displayName,
-        avatarUrl: profile?.avatar_url,
+        avatarUrl: profile?.avatar_url || friend?.friend_avatar || '',
         lastMessage: lastByConv[conversationId] || { content: 'Aucun message', created_at: createdAt },
         lastAt: lastByConv[conversationId]?.created_at || createdAt,
         unreadCount: unreadByConv[conversationId] || 0,
@@ -543,30 +753,50 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     })
   }
 
-  async function fetchConversations() {
+  async function fetchConversations(friendRows = []) {
     const [eventRows, directRows] = await Promise.all([
       fetchEventConversations(),
-      fetchDirectConversations(),
+      fetchDirectConversations(friendRows),
     ])
     return [...eventRows, ...directRows].sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0))
   }
 
   const conversationsByFriendId = useMemo(() => {
     const map = new Map()
-    conversations.filter(conv => conv.kind === 'direct').forEach(conv => {
+    conversations.filter(conv => conv.kind === 'direct' && !isConversationHidden(conv, hiddenConversations)).forEach(conv => {
       if (conv.friend?.friend_id) map.set(conv.friend.friend_id, conv)
     })
     return map
-  }, [conversations])
+  }, [conversations, hiddenConversations])
 
-  const unreadTotal = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0)
+  const inboxConversations = conversations.filter(conv => !isConversationHidden(conv, hiddenConversations))
 
-  const visibleConversations = conversations.filter(conv => {
+  const unreadTotal = inboxConversations.reduce((sum, conv) => sum + conv.unreadCount, 0)
+
+  const visibleConversations = inboxConversations.filter(conv => {
     if (activeTab === 'events') return conv.kind === 'event'
     if (activeTab === 'directs') return conv.kind === 'direct'
     if (activeTab === 'unread') return conv.unreadCount > 0
     return true
   })
+
+  function hideConversation(conversation) {
+    setHiddenConversations(prev => {
+      const next = { ...prev, [conversation.id]: new Date().toISOString() }
+      writeHiddenConversations(userId, next)
+      return next
+    })
+  }
+
+  function showConversation(conversationId) {
+    setHiddenConversations(prev => {
+      if (!prev[conversationId]) return prev
+      const next = { ...prev }
+      delete next[conversationId]
+      writeHiddenConversations(userId, next)
+      return next
+    })
+  }
 
   async function openFriend(friend) {
     if (!userId || !friend?.friend_id) return
@@ -575,6 +805,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       console.error('[Messages] direct conversation error:', error)
       return
     }
+    showConversation(`dm-${id}`)
     writeSeen(`last_seen_dm_${id}`)
     setShowNewMessage(false)
     onDirectConvOpen?.({ conversationId: id, friend })
@@ -595,16 +826,33 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       return
     }
     writeSeen(`last_seen_dm_${conv.conversationId}`)
+    const unreadIds = notifications
+      .filter(n => n.type === 'message_received' && !n.read && notificationConversationId(n) === conv.conversationId)
+      .map(n => n.id)
+    for (const id of unreadIds) markAsRead?.(id)
     onDirectConvOpen?.({ conversationId: conv.conversationId, friend: conv.friend })
   }
 
   async function send() {
     if (!input.trim() || !userId || !event?.id) return
     const content = input.trim()
-    const { error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content })
-    if (error) { console.log('Erreur Supabase:', JSON.stringify(error)); return }
+    const optimistic = {
+      id: crypto.randomUUID(),
+      event_id: event.id,
+      user_id: userId,
+      content,
+      created_at: new Date().toISOString(),
+      profile: null,
+      isOptimistic: true,
+    }
     setInput('')
-    await fetchMessages()
+    setMessages(prev => [...prev, optimistic])
+    const { error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content })
+    if (error) {
+      setMessages(prev => prev.filter(message => message.id !== optimistic.id))
+      console.log('Erreur Supabase:', JSON.stringify(error))
+      return
+    }
     const { error: notifErr } = await supabase.rpc('notify_message_recipients', {
       p_event_id:  event.id,
       p_sender_id: userId,
@@ -737,6 +985,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
                     conversation={conv}
                     isLast={index === visibleConversations.length - 1}
                     onClick={() => handleConversationTap(conv)}
+                    onDelete={() => hideConversation(conv)}
                   />
                 ))}
               </div>
@@ -776,8 +1025,14 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         ) : (
           messages.map((m) => {
             const isMe = m.user_id === userId
+            const authorName = isMe ? 'Toi' : profileDisplayName(m.profile)
             return (
               <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                {!isMe && (
+                  <div style={{ maxWidth: '72%', fontSize: 11, color: GRAY1, fontWeight: 650, marginBottom: 3, paddingLeft: 4, paddingRight: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {authorName}
+                  </div>
+                )}
                 <div style={{
                   maxWidth: '72%', padding: '10px 14px', fontSize: 14, lineHeight: 1.4,
                   background: isMe ? GRADIENT : WHITE,
@@ -788,7 +1043,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
                   {m.content}
                 </div>
                 <div style={{ fontSize: 10, color: GRAY1, marginTop: 2, paddingLeft: 4, paddingRight: 4 }}>
-                  {formatTime(m.created_at)}
+                  {isMe ? `${authorName} · ` : ''}{formatTime(m.created_at)}
                 </div>
               </div>
             )
