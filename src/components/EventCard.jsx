@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase'
+
 export default function EventCard({ event = {}, onClick }) {
   const {
     name = 'Événement sans titre',
@@ -5,6 +7,7 @@ export default function EventCard({ event = {}, onClick }) {
     location = '',
     type = 'Autre',
     role,
+    cover_image,
   } = event
 
   const typeEmoji = {
@@ -14,6 +17,9 @@ export default function EventCard({ event = {}, onClick }) {
     'Autre': '🎉',
   }
   const emoji = typeEmoji[type] ?? '🎉'
+  const coverUrl = cover_image
+    ? supabase.storage.from('event-covers').getPublicUrl(cover_image).data.publicUrl
+    : null
 
   const d = date ? new Date(date) : null
   const dateStr = d && !isNaN(d)
@@ -44,13 +50,27 @@ export default function EventCard({ event = {}, onClick }) {
       {/* Cover */}
       <div style={{
         height: 110,
-        background: 'linear-gradient(135deg, #e055aa, #f5a623)',
+        background: coverUrl ? '#000' : 'linear-gradient(135deg, #e055aa, #f5a623)',
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden',
       }}>
-        <span style={{ fontSize: 48 }}>{emoji}</span>
+        {coverUrl ? (
+          <img
+            src={coverUrl}
+            alt="cover"
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: 'center',
+              opacity: 0.9,
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 48 }}>{emoji}</span>
+        )}
         <div style={{
           position: 'absolute',
           top: 10,
@@ -63,6 +83,7 @@ export default function EventCard({ event = {}, onClick }) {
           padding: '4px 10px',
           fontSize: 11,
           fontWeight: 700,
+          zIndex: 1,
         }}>
           {badgeStr}
         </div>

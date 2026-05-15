@@ -8,6 +8,12 @@ import BirthdaySection from '../components/home/BirthdaySection'
 import { useFriendships } from '../hooks/useFriendships'
 import { supabase } from '../lib/supabase'
 
+function getCoverUrl(coverImage) {
+  if (!coverImage) return null
+  if (coverImage.startsWith('http')) return coverImage
+  return supabase.storage.from('event-covers').getPublicUrl(coverImage).data.publicUrl
+}
+
 const EVENT_GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 
 function SectionHeader({ title, badge, link, onLink }) {
@@ -144,7 +150,8 @@ function MiniEventStatusChip({ item }) {
 
 function MyEventMiniCard({ item, onClick }) {
   const daysLeft = getEventDaysLeft(item.date)
-  const hasCover = !!item.cover_image
+  const coverUrl = getCoverUrl(item.cover_image)
+  const hasCover = !!coverUrl
   const dateStr = formatCompactEventDate(item.date)
   const stats = item.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
   const fallbackBg = item.type === 'personal' || item.type === 'anniversary' || item.id?.charCodeAt?.(0) % 2
@@ -166,7 +173,7 @@ function MyEventMiniCard({ item, onClick }) {
       <div style={{ height: 100, position: 'relative', background: fallbackBg }}>
         {hasCover ? (
           <>
-            <img src={item.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.52))' }} />
             <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

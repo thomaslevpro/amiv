@@ -74,6 +74,8 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', date: '', description: '', location: '' })
   const [saving, setSaving] = useState(false)
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverPreview, setCoverPreview] = useState(null)
   const [eventOverrides, setEventOverrides] = useState({})
 
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -357,20 +359,50 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       description: event.description ?? '',
       location: event.location ?? '',
     })
+    setCoverFile(null)
+    setCoverPreview(null)
     setEditing(true)
   }
 
   async function handleEditSubmit(e) {
     e.preventDefault()
     setSaving(true)
+
+    let coverImagePath = event.cover_image ?? null
+
+    if (coverFile) {
+      const ext = coverFile.name.split('.').pop()
+      const filePath = `${event.id}/cover_${Date.now()}.${ext}`
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('event-covers')
+        .upload(filePath, coverFile, { upsert: true })
+
+      console.log('Upload result:', { uploadError, uploadData })
+      if (uploadError) {
+        console.log('Upload error details:', JSON.stringify(uploadError))
+        showToast('Erreur upload photo')
+        setSaving(false)
+        return
+      }
+      coverImagePath = filePath
+    }
+
     const { error } = await supabase.from('events').update({
       name: editForm.name,
       date: editForm.date || null,
       description: editForm.description,
       location: editForm.location,
+      cover_image: coverImagePath,
     }).eq('id', event.id)
     if (!error) {
-      setEventOverrides(prev => ({ ...prev, name: editForm.name, date: editForm.date, description: editForm.description, location: editForm.location }))
+      setEventOverrides(prev => ({
+        ...prev,
+        name: editForm.name,
+        date: editForm.date,
+        description: editForm.description,
+        location: editForm.location,
+        cover_image: coverImagePath,
+      }))
       setEditing(false)
       showToast('Événement modifié !')
     }
@@ -436,20 +468,61 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     ...(!isOrganizer && organizerName ? [{ icon: null, label: 'Organisé par', value: organizerName, badge: false }] : []),
   ]
 
+  const rawCoverImage = eventOverrides.cover_image !== undefined ? eventOverrides.cover_image : event.cover_image
+  const coverUrl = rawCoverImage
+    ? supabase.storage.from('event-covers').getPublicUrl(rawCoverImage).data.publicUrl
+    : null
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden' }}>
 
       {/* ── HERO ── */}
       <div style={{
-        background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-        padding: '58px 20px 24px',
-        textAlign: 'center', color: '#fff', flexShrink: 0, position: 'relative',
+        position: 'relative',
+        height: coverUrl ? '38vh' : 'auto',
+        minHeight: coverUrl ? 180 : 'auto',
+        flexShrink: 0,
+        overflow: 'hidden',
+        background: coverUrl ? '#000' : 'linear-gradient(135deg,#e055aa,#f5a623)',
+        ...(coverUrl ? {} : { padding: '58px 20px 24px', textAlign: 'center', color: '#fff' }),
       }}>
-        {/* Top bar: back + modifier pills */}
-        <div style={{ position: 'absolute', top: 14, left: 16, right: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+        {/* Photo de couverture */}
+        {coverUrl && (
+          <img
+            src={coverUrl}
+            alt="cover"
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: 'center',
+              opacity: 0.85,
+            }}
+          />
+        )}
+
+        {/* Overlay gradient (sombre en bas pour la lisibilité du texte) */}
+        {coverUrl && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.62) 100%)',
+          }} />
+        )}
+
+        {/* Boutons Retour + Modifier — toujours en haut */}
+        <div style={{
+          position: 'absolute', top: 14, left: 16, right: 16,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          zIndex: 2,
+        }}>
           <div
             onClick={onBack}
-            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff' }}
+            style={{
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+              background: 'rgba(255,255,255,0.25)', borderRadius: 20,
+              padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff',
+              backdropFilter: 'blur(6px)',
+            }}
           >
             <ChevronLeft size={14} strokeWidth={1.5} color="white" />
             Retour
@@ -457,33 +530,58 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           {isOrganizer && (
             <div
               onClick={handleEditOpen}
-              style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff' }}
+              style={{
+                cursor: 'pointer', background: 'rgba(255,255,255,0.25)', borderRadius: 20,
+                padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff',
+                backdropFilter: 'blur(6px)',
+              }}
             >
               Modifier ✏️
             </div>
           )}
         </div>
 
-        {/* Emoji + title + subtitle */}
-        <div style={{ fontSize: 52, marginBottom: 10 }}>{emoji}</div>
-        <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, letterSpacing: -0.3 }}>{displayName}</div>
-        <div style={{ fontSize: 13, opacity: 0.8 }}>{event.type} · {visibility}</div>
-
-        {/* Date + countdown pills */}
-        {heroDate && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 14 }}>
-            <div style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff' }}>
-              {heroDate}
-            </div>
-            {countdown !== null && (
-              <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 700, color: '#e055aa' }}>
-                J-{countdown}
-              </div>
-            )}
+        {/* Contenu superposé — en bas si cover, centré si gradient */}
+        <div style={{
+          position: coverUrl ? 'absolute' : 'relative',
+          ...(coverUrl
+            ? { bottom: 0, left: 0, right: 0, padding: '0 20px 20px', zIndex: 2 }
+            : { paddingTop: 58, textAlign: 'center', color: '#fff' }
+          ),
+          color: '#fff',
+          textAlign: coverUrl ? 'left' : 'center',
+        }}>
+          {!coverUrl && (
+            <div style={{ fontSize: 52, marginBottom: 10 }}>{emoji}</div>
+          )}
+          <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4, letterSpacing: -0.3, lineHeight: 1.2 }}>
+            {displayName}
           </div>
-        )}
-      </div>
+          <div style={{ fontSize: 13, opacity: 0.85, marginBottom: heroDate ? 10 : 0 }}>
+            {event.type} · {visibility}
+          </div>
+          {heroDate && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: coverUrl ? 'flex-start' : 'center' }}>
+              <div style={{
+                background: 'rgba(255,255,255,0.25)', borderRadius: 20,
+                padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff',
+                backdropFilter: 'blur(4px)',
+              }}>
+                {heroDate}
+              </div>
+              {countdown !== null && (
+                <div style={{
+                  background: 'rgba(255,255,255,0.95)', borderRadius: 20,
+                  padding: '7px 14px', fontSize: 13, fontWeight: 700, color: '#e055aa',
+                }}>
+                  J-{countdown}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
+      </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
@@ -602,6 +700,36 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Description</div>
                 <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={3}
                   style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', resize: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 8 }}>
+                  Photo de couverture
+                </div>
+                {(coverPreview || event.cover_image) && (
+                  <img
+                    src={coverPreview || supabase.storage.from('event-covers').getPublicUrl(event.cover_image).data.publicUrl}
+                    alt="cover preview"
+                    style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, marginBottom: 8 }}
+                  />
+                )}
+                <label style={{
+                  display: 'block', width: '100%', padding: '11px', borderRadius: 10,
+                  background: '#F2F2F7', textAlign: 'center', fontSize: 13, fontWeight: 600,
+                  color: '#1C1C1E', cursor: 'pointer', boxSizing: 'border-box',
+                }}>
+                  {coverPreview ? '🖼 Changer la photo' : event.cover_image ? '🖼 Remplacer la photo' : '📷 Ajouter une photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      setCoverFile(file)
+                      setCoverPreview(URL.createObjectURL(file))
+                    }}
+                  />
+                </label>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" onClick={() => setEditing(false)}

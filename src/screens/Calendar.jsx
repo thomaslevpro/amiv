@@ -14,6 +14,12 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
+function getCoverUrl(coverImage) {
+  if (!coverImage) return null
+  if (coverImage.startsWith('http')) return coverImage
+  return supabase.storage.from('event-covers').getPublicUrl(coverImage).data.publicUrl
+}
+
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const PAGE_BG = '#faf9fb'
@@ -422,7 +428,8 @@ function ActionButton({ icon: Icon, label, onClick, border }) {
 function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp, onCoverUploaded }) {
   const inputRef = useRef(null)
   const { event, isOrganizer, myStatus, stats, memberProfiles } = item
-  const hasCover = !!event.cover_image
+  const coverUrl = getCoverUrl(event.cover_image)
+  const hasCover = !!coverUrl
   const countdown = getCountdown(event.date)
   const countdownColor = countdown.past
     ? '#8E8E93'
@@ -452,14 +459,12 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
         .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type || 'image/jpeg' })
       if (uploadError) throw uploadError
 
-      const { data } = supabase.storage.from('event-covers').getPublicUrl(path)
-      const publicUrl = data.publicUrl
       const { error: updateError } = await supabase
         .from('events')
-        .update({ cover_image: publicUrl })
+        .update({ cover_image: path })
         .eq('id', event.id)
       if (updateError) throw updateError
-      onCoverUploaded?.(event.id, publicUrl)
+      onCoverUploaded?.(event.id, path)
     } catch (error) {
       console.error('Erreur upload couverture événement :', error)
     } finally {
@@ -490,7 +495,7 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
       >
         {hasCover ? (
           <>
-            <img src={event.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))' }} />
             <span style={{ position: 'absolute', left: 14, right: 74, bottom: 12 }}>
               <span style={{
@@ -990,14 +995,13 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
               letterSpacing: -0.5,
               lineHeight: 1.15,
             }}>
-              Vos Amivs
-              <br />
-              vos <span style={{
+              L'essentiel, c'est d'être{' '}
+              <span style={{
                 background: GRADIENT,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-              }}>anniversaires</span> & événements
+              }}>ensemble</span>
             </h1>
           </div>
 
