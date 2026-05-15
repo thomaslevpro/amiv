@@ -54,6 +54,7 @@ function MainApp() {
   const [conversationEvent, setConversationEvent] = useState(null)
   const [directConv, setDirectConv] = useState(null)
   const [createInitialData, setCreateInitialData] = useState(null)
+  const [editProfileFocus, setEditProfileFocus] = useState(null)
   const { notifications, markAsRead } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
@@ -145,7 +146,11 @@ function MainApp() {
     if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
     if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} initialData={createInitialData} />
     if (screen === 'editProfile') return (
-      <EditProfile onBack={() => { setTab('profile'); setScreen('home') }} onSave={() => { setTab('profile'); setScreen('home') }} />
+      <EditProfile
+        initialFocus={editProfileFocus}
+        onBack={() => { setEditProfileFocus(null); setTab('profile'); setScreen('home') }}
+        onSave={() => { setEditProfileFocus(null); setTab('profile'); setScreen('home') }}
+      />
     )
     if (screen === 'messages' && selectedEvent) return (
       <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} notifications={notifications} markAsRead={markAsRead} />
@@ -168,14 +173,21 @@ function MainApp() {
           return <Messages event={conversationEvent} onBack={() => setConversationEvent(null)} notifications={notifications} markAsRead={markAsRead} />
         }
         return <Messages onEventOpen={setConversationEvent} onDirectConvOpen={setDirectConv} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} />
-      case 'profile': return <Profile session={session} onEdit={() => setScreen('editProfile')} />
+      case 'profile': return (
+        <Profile
+          session={session}
+          onEdit={() => { setEditProfileFocus(null); setScreen('editProfile') }}
+          onAddBirthday={() => { setEditProfileFocus('birthday'); setScreen('editProfile') }}
+          onCalendarClick={() => handleTabChange('calendar')}
+        />
+      )
       default: return null
     }
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', maxWidth: 430, margin: '0 auto', width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', maxWidth: 430, margin: '0 auto', width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
         {renderCurrentScreen()}
       </div>
       <BottomNav

@@ -2,25 +2,35 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
-export default function EditProfile({ onSave, onBack, isOnboarding = false }) {
+export default function EditProfile({ onSave, onBack, isOnboarding = false, initialFocus = null }) {
   const [name, setName] = useState('')
+  const [birthday, setBirthday] = useState('')
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [existingAvatarUrl, setExistingAvatarUrl] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const fileInputRef = useRef(null)
+  const birthdayInputRef = useRef(null)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('profiles').select('name, avatar_url').eq('id', user.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('name, first_name, birthday, avatar_url').eq('id', user.id).maybeSingle()
       if (data?.name) setName(data.name)
+      else if (data?.first_name) setName(data.first_name)
+      if (data?.birthday) setBirthday(data.birthday)
       if (data?.avatar_url) { setAvatarPreview(data.avatar_url); setExistingAvatarUrl(data.avatar_url) }
     }
     load()
   }, [])
+
+  useEffect(() => {
+    if (initialFocus !== 'birthday') return
+    const timeout = window.setTimeout(() => birthdayInputRef.current?.focus(), 150)
+    return () => window.clearTimeout(timeout)
+  }, [initialFocus])
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
@@ -49,7 +59,9 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false }) {
       const { error: upsertErr } = await supabase.from('profiles').upsert({
         id: user.id,
         name: name.trim(),
+        first_name: name.trim(),
         email: user.email,
+        birthday: birthday || null,
         avatar_url: avatar_url ?? null,
       })
       if (upsertErr) throw upsertErr
@@ -77,7 +89,7 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false }) {
               <ChevronLeft size={22} strokeWidth={1.5} color="#1C1C1E" />
             </button>
           )}
-          <div style={{ fontSize: 27, fontWeight: 700, letterSpacing: -0.4, color: '#1C1C1E' }}>
+          <div style={{ fontSize: 27, fontWeight: 700, letterSpacing: 0, color: '#1C1C1E' }}>
             {isOnboarding ? 'Bienvenue !' : 'Mon profil'}
           </div>
         </div>
@@ -118,6 +130,21 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false }) {
             style={{
               width: '100%', padding: '15px 16px', borderRadius: 14, border: 'none',
               background: '#fff', fontSize: 16, color: '#1C1C1E', outline: 'none',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.07)', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: error ? 8 : 24 }}>
+          <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 7, paddingLeft: 4, fontWeight: 500 }}>Date de naissance</div>
+          <input
+            ref={birthdayInputRef}
+            type="date"
+            value={birthday}
+            onChange={e => setBirthday(e.target.value)}
+            style={{
+              width: '100%', padding: '15px 16px', borderRadius: 14, border: 'none',
+              background: '#fff', fontSize: 16, color: birthday ? '#1C1C1E' : '#C7C7CC', outline: 'none',
               boxShadow: '0 1px 8px rgba(0,0,0,0.07)', boxSizing: 'border-box',
             }}
           />
