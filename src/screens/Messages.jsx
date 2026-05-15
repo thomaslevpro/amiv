@@ -3,6 +3,7 @@ import { BellOff, MessageCircle, Mic, PenLine, Search, Trash2, X } from 'lucide-
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { findOrCreateDirectConversation } from '../lib/conversations'
+import { useUnreadCounts } from '../hooks/useUnreadCounts'
 
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const BG = '#F2F2F7'
@@ -468,7 +469,7 @@ function ConversationRow({ conversation, isLast, onClick, onDelete }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 10,
-                fontWeight: 800,
+                fontWeight: 700,
                 lineHeight: 1,
               }}>
                 {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
@@ -530,6 +531,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [hiddenConversations, setHiddenConversations] = useState({})
   const appOpenedAtRef = useRef(null)
   const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
+  const { unreadByConversation, totalUnread: unreadTotal } = useUnreadCounts(userId)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !appOpenedAtRef.current) {
@@ -718,13 +720,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     const friendById = Object.fromEntries((friendRows ?? []).map(friend => [friend.friend_id, friend]))
 
     const lastByConv = {}
-    const unreadByConv = {}
     ;(directMessages ?? []).forEach(message => {
       if (!lastByConv[message.conversation_id]) lastByConv[message.conversation_id] = message
-      const seenAt = readSeen(`last_seen_dm_${message.conversation_id}`)
-      if (message.sender_id !== userId && new Date(message.created_at).getTime() > seenAt) {
-        unreadByConv[message.conversation_id] = (unreadByConv[message.conversation_id] || 0) + 1
-      }
     })
 
     const participantByConv = Object.fromEntries((myParticipants ?? []).map(row => [row.conversation_id, row]))
@@ -747,7 +744,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         avatarUrl: profile?.avatar_url || friend?.friend_avatar || '',
         lastMessage: lastByConv[conversationId] || { content: 'Aucun message', created_at: createdAt },
         lastAt: lastByConv[conversationId]?.created_at || createdAt,
-        unreadCount: unreadByConv[conversationId] || 0,
+        unreadCount: 0,
         isMuted: participantByConv[conversationId]?.is_muted === true,
       }
     })
@@ -770,8 +767,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }, [conversations, hiddenConversations])
 
   const inboxConversations = conversations.filter(conv => !isConversationHidden(conv, hiddenConversations))
-
-  const unreadTotal = inboxConversations.reduce((sum, conv) => sum + conv.unreadCount, 0)
 
   const visibleConversations = inboxConversations.filter(conv => {
     if (activeTab === 'events') return conv.kind === 'event'
@@ -982,7 +977,13 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
                 {visibleConversations.map((conv, index) => (
                   <ConversationRow
                     key={conv.id}
-                    conversation={conv}
+                    conversation={{
+                      ...conv,
+                      unreadCount:
+                        conv.kind === 'direct'
+                          ? (unreadByConversation.get(conv.conversationId) ?? 0)
+                          : conv.unreadCount,
+                    }}
                     isLast={index === visibleConversations.length - 1}
                     onClick={() => handleConversationTap(conv)}
                     onDelete={() => hideConversation(conv)}

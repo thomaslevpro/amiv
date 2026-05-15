@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { useNotifications } from './hooks/useNotifications'
+import { useUnreadCounts } from './hooks/useUnreadCounts'
 import BottomNav from './components/BottomNav'
 import CreateActionSheet from './components/CreateActionSheet'
 import AddAmivModal from './components/AddAmivModal'
@@ -54,7 +55,7 @@ function MainApp() {
   const [directConv, setDirectConv] = useState(null)
   const [createInitialData, setCreateInitialData] = useState(null)
   const { notifications, markAsRead } = useNotifications(session?.user?.id)
-  const unreadMessagesCount = notifications.filter(n => n.type === 'message_received' && !n.read).length
+  const { totalUnread } = useUnreadCounts(session?.user?.id)
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
   const pendingEventId = useRef(
     window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
@@ -181,7 +182,7 @@ function MainApp() {
         current={tab}
         onChange={handleTabChange}
         onCreateClick={() => setShowCreateSheet(true)}
-        hasUnreadMessages={unreadMessagesCount > 0}
+        hasUnreadMessages={totalUnread > 0}
         hasUnreadNotifications={hasUnreadNotifications}
         hidden={isDetailScreen}
       />

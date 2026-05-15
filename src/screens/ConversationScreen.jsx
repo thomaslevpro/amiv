@@ -9,6 +9,19 @@ function friendName(friend) {
   return friend?.friend_name || friend?.full_name || friend?.name || friend?.email || 'Ami'
 }
 
+async function markAsRead(conversationId, userId) {
+  if (!conversationId || !userId) return
+  await supabase
+    .from('direct_conversation_participants')
+    .update({ last_read_at: new Date().toISOString() })
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('amiv:unread-counts-refresh'))
+  }
+}
+
 export default function ConversationScreen({ conversationId, friend, onBack }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -61,7 +74,8 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
     if (conversationId && typeof window !== 'undefined') {
       window.localStorage.setItem(`last_seen_dm_${conversationId}`, new Date().toISOString())
     }
-  }, [messages, conversationId])
+    markAsRead(conversationId, currentUserId)
+  }, [messages, conversationId, currentUserId])
 
   async function handleSend() {
     const text = input.trim()

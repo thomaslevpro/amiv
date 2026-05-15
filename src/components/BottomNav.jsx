@@ -14,6 +14,19 @@ const Badge = () => (
   }} />
 )
 
+const MessageBadge = () => (
+  <div style={{
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    background: '#FF3B30',
+    pointerEvents: 'none',
+  }} />
+)
+
 export default function BottomNav({ current, onChange, onCreateClick, hasUnreadMessages, hasUnreadNotifications, hidden }) {
   return (
     <div style={{
@@ -115,8 +128,10 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         position: 'relative',
         color: current === 'messages' ? '#1C1C1E' : '#8E8E93',
       }}>
-        <MessageCircle size={26} strokeWidth={1.5} fill={current === 'messages' ? 'currentColor' : 'none'} />
-        {hasUnreadMessages && <Badge />}
+        <span style={{ position: 'relative', width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <MessageCircle size={26} strokeWidth={1.5} fill={current === 'messages' ? 'currentColor' : 'none'} />
+          {hasUnreadMessages && <MessageBadge />}
+        </span>
       </div>
 
       {/* Profile */}
