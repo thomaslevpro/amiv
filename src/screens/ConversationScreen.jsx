@@ -3,6 +3,7 @@ import { ChevronLeft, Send } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
+const PAGE_BG = '#faf9fb'
 const BG = '#F2F2F7'
 const WHITE = '#FFFFFF'
 const BLACK = '#1C1C1E'
@@ -461,7 +462,7 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
   return (
     <div
       onClick={() => setActivePicker(null)}
-      style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: BG, overflow: 'hidden', fontFamily: FONT }}
+      style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: PAGE_BG, overflow: 'hidden', fontFamily: FONT }}
     >
 
       {/* Header */}

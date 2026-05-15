@@ -26,7 +26,7 @@ import ChangePasswordModal from '../components/profile/ChangePasswordModal'
 dayjs.locale('fr')
 
 const COLORS = {
-  page: '#F2F2F7',
+  page: '#faf9fb',
   card: '#FFFFFF',
   gradient: 'linear-gradient(135deg, #e055aa, #f5a623)',
   heroGradient: 'linear-gradient(155deg, #e055aa, #f5a623)',

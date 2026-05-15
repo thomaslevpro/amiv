@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Image as ImageIcon, Plus } from 'lucide-react'
 import NotificationBell from '../components/NotificationBell'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
@@ -6,6 +7,8 @@ import TrendingNow from '../components/TrendingNow'
 import BirthdaySection from '../components/home/BirthdaySection'
 import { useFriendships } from '../hooks/useFriendships'
 import { supabase } from '../lib/supabase'
+
+const EVENT_GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 
 function SectionHeader({ title, badge, link, onLink }) {
   return (
@@ -95,98 +98,193 @@ function getEventDaysLeft(dateStr) {
   return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24))
 }
 
-function MyEventCard({ item, onClick }) {
-  const daysLeft = getEventDaysLeft(item.date)
-  const badgeColor = daysLeft === null
-    ? '#AEAEB2'
-    : daysLeft < 14
-      ? '#e055aa'
-      : daysLeft < 60
-        ? '#f5a623'
-        : '#AEAEB2'
+function normalizeStatus(status) {
+  if (status === 'going' || status === 'yes' || status === 'accepted' || status === 'confirmed') return 'yes'
+  if (status === 'maybe' || status === 'invited' || status === 'pending') return 'maybe'
+  if (status === 'declined' || status === 'no' || status === 'not_going') return 'no'
+  return status || null
+}
+
+function countStatuses(rows = []) {
+  return rows.reduce((acc, row) => {
+    const status = normalizeStatus(row.status || row.response)
+    if (status === 'yes') acc.yes += 1
+    else if (status === 'no') acc.no += 1
+    else acc.maybe += 1
+    return acc
+  }, { yes: 0, no: 0, maybe: 0 })
+}
+
+function MiniEventStatusChip({ item }) {
   const isOrganizer = item.role === 'organise'
-  const meta = [formatCompactEventDate(item.date), item.location].filter(Boolean).join(' · ')
+  const normalized = normalizeStatus(item.myStatus)
+  const chip = isOrganizer
+    ? { label: "👑 J'organise", bg: 'rgba(224,85,170,0.10)', color: '#c0308a' }
+    : normalized === 'yes'
+      ? { label: "✓ J'y serai", bg: 'rgba(52,199,89,0.10)', color: '#1a8f3a' }
+      : { label: 'En attente', bg: '#F2F2F7', color: '#8E8E93' }
+
+  return (
+    <span style={{
+      padding: '3px 8px',
+      borderRadius: 20,
+      display: 'inline-flex',
+      alignItems: 'center',
+      background: chip.bg,
+      color: chip.color,
+      fontSize: 10,
+      fontWeight: 600,
+      lineHeight: 1.15,
+      whiteSpace: 'nowrap',
+    }}>
+      {chip.label}
+    </span>
+  )
+}
+
+function MyEventMiniCard({ item, onClick }) {
+  const daysLeft = getEventDaysLeft(item.date)
+  const hasCover = !!item.cover_image
+  const dateStr = formatCompactEventDate(item.date)
+  const stats = item.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
+  const fallbackBg = item.type === 'personal' || item.type === 'anniversary' || item.id?.charCodeAt?.(0) % 2
+    ? '#fff0f7'
+    : '#f0f4ff'
 
   return (
     <div
       onClick={() => onClick?.(item)}
       style={{
+        width: 160,
+        flexShrink: 0,
         background: '#fff',
-        borderRadius: 16,
-        marginBottom: 10,
+        borderRadius: 18,
         overflow: 'hidden',
-        display: 'flex',
-        boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
         cursor: 'pointer',
       }}
     >
-      <div
-        style={{
-          width: 4,
-          flexShrink: 0,
-          background: isOrganizer ? 'linear-gradient(to bottom, #e055aa, #f5a623)' : '#34C759',
-        }}
-      />
-      <div style={{ flex: 1, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 13,
-            background: 'rgba(224,85,170,0.08)',
-            fontSize: 22,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {item.emoji || '🎉'}
+      <div style={{ height: 100, position: 'relative', background: fallbackBg }}>
+        {hasCover ? (
+          <>
+            <img src={item.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.52))' }} />
+            <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.name || 'Événement'}
+              </div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.82)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {dateStr}{item.location ? ` · ${item.location}` : ''}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+            <ImageIcon size={20} strokeWidth={1.8} color={fallbackBg === '#fff0f7' ? '#d8a6c8' : '#a8b9e6'} />
+          </div>
+        )}
+        <div style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          borderRadius: 8,
+          background: hasCover ? 'rgba(255,255,255,0.92)' : '#fff8ed',
+          color: '#d4840a',
+          fontSize: 10,
+          fontWeight: 700,
+          padding: '3px 8px',
+          lineHeight: 1.15,
+        }}>
+          {daysLeft === null ? 'J-?' : `J-${Math.max(daysLeft, 0)}`}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: '#1C1C1E',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
+      </div>
+
+      {!hasCover && (
+        <div style={{ padding: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.name || 'Événement'}
           </div>
-          <div style={{ fontSize: 12, color: '#6B6B6D', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {meta}
+          <div style={{
+            fontSize: 11,
+            fontWeight: 500,
+            marginTop: 4,
+            background: EVENT_GRADIENT,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {dateStr}{item.location ? ` · ${item.location}` : ''}
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: badgeColor }}>
-            {daysLeft === null ? 'J-?' : `J-${Math.max(daysLeft, 0)}`}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: isOrganizer ? '#e055aa' : '#34C759' }} />
-            <span style={{ fontSize: 10, color: '#AEAEB2', whiteSpace: 'nowrap' }}>
-              {isOrganizer ? "J'organise" : "J'y serai"}
-            </span>
-          </div>
-        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: hasCover ? '10px' : '0 10px 10px' }}>
+        <MiniEventStatusChip item={item} />
+        <span style={{ color: '#aaa', fontSize: 10, lineHeight: 1, whiteSpace: 'nowrap' }}>
+          {stats.yes} oui
+        </span>
       </div>
     </div>
   )
 }
 
-function MyEventsSection({ events, onSeeAll, onEventClick }) {
+function CreateEventMiniCard({ onClick }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 2px' }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E' }}>Mes événements</div>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: 160,
+        flexShrink: 0,
+        minHeight: 160,
+        border: '1.5px dashed #e0d8ea',
+        background: 'transparent',
+        borderRadius: 18,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 9,
+        padding: 12,
+        cursor: 'pointer',
+      }}
+    >
+      <span style={{
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        display: 'grid',
+        placeItems: 'center',
+        background: EVENT_GRADIENT,
+      }}>
+        <Plus size={20} color="#fff" strokeWidth={2.6} />
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#c0b0cc', textAlign: 'center' }}>
+        Créer un événement
+      </span>
+    </button>
+  )
+}
+
+function MyEventsSection({ events, onSeeAll, onEventClick, onCreateClick }) {
+  return (
+    <div style={{ margin: '0 -16px 12px' }}>
+      <style>{`
+        .home-my-events-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 18px' }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#1C1C1E', letterSpacing: -0.3 }}>Mes événements</div>
         <button
           onClick={onSeeAll}
           style={{
             border: 'none',
             background: 'transparent',
-            color: '#e055aa',
+            backgroundImage: EVENT_GRADIENT,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
             fontSize: 13,
             fontWeight: 600,
             padding: 0,
@@ -196,14 +294,27 @@ function MyEventsSection({ events, onSeeAll, onEventClick }) {
           Voir tout
         </button>
       </div>
-      {events.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: 16, padding: 20, textAlign: 'center', boxShadow: '0 1px 8px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 24, marginBottom: 6 }}>📅</div>
-          <div style={{ fontSize: 13, color: '#8E8E93' }}>Aucun événement à venir</div>
-        </div>
-      ) : (
-        events.map(event => <MyEventCard key={event.id} item={event} onClick={onEventClick} />)
-      )}
+      <div
+        className="home-my-events-scroll"
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          gap: 12,
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          padding: '4px 20px 8px',
+        }}
+      >
+        {events.map(event => (
+          <MyEventMiniCard
+            key={event.id}
+            item={event}
+            onClick={onEventClick}
+          />
+        ))}
+        <CreateEventMiniCard onClick={onCreateClick} />
+      </div>
     </div>
   )
 }
@@ -218,6 +329,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
 
   const [invitations, setInvitations] = useState([])
   const [myEvents, setMyEvents] = useState([])
+  const [profileName, setProfileName] = useState('')
   const [toast, setToast] = useState(null)
 
   function showToast(message, isError = false) {
@@ -252,6 +364,22 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
 
   useEffect(() => {
     if (!userId) {
+      setProfileName('')
+      return
+    }
+
+    supabase
+      .from('profiles')
+      .select('first_name, name, email')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setProfileName(data?.first_name || data?.name || data?.email?.split('@')[0] || '')
+      })
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId) {
       setMyEvents([])
       return
     }
@@ -263,14 +391,14 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
       const [organizedRes, invitationsRes] = await Promise.all([
         supabase
           .from('events')
-          .select('id, name, emoji, date, location')
+          .select('id, name, date, location, user_id, cover_image')
           .eq('user_id', userId)
           .gte('date', now)
           .order('date', { ascending: true })
           .limit(5),
         supabase
           .from('invitations')
-          .select('status, events(id, name, emoji, date, location)')
+          .select('status, events(id, name, date, location, user_id, cover_image)')
           .eq('invited_user_id', userId)
           .neq('status', 'declined')
       ])
@@ -295,7 +423,36 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
         if (event?.id && !byId.has(event.id)) byId.set(event.id, event)
       })
 
+      const eventIds = [...byId.keys()]
+      let rsvpRows = []
+      let profilesById = {}
+      if (eventIds.length > 0) {
+        const { data: rsvps } = await supabase
+          .from('rsvps')
+          .select('event_id, user_id, status')
+          .in('event_id', eventIds)
+        rsvpRows = rsvps ?? []
+        const rsvpUserIds = [...new Set(rsvpRows.map(row => row.user_id).filter(Boolean))]
+        if (rsvpUserIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, name, first_name, avatar_url, email')
+            .in('id', rsvpUserIds)
+          profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
+        }
+      }
+
       const merged = [...byId.values()]
+        .map(event => {
+          const eventRsvps = rsvpRows.filter(row => row.event_id === event.id)
+          const mine = eventRsvps.find(row => row.user_id === userId)
+          return {
+            ...event,
+            myStatus: event.role === 'organise' ? 'going' : (mine?.status || event.status),
+            rsvpStats: countStatuses(eventRsvps),
+            memberProfiles: eventRsvps.map(row => profilesById[row.user_id]).filter(Boolean),
+          }
+        })
         .sort((a, b) => new Date(a.date || '9999-12-31') - new Date(b.date || '9999-12-31'))
         .slice(0, 3)
 
@@ -353,26 +510,38 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
     }
   }
 
-  const dateStr = today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const weekday = today.toLocaleDateString('fr-FR', { weekday: 'long' })
+  const dateRest = today.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const dateStr = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dateRest}`
+  const displayName = profileName || session?.user?.user_metadata?.first_name || session?.user?.user_metadata?.name || userEmail?.split('@')[0] || 'toi'
+  const amivCount = myEvents.length
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden', position: 'relative' }}>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, padding: '6px 2px 0' }}>
-          <div>
-            <div style={{
-              fontSize: 32,
-              fontWeight: 900,
-              background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              Amiv
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, padding: '6px 2px 0', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: '#aaa', fontWeight: 500, marginBottom: 10 }}>
+              {dateStr}
             </div>
-            <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>{dateStr}</div>
+            <div style={{ fontSize: 26, lineHeight: 1.15, fontWeight: 800, color: '#1C1C1E', letterSpacing: -0.5 }}>
+              Bonjour {displayName},
+              <br />
+              vous avez{' '}
+              <span style={{
+                background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>
+                {amivCount} amiv{amivCount > 1 ? 's' : ''}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: '#aaa', fontWeight: 400, marginTop: 8 }}>
+              à venir dans les 30 prochains jours
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
             <NotificationBell onEventClick={onNotifEventClick ?? onEventClick} />
@@ -441,8 +610,9 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
 
         <MyEventsSection
           events={myEvents}
-          onSeeAll={onCalendarClick ?? onAllEventsClick}
+          onSeeAll={onAllEventsClick ?? onCalendarClick}
           onEventClick={onNotifEventClick ?? onEventClick}
+          onCreateClick={onCreateClick}
         />
 
         <div style={{ marginBottom: 18 }}>

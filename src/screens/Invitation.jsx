@@ -7,7 +7,7 @@ export default function Invitation({ event, onBack }) {
   if (!event) return null
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden' }}>
       {/* Hero */}
       <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: '16px 20px 28px', textAlign: 'center', color: '#fff', flexShrink: 0, position: 'relative' }}>
         <div onClick={onBack} style={{ position: 'absolute', top: 14, left: 16, cursor: 'pointer' }}>

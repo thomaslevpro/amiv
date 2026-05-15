@@ -6,6 +6,7 @@ import { findOrCreateDirectConversation } from '../lib/conversations'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
+const PAGE_BG = '#faf9fb'
 const BG = '#F2F2F7'
 const WHITE = '#FFFFFF'
 const BLACK = '#1C1C1E'
@@ -871,7 +872,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     ]
 
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden', fontFamily: FONT }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PAGE_BG, overflow: 'hidden', fontFamily: FONT }}>
         <div style={{ padding: '18px 16px 10px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
             <div style={{ minWidth: 0 }}>
@@ -1006,7 +1007,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden', fontFamily: FONT }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PAGE_BG, overflow: 'hidden', fontFamily: FONT }}>
       <div style={{ padding: '10px 16px', background: WHITE, borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
         {onBack && (
           <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', color: '#007AFF', cursor: 'pointer' }}>

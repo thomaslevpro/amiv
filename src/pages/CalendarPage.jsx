@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const formatDate = (d) => d.toISOString().split('T')[0]
@@ -16,24 +17,90 @@ function frenchDate(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }
 
-function ChevronRight() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-      <path d="M4 2L7.5 5.5L4 9" stroke="#AEAEB2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function LockIcon() {
-  return (
-    <svg width="9" height="9" viewBox="0 0 10 12" fill="none">
-      <rect x="1" y="5" width="8" height="7" rx="1.5" stroke="#72243E" strokeWidth="1.2" />
-      <path d="M3 5V3.5a2 2 0 0 1 4 0V5" stroke="#72243E" strokeWidth="1.2" />
-    </svg>
-  )
-}
-
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
+const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
+
+function normalizeStatus(status) {
+  if (status === 'going' || status === 'yes' || status === 'accepted' || status === 'confirmed' || status === 'organizing') return 'yes'
+  if (status === 'maybe' || status === 'invited' || status === 'pending') return 'maybe'
+  if (status === 'declined' || status === 'no' || status === 'not_going') return 'no'
+  return status || null
+}
+
+function countStatuses(rows = []) {
+  return rows.reduce((acc, row) => {
+    const status = normalizeStatus(row.status || row.response)
+    if (status === 'yes') acc.yes += 1
+    else if (status === 'no') acc.no += 1
+    else acc.maybe += 1
+    return acc
+  }, { yes: 0, no: 0, maybe: 0 })
+}
+
+function getCountdown(dateStr) {
+  if (!dateStr) return { label: 'J-?', days: null }
+  const eventDate = new Date(dateStr)
+  if (Number.isNaN(eventDate.getTime())) return { label: 'J-?', days: null }
+  const today = new Date()
+  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const startEvent = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate())
+  const days = Math.ceil((startEvent - startToday) / 86400000)
+  if (days < 0) return { label: 'Passé', days }
+  if (days === 0) return { label: 'Jour J', days }
+  return { label: `J-${days}`, days }
+}
+
+function getInitial(profile, fallback = 'I') {
+  return (profile?.first_name || profile?.name || profile?.full_name || profile?.email || fallback || 'I').charAt(0).toUpperCase()
+}
+
+function GuestAvatars({ profiles, extraCount }) {
+  const visible = profiles.slice(0, 3)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      {visible.map((profile, index) => (
+        <div
+          key={`${profile.id || profile.email || index}`}
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 13,
+            marginLeft: index === 0 ? 0 : -7,
+            background: ['#e055aa', '#f5a623', '#34C759'][index % 3],
+            border: '2px solid #fff',
+            color: '#fff',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 10,
+            fontWeight: 900,
+            overflow: 'hidden',
+          }}
+        >
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : getInitial(profile)}
+        </div>
+      ))}
+      {extraCount > 0 && (
+        <div style={{
+          width: 26,
+          height: 26,
+          borderRadius: 13,
+          marginLeft: visible.length ? -7 : 0,
+          background: '#E5E5EA',
+          border: '2px solid #fff',
+          color: '#6B6B72',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 10,
+          fontWeight: 900,
+        }}>
+          +{extraCount}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function CalendarBottomSheet({ isOpen, onClose, currentMonth, onPrevMonth, onNextMonth, calendarDots, selectedDate, onSelectDate }) {
   const today = new Date()
@@ -218,26 +285,64 @@ function CalendarTrigger({ currentMonth, onClick }) {
   )
 }
 
-function InvitedEventCard({ event, navigate }) {
+function InvitedEventCard({ event, navigate, onCoverUploaded }) {
+  const inputRef = useRef(null)
   const firstName = event.profiles?.full_name?.split(' ')[0] ?? ''
   const status = event.rsvpStatus
-
-  const rsvpChip = status === 'going'
+  const hasCover = !!event.cover_image
+  const isOrganizer = status === 'organizing' || event.isOrganizer
+  const countdown = getCountdown(event.date)
+  const countdownColor = countdown.days === null
+    ? '#AEAEB2'
+    : countdown.days < 14
+      ? '#e055aa'
+      : countdown.days < 60
+        ? '#f5a623'
+        : '#AEAEB2'
+  const rsvpChip = normalizeStatus(status) === 'yes'
     ? { label: "✓ J'y serai", bg: 'rgba(52,199,89,0.09)', color: '#1d7a38' }
-    : status === 'organizing'
-    ? { label: "✓ J'organise", bg: 'rgba(0,122,255,0.09)', color: '#0056CC' }
     : { label: 'En attente', bg: '#F2F2F7', color: '#6B6B6B' }
+  const stats = event.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
+  const total = stats.yes + stats.maybe + stats.no
+  const progress = total > 0 ? Math.round((stats.yes / total) * 100) : 0
 
-  const [datePart_str, timePart_str] = event.date.includes('T') ? event.date.split('T') : [event.date, null]
-  const [y, mo, d] = datePart_str.split('-').map(Number)
-  const dateObj = new Date(y, mo - 1, d)
-  const dateFmt = dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })
+  const dateValue = event.date || ''
+  const [datePart_str, timePart_str] = dateValue.includes('T') ? dateValue.split('T') : [dateValue, null]
+  const [y, mo, d] = datePart_str ? datePart_str.split('-').map(Number) : []
+  const dateObj = y ? new Date(y, mo - 1, d) : null
+  const dateFmt = dateObj ? dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }) : 'Date à définir'
   const timeFmt = timePart_str ? timePart_str.substring(0, 5).replace(':', 'h') : null
   const dateTimeLabel = timeFmt && timeFmt !== '00h00' ? `${dateFmt} · ${timeFmt}` : dateFmt
 
   const displayName = event.name
     ? event.name.charAt(0).toUpperCase() + event.name.slice(1)
     : `Amiv de ${firstName}`
+
+  async function handleCoverChange(e) {
+    const file = e.target.files?.[0]
+    if (!file || !event.id || !isOrganizer) return
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${event.id}/${Date.now()}.${ext}`
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('event-covers')
+        .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type || 'image/jpeg' })
+      if (uploadError) throw uploadError
+
+      const { data } = supabase.storage.from('event-covers').getPublicUrl(path)
+      const publicUrl = data.publicUrl
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ cover_image: publicUrl })
+        .eq('id', event.id)
+      if (updateError) throw updateError
+      onCoverUploaded?.(event.id, publicUrl)
+    } catch (error) {
+      console.error('Erreur upload couverture événement :', error)
+    } finally {
+      e.target.value = ''
+    }
+  }
 
   return (
     <div
@@ -254,88 +359,129 @@ function InvitedEventCard({ event, navigate }) {
       <div style={{
         height: 110,
         position: 'relative',
-        background: 'linear-gradient(135deg, rgba(224,85,170,0.10), rgba(245,166,35,0.10))',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        background: event.id?.charCodeAt?.(0) % 2 ? '#fff0f7' : '#f0f4ff',
       }}>
-        <span style={{ fontSize: 44 }}>🎂</span>
-        <button
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 12,
-            background: 'rgba(255,255,255,0.85)',
-            border: 'none',
-            borderRadius: '50%',
-            width: 32,
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: 0,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e055aa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-          </svg>
-        </button>
+        {hasCover ? (
+          <>
+            <img src={event.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))' }} />
+            <div style={{ position: 'absolute', left: 14, right: 74, bottom: 12 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {displayName}
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {dateTimeLabel}{event.location ? ` · ${event.location}` : ''}
+              </div>
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation()
+              if (isOrganizer) inputRef.current?.click()
+            }}
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#b85aa0',
+              cursor: isOrganizer ? 'pointer' : 'default',
+            }}
+          >
+            {isOrganizer && (
+              <span style={{ display: 'grid', placeItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}>
+                <ImageIcon size={22} strokeWidth={1.6} color="#d07ab4" />
+                Ajouter une photo de couverture
+              </span>
+            )}
+          </button>
+        )}
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          minWidth: 54,
+          height: 30,
+          borderRadius: hasCover ? 10 : 999,
+          background: hasCover ? 'rgba(255,255,255,0.92)' : '#fff',
+          color: countdownColor,
+          fontSize: 12,
+          fontWeight: 900,
+          display: 'grid',
+          placeItems: 'center',
+          padding: '0 10px',
+          border: '0.5px solid rgba(0,0,0,0.06)',
+        }}>
+          {countdown.label}
+        </div>
+        <input ref={inputRef} type="file" accept="image/*" onChange={handleCoverChange} style={{ display: 'none' }} />
       </div>
 
-      <div style={{ padding: '11px 14px 13px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>
-          {displayName}
-        </div>
-
-        {event.location && (
-          <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 5 }}>
-            {event.location}
+      <div style={{ padding: '12px 14px 14px', position: 'relative' }}>
+        {!hasCover && (
+          <div style={{ paddingRight: 66, marginBottom: 10 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {displayName}
+            </div>
+            <div style={{
+              fontSize: 12,
+              fontWeight: 500,
+              marginTop: 4,
+              background: GRADIENT,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              {dateTimeLabel}
+            </div>
+            {event.location && (
+              <div style={{
+                fontSize: 12,
+                fontWeight: 500,
+                marginTop: 2,
+                background: GRADIENT,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {event.location}
+              </div>
+            )}
           </div>
         )}
 
-        <div style={{
-          fontSize: 12,
-          fontWeight: 600,
-          background: 'linear-gradient(135deg, #e055aa, #f5a623)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}>
-          {dateTimeLabel}
-        </div>
-
-        {event.type && (
-          <div style={{
-            display: 'inline-block',
-            border: '1px solid #E5E5EA',
-            borderRadius: 20,
-            padding: '3px 9px',
-            fontSize: 11,
-            fontWeight: 500,
-            color: '#8E8E93',
-            marginTop: 7,
-          }}>
-            {event.type}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            background: 'rgba(224,85,170,0.09)',
-            borderRadius: 20, padding: '3px 8px',
-            fontSize: 11, fontWeight: 600, color: '#72243E',
-          }}>
-            <LockIcon />
-            Espace secret
-          </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
           <div style={{
             background: rsvpChip.bg,
-            borderRadius: 20, padding: '3px 8px',
-            fontSize: 11, fontWeight: 600, color: rsvpChip.color,
+            borderRadius: 999,
+            padding: '6px 9px',
+            fontSize: 11,
+            fontWeight: 800,
+            color: rsvpChip.color,
+            lineHeight: 1,
           }}>
             {rsvpChip.label}
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
+            <GuestAvatars profiles={event.memberProfiles ?? []} extraCount={Math.max(0, total - 3)} />
+            <div style={{ color: '#6B6B72', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+              {stats.yes} oui · {stats.maybe} att.
+            </div>
+          </div>
+          <div style={{ height: 6, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden' }}>
+            <div style={{
+              width: `${progress}%`,
+              height: '100%',
+              borderRadius: 999,
+              background: GRADIENT,
+              minWidth: progress > 0 ? 10 : 0,
+            }} />
           </div>
         </div>
       </div>
@@ -383,11 +529,11 @@ export default function CalendarPage({ navigate = () => {} }) {
         }),
         supabase
           .from('rsvps')
-          .select('status, events!inner(id, name, date, user_id, location, type, profiles!user_id(full_name))')
+          .select('status, events!inner(id, name, date, user_id, location, type, cover_image, profiles!user_id(full_name))')
           .eq('user_id', user.id),
         supabase
           .from('events')
-          .select('id, name, date, user_id, location, type, profiles!user_id(full_name)')
+          .select('id, name, date, user_id, location, type, cover_image, profiles!user_id(full_name)')
           .eq('user_id', user.id)
           .gte('date', today)
           .lte('date', ninetyDaysLater)
@@ -402,14 +548,46 @@ export default function CalendarPage({ navigate = () => {} }) {
       const mapped = (invitedResult.data || [])
         .filter(row => row.events && row.events.user_id !== user.id && row.events.date >= today && row.events.date <= ninetyDaysLater)
         .map(row => ({ ...row.events, rsvpStatus: row.status }))
-      setInvitedEvents(mapped)
-      setOrganizedEvents((ownResult.data ?? []).map(e => ({ ...e, rsvpStatus: 'organizing' })))
+      const ownEvents = (ownResult.data ?? []).map(e => ({ ...e, rsvpStatus: 'organizing', isOrganizer: true }))
+      const eventIds = [...new Set([...mapped, ...ownEvents].map(event => event.id).filter(Boolean))]
+      let rsvpRows = []
+      let profilesById = {}
+      if (eventIds.length > 0) {
+        const { data: rsvps } = await supabase
+          .from('rsvps')
+          .select('event_id, user_id, status')
+          .in('event_id', eventIds)
+        rsvpRows = rsvps ?? []
+        const userIds = [...new Set(rsvpRows.map(row => row.user_id).filter(Boolean))]
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, name, first_name, full_name, avatar_url, email')
+            .in('id', userIds)
+          profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
+        }
+      }
+      const enrichEvent = event => {
+        const eventRsvps = rsvpRows.filter(row => row.event_id === event.id)
+        return {
+          ...event,
+          rsvpStats: countStatuses(eventRsvps),
+          memberProfiles: eventRsvps.map(row => profilesById[row.user_id]).filter(Boolean),
+        }
+      }
+      setInvitedEvents(mapped.map(enrichEvent))
+      setOrganizedEvents(ownEvents.map(enrichEvent))
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
   }, [])
+
+  function handleCoverUploaded(eventId, coverImage) {
+    setInvitedEvents(prev => prev.map(event => event.id === eventId ? { ...event, cover_image: coverImage } : event))
+    setOrganizedEvents(prev => prev.map(event => event.id === eventId ? { ...event, cover_image: coverImage } : event))
+  }
 
   const handlePrevMonth = useCallback(() => {
     const prev = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
@@ -472,7 +650,7 @@ export default function CalendarPage({ navigate = () => {} }) {
                   onClick={() => setActiveTab(tab.key)}
                   style={{
                     flexShrink: 0,
-                    background: activeTab === tab.key ? '#1C1C1E' : '#F2F2F7',
+                    background: activeTab === tab.key ? '#1C1C1E' : '#faf9fb',
                     color: activeTab === tab.key ? '#fff' : '#1C1C1E',
                     border: 'none',
                     borderRadius: 20,
@@ -489,7 +667,7 @@ export default function CalendarPage({ navigate = () => {} }) {
             </div>
             {currentEvents.length > 0
               ? currentEvents.map(event => (
-                  <InvitedEventCard key={event.id} event={event} navigate={navigate} />
+                  <InvitedEventCard key={event.id} event={event} navigate={navigate} onCoverUploaded={handleCoverUploaded} />
                 ))
               : !loading && (
                   <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, marginTop: 32 }}>

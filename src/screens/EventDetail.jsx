@@ -437,7 +437,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   ]
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden' }}>
 
       {/* ── HERO ── */}
       <div style={{

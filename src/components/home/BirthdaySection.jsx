@@ -390,7 +390,7 @@ export default function BirthdaySection({ user, onToast, onMessage }) {
     <>
       {!loading && <HeroBirthdayCard birthday={heroBirthday} onMessage={onMessage} />}
 
-      <section style={{ background: '#F2F2F7', padding: '2px 0 18px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
+      <section style={{ background: '#faf9fb', padding: '2px 0 18px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
         <style>{`
           [data-birthday-scroll]::-webkit-scrollbar { display: none; }
         `}</style>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -6,18 +6,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Image as ImageIcon,
   MessageCircle,
   Plus,
-  Search,
   Settings,
   Share2,
-  X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
-const PAGE_BG = '#F2F2F7'
+const PAGE_BG = '#faf9fb'
 
 const FILTERS = [
   { key: 'all', label: 'Tous' },
@@ -244,30 +243,6 @@ function IconButton({ children, onClick, label, dark = false, style }) {
   )
 }
 
-function ProfileAvatar({ profile }) {
-  return (
-    <div style={{
-      width: 42,
-      height: 42,
-      borderRadius: 18,
-      overflow: 'hidden',
-      background: 'linear-gradient(135deg,#fff,#FFE7F4)',
-      boxShadow: '0 10px 26px rgba(224,85,170,0.18)',
-      border: '1px solid rgba(255,255,255,0.78)',
-      display: 'grid',
-      placeItems: 'center',
-      color: '#1C1C1E',
-      fontSize: 15,
-      fontWeight: 900,
-      flexShrink: 0,
-    }}>
-      {profile?.avatar_url ? (
-        <img src={profile.avatar_url} alt="Profil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      ) : getInitial(profile)}
-    </div>
-  )
-}
-
 function FilterChip({ label, count, active, onClick }) {
   return (
     <button
@@ -280,7 +255,7 @@ function FilterChip({ label, count, active, onClick }) {
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        background: active ? GRADIENT : '#fff',
+        background: active ? GRADIENT : '#faf9fb',
         color: active ? '#fff' : '#6B6B72',
         border: active ? '0.5px solid transparent' : '0.5px solid rgba(0,0,0,0.08)',
         boxShadow: active ? '0 8px 18px rgba(224,85,170,0.22)' : '0 2px 8px rgba(0,0,0,0.03)',
@@ -371,7 +346,9 @@ function GuestAvatars({ profiles, extraCount }) {
             fontWeight: 900,
           }}
         >
-          {getInitial(profile, 'I')}
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' }} />
+          ) : getInitial(profile, 'I')}
         </div>
       ))}
       {extraCount > 0 && (
@@ -442,9 +419,10 @@ function ActionButton({ icon: Icon, label, onClick, border }) {
   )
 }
 
-function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp }) {
+function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp, onCoverUploaded }) {
+  const inputRef = useRef(null)
   const { event, isOrganizer, myStatus, stats, memberProfiles } = item
-  const isPast = item.isPast
+  const hasCover = !!event.cover_image
   const countdown = getCountdown(event.date)
   const countdownColor = countdown.past
     ? '#8E8E93'
@@ -457,13 +435,37 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
   const progress = total > 0 ? Math.round((stats.yes / total) * 100) : 0
   const canRsvpInline = !isOrganizer && myStatus !== 'yes'
 
-  const statusPill = isOrganizer
-    ? <Pill tone="blue">👑 J'organise</Pill>
-    : myStatus === 'yes'
-      ? <Pill tone="green">✓ J'y serai</Pill>
-      : myStatus === 'maybe'
-        ? <Pill tone="orange">Peut-être</Pill>
-        : <Pill tone="gray">En attente</Pill>
+  const statusPill = isOrganizer || myStatus === 'yes'
+    ? <Pill tone="green">✓ J'y serai</Pill>
+    : myStatus === 'maybe'
+      ? <Pill tone="orange">En attente</Pill>
+      : <Pill tone="gray">En attente</Pill>
+
+  async function handleCoverChange(e) {
+    const file = e.target.files?.[0]
+    if (!file || !event.id || !isOrganizer) return
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${event.id}/${Date.now()}.${ext}`
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('event-covers')
+        .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type || 'image/jpeg' })
+      if (uploadError) throw uploadError
+
+      const { data } = supabase.storage.from('event-covers').getPublicUrl(path)
+      const publicUrl = data.publicUrl
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ cover_image: publicUrl })
+        .eq('id', event.id)
+      if (updateError) throw updateError
+      onCoverUploaded?.(event.id, publicUrl)
+    } catch (error) {
+      console.error('Erreur upload couverture événement :', error)
+    } finally {
+      e.target.value = ''
+    }
+  }
 
   return (
     <article style={{
@@ -478,61 +480,74 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
         onClick={() => onOpen(event)}
         style={{
           width: '100%',
-          height: 80,
-          padding: '0 14px',
-          background: isPast
-            ? 'linear-gradient(135deg, #F3F3F6, #ECECF1)'
-            : 'linear-gradient(135deg, rgba(224,85,170,0.08), rgba(245,166,35,0.08))',
-          display: 'grid',
-          gridTemplateColumns: '52px 1fr auto',
-          alignItems: 'center',
-          gap: 12,
+          height: 110,
+          position: 'relative',
+          background: event.id?.charCodeAt?.(0) % 2 ? '#fff0f7' : '#f0f4ff',
+          display: 'block',
           textAlign: 'left',
+          overflow: 'hidden',
         }}
       >
-        <span style={{
-          width: 52,
-          height: 52,
-          borderRadius: 16,
-          background: isPast ? '#fff' : 'linear-gradient(135deg, rgba(224,85,170,0.13), rgba(245,166,35,0.15))',
-          display: 'grid',
-          placeItems: 'center',
-          fontSize: 28,
-          boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.05)',
-        }}>
-          {event.emoji || '🎉'}
-        </span>
-        <span style={{ minWidth: 0 }}>
-          <span style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            color: '#1C1C1E',
-            fontSize: 15,
-            fontWeight: 850,
-            lineHeight: 1.16,
-            marginBottom: 5,
-          }}>
-            {titleCase(event.name, 'Amiv')}
+        {hasCover ? (
+          <>
+            <img src={event.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))' }} />
+            <span style={{ position: 'absolute', left: 14, right: 74, bottom: 12 }}>
+              <span style={{
+                display: 'block',
+                fontSize: 15,
+                fontWeight: 800,
+                color: '#fff',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {titleCase(event.name, 'Amiv')}
+              </span>
+              <span style={{
+                display: 'block',
+                fontSize: 11,
+                color: 'rgba(255,255,255,0.82)',
+                marginTop: 3,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {formatEventDate(event.date)}{event.location ? ` · ${event.location}` : ''}
+              </span>
+            </span>
+          </>
+        ) : (
+          <span
+            onClick={e => {
+              e.stopPropagation()
+              if (isOrganizer) inputRef.current?.click()
+            }}
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#b85aa0',
+              cursor: isOrganizer ? 'pointer' : 'default',
+            }}
+          >
+            {isOrganizer && (
+              <span style={{ display: 'grid', placeItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}>
+                <ImageIcon size={22} strokeWidth={1.6} color="#d07ab4" />
+                Ajouter une photo de couverture
+              </span>
+            )}
           </span>
-          <span style={{
-            color: isPast ? '#8E8E93' : '#C23F91',
-            fontSize: 12,
-            fontWeight: 760,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: 'block',
-          }}>
-            {formatEventDate(event.date)}
-          </span>
-        </span>
+        )}
         <span style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
           minWidth: 54,
           height: 30,
-          borderRadius: 999,
-          background: '#fff',
+          borderRadius: hasCover ? 10 : 999,
+          background: hasCover ? 'rgba(255,255,255,0.92)' : '#fff',
           color: countdownColor,
           fontSize: 12,
           fontWeight: 900,
@@ -543,35 +558,71 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
         }}>
           {countdown.label}
         </span>
+        <input ref={inputRef} type="file" accept="image/*" onChange={handleCoverChange} style={{ display: 'none' }} />
       </button>
 
       <div style={{ padding: '12px 16px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: isOrganizer || canRsvpInline ? 12 : 0 }}>
-          {statusPill}
-          {event.location && <Pill tone="gray">📍 {event.location}</Pill>}
-          {event.type && <Pill tone="gray">{titleCase(event.type, 'Événement')}</Pill>}
-          {isInviteOnly(event.visibility) && <Pill tone="lock">🔒 Secret</Pill>}
-        </div>
-
-        {isOrganizer && (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
-              <GuestAvatars profiles={memberProfiles} extraCount={Math.max(0, total - 3)} />
-              <div style={{ color: '#6B6B72', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-                {stats.yes} oui · {stats.maybe} att.
-              </div>
+        {!hasCover && (
+          <div style={{ paddingRight: 66, marginBottom: 10 }}>
+            <div style={{
+              fontSize: 15,
+              fontWeight: 800,
+              color: '#1C1C1E',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {titleCase(event.name, 'Amiv')}
             </div>
-            <div style={{ height: 6, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden' }}>
+            <div style={{
+              fontSize: 12,
+              fontWeight: 500,
+              marginTop: 4,
+              background: GRADIENT,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              {formatEventDate(event.date)}
+            </div>
+            {event.location && (
               <div style={{
-                width: `${progress}%`,
-                height: '100%',
-                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 500,
+                marginTop: 2,
                 background: GRADIENT,
-                minWidth: progress > 0 ? 10 : 0,
-              }} />
-            </div>
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {event.location}
+              </div>
+            )}
           </div>
         )}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
+          {statusPill}
+        </div>
+
+        <div style={{ marginBottom: canRsvpInline ? 12 : 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
+            <GuestAvatars profiles={memberProfiles} extraCount={Math.max(0, total - 3)} />
+            <div style={{ color: '#6B6B72', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+              {stats.yes} oui · {stats.maybe} att.
+            </div>
+          </div>
+          <div style={{ height: 6, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden' }}>
+            <div style={{
+              width: `${progress}%`,
+              height: '100%',
+              borderRadius: 999,
+              background: GRADIENT,
+              minWidth: progress > 0 ? 10 : 0,
+            }} />
+          </div>
+        </div>
 
         {canRsvpInline && (
           <div style={{ display: 'flex', gap: 7 }}>
@@ -608,7 +659,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   const [selectedDate, setSelectedDate] = useState(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [calendarDots, setCalendarDots] = useState([])
-  const [profile, setProfile] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
   const [organizedEvents, setOrganizedEvents] = useState([])
   const [guestEvents, setGuestEvents] = useState([])
@@ -617,8 +667,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   const [profilesById, setProfilesById] = useState({})
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [search, setSearch] = useState('')
 
   const fetchCalendarDots = useCallback(async () => {
     try {
@@ -642,9 +690,8 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
       return
     }
 
-    const eventSelect = 'id, name, emoji, date, location, type, visibility, user_id, invite_token'
-    const [profileRes, organizedRes, guestRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, first_name, avatar_url, email').eq('id', user.id).maybeSingle(),
+    const eventSelect = 'id, name, emoji, date, location, type, visibility, user_id, invite_token, cover_image'
+    const [organizedRes, guestRes] = await Promise.all([
       supabase.from('events').select(eventSelect).eq('user_id', user.id).order('date', { ascending: true }),
       supabase
         .from('invitations')
@@ -697,7 +744,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     }
 
     setCurrentUser(user)
-    setProfile(profileRes.data ?? { id: user.id, email: user.email })
     setOrganizedEvents(organized)
     const sortedGuests = guests.sort((a, b) => new Date(a.events.date || '9999-12-31') - new Date(b.events.date || '9999-12-31'))
     console.log('[CALENDAR PARTICIPE] guestEvents final (status invitation + event):', sortedGuests.map(g => ({ status: g.status, event_id: g.events?.id, event_name: g.events?.name })))
@@ -796,14 +842,12 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   }), [items])
 
   const visibleItems = useMemo(() => {
-    const query = search.trim().toLowerCase()
     return items.filter(item => {
       const matchesFilter = activeFilter === 'all' || item.filter === activeFilter
-      const matchesSearch = !query || `${item.title} ${item.location} ${item.type}`.toLowerCase().includes(query)
       const matchesDate = !selectedDate || safeYMD(item.event.date) === selectedDate
-      return matchesFilter && matchesSearch && matchesDate
+      return matchesFilter && matchesDate
     })
-  }, [items, activeFilter, search, selectedDate])
+  }, [items, activeFilter, selectedDate])
 
   const upcomingItems = useMemo(() => visibleItems.filter(item => !item.isPast), [visibleItems])
   const pastItems = useMemo(() => visibleItems.filter(item => item.isPast), [visibleItems])
@@ -878,6 +922,11 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     }
   }
 
+  function handleCoverUploaded(eventId, coverImage) {
+    setOrganizedEvents(prev => prev.map(event => event.id === eventId ? { ...event, cover_image: coverImage } : event))
+    setGuestEvents(prev => prev.map(row => row.events?.id === eventId ? { ...row, events: { ...row.events, cover_image: coverImage } } : row))
+  }
+
   function handlePrevMonth() {
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
   }
@@ -912,6 +961,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
               onShare={shareEvent}
               onCalendar={addToCalendar}
               onRsvp={handleRsvp}
+              onCoverUploaded={handleCoverUploaded}
             />
           ))
         )}
@@ -931,32 +981,24 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 14px 106px' }}>
         <header style={{ padding: '0 2px 12px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-            <div style={{ minWidth: 0 }}>
-              <h1 style={{
-                fontSize: 38,
-                fontWeight: 900,
-                lineHeight: 0.95,
+          <div style={{ padding: '18px 22px 22px' }}>
+            <h1 style={{
+              margin: 0,
+              fontSize: 26,
+              fontWeight: 800,
+              color: '#1C1C1E',
+              letterSpacing: -0.5,
+              lineHeight: 1.15,
+            }}>
+              Vos Amivs
+              <br />
+              vos <span style={{
                 background: GRADIENT,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-              }}>
-                Amiv
-              </h1>
-              <div style={{ marginTop: 5, color: '#8E8E93', fontSize: 15, fontWeight: 700 }}>
-                Amivs & anniversaires
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              <ProfileAvatar profile={profile} />
-              <IconButton label="Rechercher" onClick={() => setSearchOpen(v => !v)} style={{ marginTop: 2 }}>
-                {searchOpen ? <X size={18} /> : <Search size={18} />}
-              </IconButton>
-              <IconButton label="Choisir une date" onClick={() => setIsCalendarOpen(true)} style={{ marginTop: 2 }}>
-                <CalendarDays size={18} />
-              </IconButton>
-            </div>
+              }}>anniversaires</span> & événements
+            </h1>
           </div>
 
           <button
@@ -997,32 +1039,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
             <ChevronRight size={21} strokeWidth={2.5} />
           </button>
 
-          <div style={{
-            overflow: 'hidden',
-            maxHeight: searchOpen ? 54 : 0,
-            opacity: searchOpen ? 1 : 0,
-            transition: 'max-height 0.22s ease, opacity 0.18s ease',
-          }}>
-            <div style={{
-              marginTop: 10,
-              height: 44,
-              borderRadius: 18,
-              background: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '0 13px',
-              border: '0.5px solid rgba(0,0,0,0.08)',
-            }}>
-              <Search size={17} color="#8E8E93" />
-              <input
-                value={search}
-                onChange={event => setSearch(event.target.value)}
-                placeholder="Rechercher un événement"
-                style={{ flex: 1, background: 'transparent', fontSize: 14, fontWeight: 650, color: '#1C1C1E' }}
-              />
-            </div>
-          </div>
         </header>
 
         <div style={{

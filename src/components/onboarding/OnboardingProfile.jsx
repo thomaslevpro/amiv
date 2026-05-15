@@ -68,7 +68,7 @@ export default function OnboardingProfile({ userId, onNext }) {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#F2F2F7', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#faf9fb', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 24px 48px', overflowY: 'auto' }}>
 
         <div style={{ paddingTop: 12, marginBottom: 32 }}>

@@ -82,7 +82,7 @@ export default function OrganizerSpacePage() {
   const days = daysUntil(event.date)
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', minHeight: '100dvh' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', minHeight: '100dvh' }}>
       <div style={{ background: '#fff', padding: '16px 16px 16px', borderBottom: '1px solid #F2F2F7' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <button

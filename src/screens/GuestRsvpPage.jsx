@@ -74,7 +74,7 @@ export default function GuestRsvpPage({ token }) {
   }
 
   if (loading) return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F2F2F7', minHeight: '100dvh' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#faf9fb', minHeight: '100dvh' }}>
       <div style={{ fontSize: 48, fontWeight: 900, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
         Amiv
       </div>
@@ -82,7 +82,7 @@ export default function GuestRsvpPage({ token }) {
   )
 
   if (error) return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F2F2F7', gap: 12, minHeight: '100dvh' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#faf9fb', gap: 12, minHeight: '100dvh' }}>
       <div style={{ fontSize: 48 }}>😕</div>
       <div style={{ fontSize: 16, fontWeight: 600, color: '#1C1C1E' }}>{error}</div>
     </div>
@@ -98,7 +98,7 @@ export default function GuestRsvpPage({ token }) {
   ].filter(Boolean)
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', minHeight: '100dvh' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', minHeight: '100dvh' }}>
       {/* Hero header */}
       <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: '60px 20px 32px', textAlign: 'center', color: '#fff', flexShrink: 0 }}>
         <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.5, marginBottom: 20, opacity: 0.95 }}>Amiv</div>

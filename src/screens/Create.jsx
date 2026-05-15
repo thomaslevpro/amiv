@@ -120,7 +120,7 @@ export default function Create({ onBack, session, initialData = null }) {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 24px' }}>
 
         {/* Header */}
