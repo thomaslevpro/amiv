@@ -24,12 +24,22 @@ function friendProfile(f) {
   return { id: f.friend_id, name: f.friend_name, avatar_url: f.friend_avatar }
 }
 
+function birthdayFriendName(friend) {
+  return friend?.first_name || friend?.name || 'Ami'
+}
+
+function birthdayFriendInitial(friend) {
+  return birthdayFriendName(friend).charAt(0).toUpperCase()
+}
+
 export default function Create({ onBack, session, initialData = null }) {
   const userId = session?.user?.id
 
   const [type, setType] = useState(0)
   const [vis, setVis] = useState(1)
   const [form, setForm] = useState({ name: initialData?.title ?? '', date: '', location: '', desc: '' })
+  const [birthdayPersonId, setBirthdayPersonId] = useState(initialData?.birthday_person_user_id ?? null)
+  const [birthdayFriends, setBirthdayFriends] = useState([])
   const [usePoll, setUsePoll] = useState(false)
   const [pollDates, setPollDates] = useState([{ date: '', time: '' }])
   const [loading, setLoading] = useState(false)
@@ -46,10 +56,48 @@ export default function Create({ onBack, session, initialData = null }) {
     })
   }, [userId])
 
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+
+    async function loadBirthdayFriends() {
+      const { data: friendships } = await supabase
+        .from('friendships')
+        .select('requester_id, addressee_id')
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+        .eq('status', 'accepted')
+
+      if (cancelled) return
+
+      const friendIds = (friendships || []).map(f =>
+        f.requester_id === userId ? f.addressee_id : f.requester_id
+      )
+
+      if (friendIds.length === 0) {
+        setBirthdayFriends([])
+        return
+      }
+
+      const { data: friendProfiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, name, avatar_url')
+        .in('id', friendIds)
+
+      if (!cancelled) setBirthdayFriends(friendProfiles || [])
+    }
+
+    loadBirthdayFriends()
+    return () => { cancelled = true }
+  }, [userId])
+
   function toggleFriend(id) {
     setSelectedFriendIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     )
+  }
+
+  function toggleBirthdayPerson(id) {
+    setBirthdayPersonId(prev => prev === id ? null : id)
   }
 
   function addEmail() {
@@ -85,6 +133,7 @@ export default function Create({ onBack, session, initialData = null }) {
         type: typeValues[type],
         visibility: visibilities[vis],
         user_id: user.id,
+        birthday_person_user_id: birthdayPersonId,
       }).select().single()
       if (error) throw error
 
@@ -160,6 +209,52 @@ export default function Create({ onBack, session, initialData = null }) {
             onChange={e => setForm({ ...form, name: e.target.value })}
             style={fieldStyle}
           />
+        </div>
+
+        {/* Birthday person */}
+        <div style={cardStyle}>
+          <div style={labelStyle}>
+            Personne fêtée <span style={{ color: '#AEAEB2', fontWeight: 600 }}>(optionnel)</span>
+          </div>
+          {birthdayFriends.length === 0 ? (
+            <div style={{ fontSize: 13, color: '#8E8E93' }}>Ajoute des amis pour les sélectionner ici</div>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', padding: '4px 2px' }}>
+              {birthdayFriends.map(friend => {
+                const selected = birthdayPersonId === friend.id
+                const name = birthdayFriendName(friend)
+                return (
+                  <div
+                    key={friend.id}
+                    onClick={() => toggleBirthdayPerson(friend.id)}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer', flexShrink: 0, width: 58 }}
+                  >
+                    <div style={{ position: 'relative' }}>
+                      {friend.avatar_url ? (
+                        <img
+                          src={friend.avatar_url}
+                          alt={name}
+                          style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', display: 'block', boxShadow: selected ? '0 0 0 2px #e055aa' : 'none' }}
+                        />
+                      ) : (
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#FBBF9A', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, boxShadow: selected ? '0 0 0 2px #e055aa' : 'none' }}>
+                          {birthdayFriendInitial(friend)}
+                        </div>
+                      )}
+                      {selected && (
+                        <div style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
+                          ✓
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 500, color: '#1C1C1E', maxWidth: 52, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {name}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Date — fixed or poll */}

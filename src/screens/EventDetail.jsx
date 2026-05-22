@@ -64,6 +64,14 @@ const rsvpStatusColor = { going: '#34C759', declined: '#FF3B30', pending: '#FF95
 const rsvpStatusLabel = { going: 'Confirmé', declined: 'Décliné', pending: 'En attente' }
 const guestResponseIcon = { yes: <CheckCircle2 size={16} className="text-green-500" />, no: <XCircle size={16} className="text-red-500" />, maybe: '🤔' }
 
+function birthdayFriendName(friend) {
+  return friend?.first_name || friend?.name || 'Ami'
+}
+
+function birthdayFriendInitial(friend) {
+  return birthdayFriendName(friend).charAt(0).toUpperCase()
+}
+
 export default function EventDetail({ event, onBack, onMessagesClick }) {
   const coverInputRef = useRef(null)
   const [rsvpStatus, setRsvpStatus] = useState(null)
@@ -74,6 +82,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   const [toast, setToast] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', date: '', description: '', location: '' })
+  const [birthdayPersonId, setBirthdayPersonId] = useState(event?.birthday_person_user_id ?? null)
   const [saving, setSaving] = useState(false)
   const [coverFile, setCoverFile] = useState(null)
   const [coverPreview, setCoverPreview] = useState(null)
@@ -138,6 +147,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setIsInvitedGuest(false)
     setFriends([])
     setInvitedIds(new Set())
+    setBirthdayPersonId(event?.birthday_person_user_id ?? null)
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -147,16 +157,18 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
       const isOrg = user.id === event.user_id
 
-      const [rsvpRes, optRes, guestRes, allRsvpsRes] = await Promise.all([
+      const [rsvpRes, optRes, guestRes, allRsvpsRes, eventInfoRes] = await Promise.all([
         supabase.from('rsvps').select('status').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
         supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
         isOrg
           ? supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })
           : Promise.resolve({ data: [] }),
         supabase.from('rsvps').select('user_id, status').eq('event_id', event.id),
+        supabase.from('events').select('birthday_person_user_id').eq('id', event.id).maybeSingle(),
       ])
 
       if (cancelled) return
+      setBirthdayPersonId(eventInfoRes.data?.birthday_person_user_id ?? event?.birthday_person_user_id ?? null)
 
       const { data: isGuestResult } = await supabase.rpc(
         'is_invited_to_event',
@@ -249,7 +261,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       if (friendIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('id, first_name, avatar_url')
+          .select('id, first_name, name, avatar_url')
           .in('id', friendIds)
         friendList = profilesData || []
       }
@@ -360,9 +372,14 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       description: event.description ?? '',
       location: event.location ?? '',
     })
+    setBirthdayPersonId(eventOverrides.birthday_person_user_id ?? birthdayPersonId ?? event?.birthday_person_user_id ?? null)
     setCoverFile(null)
     setCoverPreview(null)
     setEditing(true)
+  }
+
+  function toggleBirthdayPerson(id) {
+    setBirthdayPersonId(prev => prev === id ? null : id)
   }
 
   async function handleEditSubmit(e) {
@@ -394,6 +411,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
       description: editForm.description,
       location: editForm.location,
       cover_image: coverImagePath,
+      birthday_person_user_id: birthdayPersonId,
     }).eq('id', event.id)
     if (!error) {
       setEventOverrides(prev => ({
@@ -403,6 +421,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         description: editForm.description,
         location: editForm.location,
         cover_image: coverImagePath,
+        birthday_person_user_id: birthdayPersonId,
       }))
       setEditing(false)
       showToast('Événement modifié !')
@@ -756,6 +775,50 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Titre</div>
                 <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required
                   style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 6 }}>
+                  Personne fêtée <span style={{ color: '#AEAEB2' }}>(optionnel)</span>
+                </div>
+                {friends.length === 0 ? (
+                  <div style={{ fontSize: 13, color: '#8E8E93' }}>Ajoute des amis pour les sélectionner ici</div>
+                ) : (
+                  <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none', padding: '4px 2px' }}>
+                    {friends.map(friend => {
+                      const selected = birthdayPersonId === friend.id
+                      const name = birthdayFriendName(friend)
+                      return (
+                        <div
+                          key={friend.id}
+                          onClick={() => toggleBirthdayPerson(friend.id)}
+                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer', flexShrink: 0, width: 58 }}
+                        >
+                          <div style={{ position: 'relative' }}>
+                            {friend.avatar_url ? (
+                              <img
+                                src={friend.avatar_url}
+                                alt={name}
+                                style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', display: 'block', boxShadow: selected ? '0 0 0 2px #e055aa' : 'none' }}
+                              />
+                            ) : (
+                              <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#FBBF9A', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, boxShadow: selected ? '0 0 0 2px #e055aa' : 'none' }}>
+                                {birthdayFriendInitial(friend)}
+                              </div>
+                            )}
+                            {selected && (
+                              <div style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 11, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
+                                ✓
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#1C1C1E', maxWidth: 52, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {name}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Date</div>

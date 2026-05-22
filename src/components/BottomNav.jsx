@@ -1,4 +1,4 @@
-import { Home, Calendar, MessageCircle, User, Plus } from 'lucide-react'
+import { Home, Calendar, User, Plus } from 'lucide-react'
 
 const Badge = () => (
   <div style={{
@@ -15,16 +15,34 @@ const Badge = () => (
 )
 
 const MessageBadge = () => (
-  <div style={{
+  <span style={{
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 13,
+    right: -9,
     width: 8,
     height: 8,
     borderRadius: '50%',
     background: '#FF3B30',
     pointerEvents: 'none',
+    zIndex: 10,
   }} />
+)
+
+const InstagramDmIcon = ({ size = 26 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M22 2L11 13" />
+    <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+  </svg>
 )
 
 export default function BottomNav({ current, onChange, onCreateClick, hasUnreadMessages, hasUnreadNotifications, hidden }) {
@@ -128,10 +146,10 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         position: 'relative',
         color: current === 'messages' ? '#1C1C1E' : '#8E8E93',
       }}>
-        <span style={{ position: 'relative', width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-          <MessageCircle size={26} strokeWidth={1.5} fill={current === 'messages' ? 'currentColor' : 'none'} />
+        <div style={{ position: 'relative', display: 'inline-flex', width: 26, height: 26 }}>
+          <InstagramDmIcon size={26} />
           {hasUnreadMessages && <MessageBadge />}
-        </span>
+        </div>
       </div>
 
       {/* Profile */}
