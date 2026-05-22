@@ -1,6 +1,5 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const formatDate = (d) => d.toISOString().split('T')[0]
@@ -285,12 +284,10 @@ function CalendarTrigger({ currentMonth, onClick }) {
   )
 }
 
-function InvitedEventCard({ event, navigate, onCoverUploaded }) {
-  const inputRef = useRef(null)
+function InvitedEventCard({ event, navigate }) {
   const firstName = event.profiles?.full_name?.split(' ')[0] ?? ''
   const status = event.rsvpStatus
   const hasCover = !!event.cover_image
-  const isOrganizer = status === 'organizing' || event.isOrganizer
   const countdown = getCountdown(event.date)
   const countdownColor = countdown.days === null
     ? '#AEAEB2'
@@ -318,32 +315,6 @@ function InvitedEventCard({ event, navigate, onCoverUploaded }) {
     ? event.name.charAt(0).toUpperCase() + event.name.slice(1)
     : `Amiv de ${firstName}`
 
-  async function handleCoverChange(e) {
-    const file = e.target.files?.[0]
-    if (!file || !event.id || !isOrganizer) return
-    const ext = file.name.split('.').pop() || 'jpg'
-    const path = `${event.id}/${Date.now()}.${ext}`
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from('event-covers')
-        .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type || 'image/jpeg' })
-      if (uploadError) throw uploadError
-
-      const { data } = supabase.storage.from('event-covers').getPublicUrl(path)
-      const publicUrl = data.publicUrl
-      const { error: updateError } = await supabase
-        .from('events')
-        .update({ cover_image: publicUrl })
-        .eq('id', event.id)
-      if (updateError) throw updateError
-      onCoverUploaded?.(event.id, publicUrl)
-    } catch (error) {
-      console.error('Erreur upload couverture événement :', error)
-    } finally {
-      e.target.value = ''
-    }
-  }
-
   return (
     <div
       onClick={() => navigate(`/events/${event.id}/secret-space`)}
@@ -359,53 +330,28 @@ function InvitedEventCard({ event, navigate, onCoverUploaded }) {
       <div style={{
         height: 110,
         position: 'relative',
-        background: event.id?.charCodeAt?.(0) % 2 ? '#fff0f7' : '#f0f4ff',
+        background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
+        overflow: 'hidden',
       }}>
         {hasCover ? (
-          <>
-            <img src={event.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))' }} />
-            <div style={{ position: 'absolute', left: 14, right: 74, bottom: 12 }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {displayName}
-              </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {dateTimeLabel}{event.location ? ` · ${event.location}` : ''}
-              </div>
-            </div>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation()
-              if (isOrganizer) inputRef.current?.click()
-            }}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'grid',
-              placeItems: 'center',
-              color: '#b85aa0',
-              cursor: isOrganizer ? 'pointer' : 'default',
-            }}
-          >
-            {isOrganizer && (
-              <span style={{ display: 'grid', placeItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}>
-                <ImageIcon size={22} strokeWidth={1.6} color="#d07ab4" />
-                Ajouter une photo de couverture
-              </span>
-            )}
-          </button>
-        )}
+          <img src={event.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : null}
+        <div style={{ position: 'absolute', left: 14, right: 74, bottom: 12, textShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {displayName}
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {dateTimeLabel}{event.location ? ` · ${event.location}` : ''}
+          </div>
+        </div>
         <div style={{
           position: 'absolute',
-          top: 10,
-          right: 10,
+          top: 12,
+          right: 12,
           minWidth: 54,
           height: 30,
-          borderRadius: hasCover ? 10 : 999,
-          background: hasCover ? 'rgba(255,255,255,0.92)' : '#fff',
+          borderRadius: 10,
+          background: 'rgba(255,255,255,0.92)',
           color: countdownColor,
           fontSize: 12,
           fontWeight: 900,
@@ -416,43 +362,9 @@ function InvitedEventCard({ event, navigate, onCoverUploaded }) {
         }}>
           {countdown.label}
         </div>
-        <input ref={inputRef} type="file" accept="image/*" onChange={handleCoverChange} style={{ display: 'none' }} />
       </div>
 
       <div style={{ padding: '12px 14px 14px', position: 'relative' }}>
-        {!hasCover && (
-          <div style={{ paddingRight: 66, marginBottom: 10 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {displayName}
-            </div>
-            <div style={{
-              fontSize: 12,
-              fontWeight: 500,
-              marginTop: 4,
-              background: GRADIENT,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              {dateTimeLabel}
-            </div>
-            {event.location && (
-              <div style={{
-                fontSize: 12,
-                fontWeight: 500,
-                marginTop: 2,
-                background: GRADIENT,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {event.location}
-              </div>
-            )}
-          </div>
-        )}
-
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
           <div style={{
             background: rsvpChip.bg,
@@ -584,11 +496,6 @@ export default function CalendarPage({ navigate = () => {} }) {
     }
   }, [])
 
-  function handleCoverUploaded(eventId, coverImage) {
-    setInvitedEvents(prev => prev.map(event => event.id === eventId ? { ...event, cover_image: coverImage } : event))
-    setOrganizedEvents(prev => prev.map(event => event.id === eventId ? { ...event, cover_image: coverImage } : event))
-  }
-
   const handlePrevMonth = useCallback(() => {
     const prev = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
     setCurrentMonth(prev)
@@ -667,7 +574,7 @@ export default function CalendarPage({ navigate = () => {} }) {
             </div>
             {currentEvents.length > 0
               ? currentEvents.map(event => (
-                  <InvitedEventCard key={event.id} event={event} navigate={navigate} onCoverUploaded={handleCoverUploaded} />
+                  <InvitedEventCard key={event.id} event={event} navigate={navigate} />
                 ))
               : !loading && (
                   <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, marginTop: 32 }}>

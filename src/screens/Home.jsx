@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Image as ImageIcon, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import NotificationBell from '../components/NotificationBell'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
@@ -154,9 +154,6 @@ function MyEventMiniCard({ item, onClick }) {
   const hasCover = !!coverUrl
   const dateStr = formatCompactEventDate(item.date)
   const stats = item.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
-  const fallbackBg = item.type === 'personal' || item.type === 'anniversary' || item.id?.charCodeAt?.(0) % 2
-    ? '#fff0f7'
-    : '#f0f4ff'
 
   return (
     <div
@@ -170,31 +167,24 @@ function MyEventMiniCard({ item, onClick }) {
         cursor: 'pointer',
       }}
     >
-      <div style={{ height: 100, position: 'relative', background: fallbackBg }}>
+      <div style={{ height: 100, position: 'relative', background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)', overflow: 'hidden' }}>
         {hasCover ? (
-          <>
-            <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.52))' }} />
-            <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {item.name || 'Événement'}
-              </div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.82)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {dateStr}{item.location ? ` · ${item.location}` : ''}
-              </div>
-            </div>
-          </>
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
-            <ImageIcon size={20} strokeWidth={1.8} color={fallbackBg === '#fff0f7' ? '#d8a6c8' : '#a8b9e6'} />
+          <img src={coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : null}
+        <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8, textShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.name || 'Événement'}
           </div>
-        )}
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {dateStr}{item.location ? ` · ${item.location}` : ''}
+          </div>
+        </div>
         <div style={{
           position: 'absolute',
-          top: 8,
-          right: 8,
+          top: 12,
+          right: 12,
           borderRadius: 8,
-          background: hasCover ? 'rgba(255,255,255,0.92)' : '#fff8ed',
+          background: 'rgba(255,255,255,0.92)',
           color: '#d4840a',
           fontSize: 10,
           fontWeight: 700,
@@ -205,28 +195,7 @@ function MyEventMiniCard({ item, onClick }) {
         </div>
       </div>
 
-      {!hasCover && (
-        <div style={{ padding: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.name || 'Événement'}
-          </div>
-          <div style={{
-            fontSize: 11,
-            fontWeight: 500,
-            marginTop: 4,
-            background: EVENT_GRADIENT,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {dateStr}{item.location ? ` · ${item.location}` : ''}
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: hasCover ? '10px' : '0 10px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 10 }}>
         <MiniEventStatusChip item={item} />
         <span style={{ color: '#aaa', fontSize: 10, lineHeight: 1, whiteSpace: 'nowrap' }}>
           {stats.yes} oui

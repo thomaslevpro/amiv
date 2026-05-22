@@ -5,18 +5,10 @@ export default function EventCard({ event = {}, onClick }) {
     name = 'Événement sans titre',
     date = '',
     location = '',
-    type = 'Autre',
     role,
     cover_image,
   } = event
 
-  const typeEmoji = {
-    'Anniversaire': '🎂',
-    'Soirée': '🥂',
-    'Repas': '🍽️',
-    'Autre': '🎉',
-  }
-  const emoji = typeEmoji[type] ?? '🎉'
   const coverUrl = cover_image
     ? supabase.storage.from('event-covers').getPublicUrl(cover_image).data.publicUrl
     : null
@@ -50,11 +42,8 @@ export default function EventCard({ event = {}, onClick }) {
       {/* Cover */}
       <div style={{
         height: 110,
-        background: coverUrl ? '#000' : 'linear-gradient(135deg, #e055aa, #f5a623)',
+        background: coverUrl ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
         position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         overflow: 'hidden',
       }}>
         {coverUrl ? (
@@ -65,16 +54,28 @@ export default function EventCard({ event = {}, onClick }) {
               position: 'absolute', inset: 0,
               width: '100%', height: '100%',
               objectFit: 'cover', objectPosition: 'center',
-              opacity: 0.9,
             }}
           />
-        ) : (
-          <span style={{ fontSize: 48 }}>{emoji}</span>
-        )}
+        ) : null}
         <div style={{
           position: 'absolute',
-          top: 10,
-          right: 10,
+          left: 14,
+          right: 74,
+          bottom: 12,
+          color: '#fff',
+          textShadow: '0 1px 4px rgba(0,0,0,0.18)',
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {name}
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {dateStr} · {location || 'Lieu à préciser'}
+          </div>
+        </div>
+        <div style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
           background: 'rgba(255,255,255,0.25)',
           color: 'white',
           backdropFilter: 'blur(4px)',

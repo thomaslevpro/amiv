@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake } from 'lucide-react'
+import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import CardContribute from '../components/card/CardContribute'
 import CardManage from '../components/card/CardManage'
@@ -65,6 +65,7 @@ const rsvpStatusLabel = { going: 'Confirmé', declined: 'Décliné', pending: 'E
 const guestResponseIcon = { yes: <CheckCircle2 size={16} className="text-green-500" />, no: <XCircle size={16} className="text-red-500" />, maybe: '🤔' }
 
 export default function EventDetail({ event, onBack, onMessagesClick }) {
+  const coverInputRef = useRef(null)
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [userId, setUserId] = useState(null)
   const [userEmail, setUserEmail] = useState(null)
@@ -409,6 +410,40 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     setSaving(false)
   }
 
+  async function handleHeroCoverChange(e) {
+    const file = e.target.files?.[0]
+    if (!file || !event?.id || userId !== event.user_id) return
+
+    const ext = file.name.split('.').pop()
+    const filePath = `${event.id}/cover_${Date.now()}.${ext}`
+    const { error: uploadError, data: uploadData } = await supabase.storage
+      .from('event-covers')
+      .upload(filePath, file, { upsert: true })
+
+    console.log('Upload result:', { uploadError, uploadData })
+    if (uploadError) {
+      console.log('Upload error details:', JSON.stringify(uploadError))
+      showToast('Erreur upload photo')
+      e.target.value = ''
+      return
+    }
+
+    const { error } = await supabase.from('events').update({
+      cover_image: filePath,
+    }).eq('id', event.id)
+
+    if (!error) {
+      setEventOverrides(prev => ({
+        ...prev,
+        cover_image: filePath,
+      }))
+      showToast('Photo de couverture modifiée !')
+    } else {
+      showToast('Erreur upload photo')
+    }
+    e.target.value = ''
+  }
+
   async function handleDeleteEvent() {
     setDeleting(true)
     const { error } = await supabase.from('events').delete().eq('id', event.id)
@@ -483,7 +518,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         minHeight: coverUrl ? 180 : 'auto',
         flexShrink: 0,
         overflow: 'hidden',
-        background: coverUrl ? '#000' : 'linear-gradient(135deg,#e055aa,#f5a623)',
+        background: coverUrl ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
         ...(coverUrl ? {} : { padding: '58px 20px 24px', textAlign: 'center', color: '#fff' }),
       }}>
 
@@ -534,12 +569,48 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
                 cursor: 'pointer', background: 'rgba(255,255,255,0.25)', borderRadius: 20,
                 padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff',
                 backdropFilter: 'blur(6px)',
+                marginRight: 44,
               }}
             >
               Modifier ✏️
             </div>
           )}
         </div>
+
+        {isOrganizer && (
+          <>
+            <button
+              type="button"
+              aria-label="Changer la photo de couverture"
+              onClick={() => coverInputRef.current?.click()}
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.85)',
+                color: '#1C1C1E',
+                border: 'none',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+                display: 'grid',
+                placeItems: 'center',
+                cursor: 'pointer',
+                zIndex: 3,
+              }}
+            >
+              <ImageIcon size={18} strokeWidth={1.8} />
+            </button>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleHeroCoverChange}
+              style={{ display: 'none' }}
+            />
+          </>
+        )}
 
         {/* Contenu superposé — en bas si cover, centré si gradient */}
         <div style={{

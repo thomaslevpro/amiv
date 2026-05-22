@@ -1,5 +1,5 @@
-import { useRef, useState, useEffect } from 'react'
-import { ChevronLeft, Image as ImageIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const TITLE_GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
@@ -119,8 +119,7 @@ function GuestAvatars({ profiles, extraCount }) {
   )
 }
 
-function EventCard({ event, onClick, onCoverUploaded }) {
-  const inputRef = useRef(null)
+function EventCard({ event, onClick }) {
   const { name = 'Événement', date, location } = event
   const dateStr = formatEventDate(date)
   const hasCover = !!event.cover_image
@@ -128,34 +127,6 @@ function EventCard({ event, onClick, onCoverUploaded }) {
   const stats = event.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
   const total = stats.yes + stats.maybe + stats.no
   const progress = total > 0 ? Math.round((stats.yes / total) * 100) : 0
-  const canUploadCover = event.isOrganizer
-
-  async function handleCoverChange(e) {
-    const file = e.target.files?.[0]
-    if (!file || !event.id || !canUploadCover) return
-    const ext = file.name.split('.').pop() || 'jpg'
-    const path = `${event.id}/${Date.now()}.${ext}`
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from('event-covers')
-        .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type || 'image/jpeg' })
-      if (uploadError) throw uploadError
-
-      const { data } = supabase.storage.from('event-covers').getPublicUrl(path)
-      const publicUrl = data.publicUrl
-      const { error: updateError } = await supabase
-        .from('events')
-        .update({ cover_image: publicUrl })
-        .eq('id', event.id)
-      if (updateError) throw updateError
-      onCoverUploaded?.(event.id, publicUrl)
-    } catch (error) {
-      console.error('Erreur upload couverture événement :', error)
-    } finally {
-      e.target.value = ''
-    }
-  }
-
   return (
     <div
       onClick={() => onClick?.(event)}
@@ -169,120 +140,38 @@ function EventCard({ event, onClick, onCoverUploaded }) {
         position: 'relative',
       }}
     >
-      <div style={{ height: 110, position: 'relative', background: event.id?.charCodeAt?.(0) % 2 ? '#fff0f7' : '#f0f4ff' }}>
+      <div style={{ height: 110, position: 'relative', background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)', overflow: 'hidden' }}>
         {hasCover ? (
-          <>
-            <img src={event.cover_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))' }} />
-            <div style={{ position: 'absolute', left: 14, right: 74, bottom: 12 }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {name}
-              </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {dateStr}{location ? ` · ${location}` : ''}
-              </div>
-            </div>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation()
-              if (canUploadCover) inputRef.current?.click()
-            }}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'grid',
-              placeItems: 'center',
-              color: '#b85aa0',
-              cursor: canUploadCover ? 'pointer' : 'default',
-            }}
-          >
-            {canUploadCover && (
-              <span style={{ display: 'grid', placeItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}>
-                <ImageIcon size={22} strokeWidth={1.6} color="#d07ab4" />
-                Ajouter une photo de couverture
-              </span>
-            )}
-          </button>
-        )}
-        {hasCover && (
-          <div style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            minWidth: 54,
-            height: 30,
-            borderRadius: 10,
-            background: 'rgba(255,255,255,0.92)',
-            color: '#e055aa',
-            fontSize: 12,
-            fontWeight: 900,
-            display: 'grid',
-            placeItems: 'center',
-            padding: '0 10px',
-          }}>
-            {countdown.label}
+          <img src={event.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : null}
+        <div style={{ position: 'absolute', left: 14, right: 74, bottom: 12, textShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {name}
           </div>
-        )}
-        <input ref={inputRef} type="file" accept="image/*" onChange={handleCoverChange} style={{ display: 'none' }} />
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {dateStr}{location ? ` · ${location}` : ''}
+          </div>
+        </div>
+        <div style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          minWidth: 54,
+          height: 30,
+          borderRadius: 10,
+          background: 'rgba(255,255,255,0.92)',
+          color: '#e055aa',
+          fontSize: 12,
+          fontWeight: 900,
+          display: 'grid',
+          placeItems: 'center',
+          padding: '0 10px',
+        }}>
+          {countdown.label}
+        </div>
       </div>
 
       <div style={{ padding: '12px 14px 14px', position: 'relative' }}>
-        {!hasCover && (
-          <>
-            <div style={{
-              position: 'absolute',
-              top: 12,
-              right: 14,
-              minWidth: 54,
-              height: 30,
-              borderRadius: 999,
-              background: '#fff',
-              color: '#e055aa',
-              fontSize: 12,
-              fontWeight: 900,
-              display: 'grid',
-              placeItems: 'center',
-              padding: '0 10px',
-              border: '0.5px solid rgba(0,0,0,0.06)',
-            }}>
-              {countdown.label}
-            </div>
-            <div style={{ paddingRight: 66, marginBottom: 10 }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {name}
-              </div>
-              <div style={{
-                fontSize: 12,
-                fontWeight: 500,
-                marginTop: 4,
-                background: TITLE_GRADIENT,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}>
-                {dateStr}
-              </div>
-              {location && (
-                <div style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  marginTop: 2,
-                  background: TITLE_GRADIENT,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {location}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
           <StatusChip status={event.myStatus} />
         </div>
@@ -358,10 +247,6 @@ export default function AllEvents({ onBack, onEventClick }) {
     fetchAll()
   }, [])
 
-  function handleCoverUploaded(eventId, coverImage) {
-    setEvents(prev => prev.map(event => event.id === eventId ? { ...event, cover_image: coverImage } : event))
-  }
-
   const upcoming = events.filter(e => !e.date || new Date(e.date) >= new Date())
   const past = events.filter(e => e.date && new Date(e.date) < new Date())
 
@@ -394,7 +279,7 @@ export default function AllEvents({ onBack, onEventClick }) {
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
                   À venir · {upcoming.length}
                 </div>
-                {upcoming.map(e => <EventCard key={e.id} event={e} onClick={onEventClick} onCoverUploaded={handleCoverUploaded} />)}
+                {upcoming.map(e => <EventCard key={e.id} event={e} onClick={onEventClick} />)}
               </>
             )}
             {past.length > 0 && (
@@ -404,7 +289,7 @@ export default function AllEvents({ onBack, onEventClick }) {
                 </div>
                 {past.map(e => (
                   <div key={e.id} style={{ opacity: 0.6 }}>
-                    <EventCard event={e} onClick={onEventClick} onCoverUploaded={handleCoverUploaded} />
+                    <EventCard event={e} onClick={onEventClick} />
                   </div>
                 ))}
               </>

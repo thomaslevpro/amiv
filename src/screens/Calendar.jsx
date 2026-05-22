@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Image as ImageIcon,
   MessageCircle,
   Plus,
   Settings,
@@ -425,8 +424,7 @@ function ActionButton({ icon: Icon, label, onClick, border }) {
   )
 }
 
-function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp, onCoverUploaded }) {
-  const inputRef = useRef(null)
+function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp }) {
   const { event, isOrganizer, myStatus, stats, memberProfiles } = item
   const coverUrl = getCoverUrl(event.cover_image)
   const hasCover = !!coverUrl
@@ -442,35 +440,13 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
   const progress = total > 0 ? Math.round((stats.yes / total) * 100) : 0
   const canRsvpInline = !isOrganizer && myStatus !== 'yes'
 
-  const statusPill = isOrganizer || myStatus === 'yes'
-    ? <Pill tone="green">✓ J'y serai</Pill>
-    : myStatus === 'maybe'
-      ? <Pill tone="orange">En attente</Pill>
-      : <Pill tone="gray">En attente</Pill>
-
-  async function handleCoverChange(e) {
-    const file = e.target.files?.[0]
-    if (!file || !event.id || !isOrganizer) return
-    const ext = file.name.split('.').pop() || 'jpg'
-    const path = `${event.id}/${Date.now()}.${ext}`
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from('event-covers')
-        .upload(path, file, { cacheControl: '3600', upsert: true, contentType: file.type || 'image/jpeg' })
-      if (uploadError) throw uploadError
-
-      const { error: updateError } = await supabase
-        .from('events')
-        .update({ cover_image: path })
-        .eq('id', event.id)
-      if (updateError) throw updateError
-      onCoverUploaded?.(event.id, path)
-    } catch (error) {
-      console.error('Erreur upload couverture événement :', error)
-    } finally {
-      e.target.value = ''
-    }
-  }
+  const statusPill = !isOrganizer && (
+    myStatus === 'yes'
+      ? <Pill tone="green">✓ J'y serai</Pill>
+      : myStatus === 'maybe'
+        ? <Pill tone="orange">En attente</Pill>
+        : <Pill tone="gray">En attente</Pill>
+  )
 
   return (
     <article style={{
@@ -487,72 +463,47 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
           width: '100%',
           height: 110,
           position: 'relative',
-          background: event.id?.charCodeAt?.(0) % 2 ? '#fff0f7' : '#f0f4ff',
+          background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
           display: 'block',
           textAlign: 'left',
           overflow: 'hidden',
         }}
       >
         {hasCover ? (
-          <>
-            <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.45))' }} />
-            <span style={{ position: 'absolute', left: 14, right: 74, bottom: 12 }}>
-              <span style={{
-                display: 'block',
-                fontSize: 15,
-                fontWeight: 800,
-                color: '#fff',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {titleCase(event.name, 'Amiv')}
-              </span>
-              <span style={{
-                display: 'block',
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.82)',
-                marginTop: 3,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {formatEventDate(event.date)}{event.location ? ` · ${event.location}` : ''}
-              </span>
-            </span>
-          </>
-        ) : (
-          <span
-            onClick={e => {
-              e.stopPropagation()
-              if (isOrganizer) inputRef.current?.click()
-            }}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'grid',
-              placeItems: 'center',
-              color: '#b85aa0',
-              cursor: isOrganizer ? 'pointer' : 'default',
-            }}
-          >
-            {isOrganizer && (
-              <span style={{ display: 'grid', placeItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}>
-                <ImageIcon size={22} strokeWidth={1.6} color="#d07ab4" />
-                Ajouter une photo de couverture
-              </span>
-            )}
+          <img src={coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : null}
+        <span style={{ position: 'absolute', left: 14, right: 74, bottom: 12, textShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
+          <span style={{
+            display: 'block',
+            fontSize: 15,
+            fontWeight: 800,
+            color: '#fff',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {titleCase(event.name, 'Amiv')}
           </span>
-        )}
+          <span style={{
+            display: 'block',
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.85)',
+            marginTop: 3,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {formatEventDate(event.date)}{event.location ? ` · ${event.location}` : ''}
+          </span>
+        </span>
         <span style={{
           position: 'absolute',
-          top: 10,
-          right: 10,
+          top: 12,
+          right: 12,
           minWidth: 54,
           height: 30,
-          borderRadius: hasCover ? 10 : 999,
-          background: hasCover ? 'rgba(255,255,255,0.92)' : '#fff',
+          borderRadius: 10,
+          background: 'rgba(255,255,255,0.92)',
           color: countdownColor,
           fontSize: 12,
           fontWeight: 900,
@@ -563,53 +514,14 @@ function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp
         }}>
           {countdown.label}
         </span>
-        <input ref={inputRef} type="file" accept="image/*" onChange={handleCoverChange} style={{ display: 'none' }} />
       </button>
 
       <div style={{ padding: '12px 16px' }}>
-        {!hasCover && (
-          <div style={{ paddingRight: 66, marginBottom: 10 }}>
-            <div style={{
-              fontSize: 15,
-              fontWeight: 800,
-              color: '#1C1C1E',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {titleCase(event.name, 'Amiv')}
-            </div>
-            <div style={{
-              fontSize: 12,
-              fontWeight: 500,
-              marginTop: 4,
-              background: GRADIENT,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              {formatEventDate(event.date)}
-            </div>
-            {event.location && (
-              <div style={{
-                fontSize: 12,
-                fontWeight: 500,
-                marginTop: 2,
-                background: GRADIENT,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {event.location}
-              </div>
-            )}
+        {statusPill && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
+            {statusPill}
           </div>
         )}
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
-          {statusPill}
-        </div>
 
         <div style={{ marginBottom: canRsvpInline ? 12 : 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
@@ -927,11 +839,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     }
   }
 
-  function handleCoverUploaded(eventId, coverImage) {
-    setOrganizedEvents(prev => prev.map(event => event.id === eventId ? { ...event, cover_image: coverImage } : event))
-    setGuestEvents(prev => prev.map(row => row.events?.id === eventId ? { ...row, events: { ...row.events, cover_image: coverImage } } : row))
-  }
-
   function handlePrevMonth() {
     setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
   }
@@ -966,7 +873,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
               onShare={shareEvent}
               onCalendar={addToCalendar}
               onRsvp={handleRsvp}
-              onCoverUploaded={handleCoverUploaded}
             />
           ))
         )}
