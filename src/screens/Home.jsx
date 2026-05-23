@@ -154,6 +154,15 @@ function MyEventMiniCard({ item, onClick }) {
   const hasCover = !!coverUrl
   const dateStr = formatCompactEventDate(item.date)
   const stats = item.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
+  const confirmedProfiles = item.memberProfiles?.slice(0, 2) ?? []
+  const confirmedNames = confirmedProfiles
+    .map(profile => profile.first_name || profile.name?.split(' ')[0])
+    .filter(Boolean)
+  const confirmedText = confirmedNames.length === 1
+    ? `${confirmedNames[0]} a confirmé`
+    : confirmedNames.length >= 2
+      ? `${confirmedNames[0]} et ${confirmedNames[1]} ont confirmé`
+      : null
 
   return (
     <div
@@ -201,6 +210,19 @@ function MyEventMiniCard({ item, onClick }) {
           {stats.yes} oui
         </span>
       </div>
+      {confirmedText && (
+        <div style={{
+          fontSize: 10,
+          color: '#8E8E93',
+          padding: '0 10px 8px',
+          lineHeight: 1.3,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {confirmedText}
+        </div>
+      )}
     </div>
   )
 }
