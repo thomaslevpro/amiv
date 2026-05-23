@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Eye, Image as ImageIcon } from 'lucide-react'
+import { Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { cardStyles, CARD_GRADIENT, displayName, enrichMessagesWithProfiles, formatRevealDate, initials } from './cardUtils'
+import { cardStyles, displayName, enrichMessagesWithProfiles, formatRevealDate, initials } from './cardUtils'
 
 export default function CardManage({ eventId, currentUserId }) {
   const [isOrganizer, setIsOrganizer] = useState(false)
   const [card, setCard] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
-  const [revealing, setRevealing] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   const photoCount = useMemo(() => messages.filter(message => !!message.photo_url).length, [messages])
@@ -61,34 +60,6 @@ export default function CardManage({ eventId, currentUserId }) {
     load()
     return () => { cancelled = true }
   }, [eventId, currentUserId])
-
-  async function revealCard() {
-    if (!window.confirm('Sophie pourra voir tous les messages. Continuer ?')) return
-    setRevealing(true)
-    setErrorMessage('')
-
-    const { data, error } = await supabase
-      .from('group_cards')
-      .upsert(
-        {
-          event_id: eventId,
-          status: 'revealed',
-          revealed_at: new Date().toISOString(),
-          revealed_by: currentUserId,
-        },
-        { onConflict: 'event_id' }
-      )
-      .select('*')
-      .single()
-
-    if (error) {
-      console.error('[CardManage] reveal error:', error)
-      setErrorMessage('Impossible de révéler la carte.')
-    } else {
-      setCard(data)
-    }
-    setRevealing(false)
-  }
 
   if (!isOrganizer && !loading) return null
 
@@ -155,18 +126,6 @@ export default function CardManage({ eventId, currentUserId }) {
                 )
               })}
             </div>
-          )}
-
-          {(card?.status || 'collecting') === 'collecting' && (
-            <button
-              type="button"
-              onClick={revealCard}
-              disabled={revealing}
-              style={{ ...cardStyles.primaryButton, width: '100%', marginTop: 14, background: CARD_GRADIENT, opacity: revealing ? 0.65 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-            >
-              <Eye size={17} />
-              {revealing ? 'Révélation…' : 'Révéler la carte maintenant'}
-            </button>
           )}
 
           {errorMessage && <div style={{ color: '#FF3B30', fontSize: 12, marginTop: 10 }}>{errorMessage}</div>}

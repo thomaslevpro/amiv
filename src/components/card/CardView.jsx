@@ -118,9 +118,9 @@ export default function CardView({ eventId, currentUserId }) {
           <Heart size={22} color="#fff" fill="rgba(255,255,255,0.35)" style={{ position: 'absolute', left: 35, top: 25 }} />
         </div>
         <div style={{ fontSize: 20, lineHeight: 1.25, fontWeight: 900, color: '#1C1C1E', marginBottom: 8 }}>
-          {messageCount} ami{messageCount > 1 ? 's' : ''} t’ont écrit un message
+          {messageCount} ami{messageCount > 1 ? 's' : ''} ont déjà partagé un souvenir
         </div>
-        <div style={cardStyles.muted}>Tu pourras le lire le jour J 💌</div>
+        <div style={cardStyles.muted}>Ils patientent jusqu'au jour J pour te le révéler ✨</div>
         {errorMessage && <div style={{ color: '#FF3B30', fontSize: 12, marginTop: 10 }}>{errorMessage}</div>}
       </section>
     )

@@ -4,7 +4,7 @@
   "description": "Organisez des événements inoubliables et restez connecté avec vos proches.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F2F2F7",
+  "background_color": "#faf9fb",
   "theme_color": "#e055aa",
   "orientation": "portrait",
   "icons": [

@@ -2,7 +2,6 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import CardContribute from '../components/card/CardContribute'
 import CardManage from '../components/card/CardManage'
 import CardView from '../components/card/CardView'
 
@@ -265,7 +264,17 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           .in('id', friendIds)
         friendList = profilesData || []
       }
-      if (!cancelled) setFriends(friendList)
+      const { data: selfProfile } = await supabase
+        .from('profiles')
+        .select('id, first_name, name, avatar_url')
+        .eq('id', user.id)
+        .single()
+
+      const allPickerProfiles = [
+        ...(selfProfile ? [{ ...selfProfile, first_name: `${selfProfile.first_name || selfProfile.name || 'Moi'} (moi)` }] : []),
+        ...friendList,
+      ]
+      if (!cancelled) setFriends(allPickerProfiles)
 
       const { data: existingInvites } = await supabase
         .from('invitations')
@@ -528,7 +537,7 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
     : null
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
 
       {/* ── HERO ── */}
       <div style={{
@@ -1079,19 +1088,13 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         )}
 
         {/* ── GROUP CARD ── */}
-        {userId && (
+        {userId && isOrganizer && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
               Carte collective
             </div>
-            {isOrganizer ? (
-              <>
-                <CardManage eventId={event.id} currentUserId={userId} />
-                <CardView eventId={event.id} currentUserId={userId} />
-              </>
-            ) : (
-              <CardContribute eventId={event.id} currentUserId={userId} />
-            )}
+            <CardManage eventId={event.id} currentUserId={userId} />
+            <CardView eventId={event.id} currentUserId={userId} />
           </div>
         )}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import GroupCard from '../components/GroupCard'
+import CollectiveCardContributorView from '../components/CollectiveCardContributorView'
 
 function frenchDate(dateStr) {
   if (!dateStr) return ''
@@ -19,16 +19,16 @@ function LockIcon() {
 }
 
 const TABS = [
+  { id: 'carte', label: 'Mur des souvenirs' },
   { id: 'cadeaux', label: 'Cadeaux' },
   { id: 'cagnotte', label: 'Cagnotte' },
-  { id: 'carte', label: 'Carte' },
 ]
 
 export default function SecretSpacePage() {
   const { id: eventId } = useParams()
   const navigate = useNavigate()
   const [event, setEvent] = useState(null)
-  const [activeTab, setActiveTab] = useState('cadeaux')
+  const [activeTab, setActiveTab] = useState('carte')
   const [loading, setLoading] = useState(true)
   const [currentUserId, setCurrentUserId] = useState(null)
 
@@ -41,7 +41,7 @@ export default function SecretSpacePage() {
 
       const { data, error } = await supabase
         .from('events')
-        .select('id, name, date, user_id')
+        .select('id, name, date, user_id, birthday_person_user_id')
         .eq('id', eventId)
         .maybeSingle()
 
@@ -60,6 +60,15 @@ export default function SecretSpacePage() {
         data.organizerName = orgProfile?.name ?? ''
       }
 
+      if (data.birthday_person_user_id) {
+        const { data: birthdayProfile } = await supabase
+          .from('profiles')
+          .select('first_name')
+          .eq('id', data.birthday_person_user_id)
+          .maybeSingle()
+        data.birthdayFirstName = birthdayProfile?.first_name ?? null
+      }
+
       setEvent(data)
       setLoading(false)
     }
@@ -74,6 +83,7 @@ export default function SecretSpacePage() {
   if (!event) return null
 
   const firstName = event.organizerName?.split(' ')[0] ?? ''
+  const secretFirstName = event.birthdayFirstName ?? firstName
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', minHeight: '100dvh' }}>
@@ -109,7 +119,7 @@ export default function SecretSpacePage() {
         }}>
           <LockIcon />
           <span style={{ fontSize: 11, fontWeight: 600, color: '#993556' }}>
-            Espace secret · caché de {firstName}
+            Espace secret · caché de {secretFirstName}
           </span>
         </div>
       </div>
@@ -149,10 +159,9 @@ export default function SecretSpacePage() {
         {activeTab === 'cadeaux' && <p style={{ color: '#8E8E93', fontSize: 14 }}>Section cadeaux — à venir</p>}
         {activeTab === 'cagnotte' && <p style={{ color: '#8E8E93', fontSize: 14 }}>Section cagnotte — à venir</p>}
         {activeTab === 'carte' && (
-          <GroupCard
-            eventId={event.id}
-            eventDate={event.date}
-            isOrganizer={currentUserId === event.user_id}
+          <CollectiveCardContributorView
+            event={event}
+            currentUserId={currentUserId}
           />
         )}
       </div>

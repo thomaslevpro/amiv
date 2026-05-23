@@ -27,6 +27,18 @@ function firstNameFromProfile(profile, fallback = 'Sophie') {
   return name ? name.split(' ')[0] : fallback
 }
 
+function ageAtDate(birthday, dateValue) {
+  if (!birthday || !dateValue) return null
+  const birthDate = new Date(birthday)
+  const eventDate = new Date(dateValue)
+  if (Number.isNaN(birthDate.getTime()) || Number.isNaN(eventDate.getTime())) return null
+
+  let age = eventDate.getFullYear() - birthDate.getFullYear()
+  const birthdayThisYear = new Date(eventDate.getFullYear(), birthDate.getMonth(), birthDate.getDate())
+  if (eventDate < birthdayThisYear) age -= 1
+  return age >= 0 ? age : null
+}
+
 function initialsFromUserId(userId) {
   return (userId || '?').slice(0, 2).toUpperCase()
 }
@@ -60,13 +72,13 @@ async function fetchProfilesByIds(userIds) {
 
   let profileRes = await supabase
     .from('profiles')
-    .select('id, first_name, name, avatar_url')
+    .select('id, first_name, name, avatar_url, birthday')
     .in('id', userIds)
 
   if (profileRes.error) {
     profileRes = await supabase
       .from('profiles')
-      .select('id, first_name, name, avatar_url')
+      .select('id, first_name, name, avatar_url, birthday')
       .in('id', userIds)
   }
 
@@ -98,7 +110,8 @@ export default function CardContribute({ eventId, currentUserId }) {
 
   const cardStatus = card?.status
   const isRevealed = cardStatus === 'revealed'
-  const birthdayName = firstNameFromProfile(ownerProfile, 'Sophie')
+  const birthdayName = firstNameFromProfile(ownerProfile, eventRow?.name || 'Sophie')
+  const birthdayAge = ageAtDate(ownerProfile?.birthday, eventRow?.date)
   const revealDate = formatEventDate(eventRow?.date || card?.revealed_at)
 
   const canSubmit = useMemo(() => {
@@ -132,7 +145,7 @@ export default function CardContribute({ eventId, currentUserId }) {
           .maybeSingle(),
         supabase
           .from('events')
-          .select('date, birthday_person_user_id')
+          .select('name, date, birthday_person_user_id')
           .eq('id', eventId)
           .single(),
       ])
@@ -453,12 +466,34 @@ export default function CardContribute({ eventId, currentUserId }) {
         <div style={{ ...cardStyles.section, textAlign: 'center', padding: 24 }}>
           <div style={{ fontSize: 48, lineHeight: 1, marginBottom: 12 }}>{isBirthdayPerson ? '🎂' : '🎉'}</div>
           <div style={{ ...cardStyles.title, fontSize: isBirthdayPerson ? 24 : 20, marginBottom: 6 }}>
-            {isBirthdayPerson ? 'Joyeux anniversaire !' : 'La carte est révélée !'}
+            {isBirthdayPerson ? 'Joyeux anniversaire !' : birthdayAge == null ? `Joyeux anniversaire, ${birthdayName} !` : `Joyeux ${birthdayAge} ans, ${birthdayName} !`}
           </div>
           <div style={cardStyles.muted}>
-            {memories.length} souvenir{memories.length > 1 ? 's' : ''} partagé{memories.length > 1 ? 's' : ''}
-            {isBirthdayPerson ? ' rien que pour toi' : ''}
+            {isBirthdayPerson ? (
+              <>
+                {memories.length} souvenir{memories.length > 1 ? 's' : ''} partagé{memories.length > 1 ? 's' : ''} rien que pour toi
+              </>
+            ) : (
+              <>De la part de {contributorCount} ami{contributorCount > 1 ? 's' : ''} qui t'aiment</>
+            )}
           </div>
+          {!isBirthdayPerson && (
+            <div style={{
+              display: 'inline-block',
+              background: 'rgba(245,166,35,0.12)',
+              borderRadius: 12,
+              padding: '8px 20px',
+              marginTop: 10,
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#f5a623' }}>
+                {contributorCount} souvenir{contributorCount > 1 ? 's' : ''}
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#f5a623', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>
+                Partagés pour toi
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '14px 2px 10px' }}>

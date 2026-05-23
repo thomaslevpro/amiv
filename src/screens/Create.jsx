@@ -73,17 +73,26 @@ export default function Create({ onBack, session, initialData = null }) {
         f.requester_id === userId ? f.addressee_id : f.requester_id
       )
 
-      if (friendIds.length === 0) {
-        setBirthdayFriends([])
-        return
-      }
+      const [{ data: friendProfiles }, { data: selfProfile }] = await Promise.all([
+        friendIds.length > 0
+          ? supabase
+            .from('profiles')
+            .select('id, first_name, name, avatar_url')
+            .in('id', friendIds)
+          : Promise.resolve({ data: [] }),
+        supabase
+          .from('profiles')
+          .select('id, first_name, name, avatar_url')
+          .eq('id', userId)
+          .single(),
+      ])
 
-      const { data: friendProfiles } = await supabase
-        .from('profiles')
-        .select('id, first_name, name, avatar_url')
-        .in('id', friendIds)
+      const allPickerProfiles = [
+        ...(selfProfile ? [{ ...selfProfile, first_name: `${selfProfile.first_name || selfProfile.name || 'Moi'} (moi)` }] : []),
+        ...(friendProfiles || []),
+      ]
 
-      if (!cancelled) setBirthdayFriends(friendProfiles || [])
+      if (!cancelled) setBirthdayFriends(allPickerProfiles)
     }
 
     loadBirthdayFriends()
