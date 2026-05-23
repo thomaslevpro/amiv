@@ -57,8 +57,8 @@ export function useNotifications(userId) {
     )
   }
 
-  const markAllAsRead = async () => {
-    await supabase.from('notifications').update({ read: true }).eq('user_id', userId)
+  const markAllAsRead = async (syncRemote = true) => {
+    if (syncRemote) await supabase.from('notifications').update({ read: true }).eq('user_id', userId)
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }
 

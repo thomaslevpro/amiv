@@ -55,7 +55,7 @@ function MainApp() {
   const [directConv, setDirectConv] = useState(null)
   const [createInitialData, setCreateInitialData] = useState(null)
   const [editProfileFocus, setEditProfileFocus] = useState(null)
-  const { notifications, markAsRead } = useNotifications(session?.user?.id)
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
   const pendingEventId = useRef(
@@ -132,6 +132,10 @@ function MainApp() {
     const { data } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
     if (data) { setSelectedEvent(data); setScreen('eventDetail') }
   }
+  const handleNotifMessageClick = async (partialEvent) => {
+    const { data } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
+    if (data) { setSelectedEvent(data); setScreen('messages') }
+  }
 
   const isDetailScreen =
     screen === 'create' ||
@@ -163,7 +167,7 @@ function MainApp() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={unreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {

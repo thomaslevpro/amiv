@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import NotificationBell from '../components/NotificationBell'
+import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
 import TrendingNow from '../components/TrendingNow'
@@ -317,7 +318,19 @@ function MyEventsSection({ events, onSeeAll, onEventClick, onCreateClick }) {
   )
 }
 
-export default function Home({ onEventClick, onCreateClick, onNotifEventClick, onMessagesClick, onAllEventsClick, onCalendarClick, onTrendingClick, session }) {
+export default function Home({
+  onEventClick,
+  onCreateClick,
+  onNotifEventClick,
+  onNotifMessageClick,
+  onNotificationsRead,
+  notificationUnreadCount = 0,
+  onMessagesClick,
+  onAllEventsClick,
+  onCalendarClick,
+  onTrendingClick,
+  session,
+}) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -329,6 +342,7 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
   const [myEvents, setMyEvents] = useState([])
   const [profileName, setProfileName] = useState('')
   const [toast, setToast] = useState(null)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   function showToast(message, isError = false) {
     setToast({ message, isError })
@@ -542,9 +556,21 @@ export default function Home({ onEventClick, onCreateClick, onNotifEventClick, o
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
-            <NotificationBell onEventClick={onNotifEventClick ?? onEventClick} />
+            <NotificationBell unreadCount={notificationUnreadCount} onClick={() => setShowNotifications(true)} />
           </div>
         </div>
+
+        <NotificationPanel
+          isOpen={showNotifications}
+          onClose={() => setShowNotifications(false)}
+          currentUser={session?.user}
+          onEventOpen={onNotifEventClick ?? onEventClick}
+          onMessagesOpen={onNotifMessageClick}
+          onCreateEvent={onCreateClick}
+          onNotificationsRead={onNotificationsRead}
+          onAcceptFriend={acceptRequest}
+          onDeclineFriend={declineRequest}
+        />
 
         {invitations.length > 0 && (
           <>

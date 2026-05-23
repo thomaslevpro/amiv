@@ -2,22 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Eye,
-  MessageCircle,
   Plus,
-  Settings,
-  Share2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-
-function getCoverUrl(coverImage) {
-  if (!coverImage) return null
-  if (coverImage.startsWith('http')) return coverImage
-  return supabase.storage.from('event-covers').getPublicUrl(coverImage).data.publicUrl
-}
+import EventCard from '../components/EventCard'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
@@ -70,27 +60,6 @@ function formatEventDate(dateStr) {
   const datePart = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })
   const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
   return hasTime ? `${datePart} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : datePart
-}
-
-function getCountdown(dateStr) {
-  if (!dateStr) return { label: 'J-?', days: null, past: false }
-  const eventDate = new Date(dateStr)
-  if (Number.isNaN(eventDate.getTime())) return { label: 'J-?', days: null, past: false }
-  const today = new Date()
-  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const startEvent = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate())
-  const days = Math.ceil((startEvent - startToday) / 86400000)
-  if (days < 0) return { label: 'Passé', days, past: true }
-  if (days === 0) return { label: 'Jour J', days, past: false }
-  return { label: `J-${days}`, days, past: false }
-}
-
-function isInviteOnly(visibility) {
-  return ['Sur invitation', 'invite_only', 'private'].includes(visibility)
-}
-
-function getInitial(profile, fallback = 'A') {
-  return (profile?.first_name || profile?.name || profile?.email || fallback || 'A').charAt(0).toUpperCase()
 }
 
 function CalendarBottomSheet({ isOpen, onClose, currentMonth, onPrevMonth, onNextMonth, calendarDots, selectedDate, onSelectDate }) {
@@ -274,35 +243,6 @@ function FilterChip({ label, count, active, onClick }) {
   )
 }
 
-function Pill({ children, tone = 'gray' }) {
-  const tones = {
-    blue: { bg: 'rgba(0,122,255,0.12)', color: '#007AFF' },
-    green: { bg: 'rgba(52,199,89,0.13)', color: '#178C3B' },
-    orange: { bg: 'rgba(245,166,35,0.16)', color: '#A35E00' },
-    gray: { bg: '#F2F2F7', color: '#6B6B72' },
-    lock: { bg: 'rgba(142,142,147,0.14)', color: '#5F5F66' },
-  }
-  const style = tones[tone] || tones.gray
-  return (
-    <span style={{
-      minHeight: 26,
-      padding: '6px 9px',
-      borderRadius: 999,
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 5,
-      background: style.bg,
-      color: style.color,
-      fontSize: 11,
-      fontWeight: 800,
-      lineHeight: 1,
-      maxWidth: '100%',
-    }}>
-      {children}
-    </span>
-  )
-}
-
 function SectionPlaceholder({ label }) {
   return (
     <div style={{
@@ -327,246 +267,6 @@ function SectionPlaceholder({ label }) {
       </span>
       Aucun événement {label.toLowerCase()}.
     </div>
-  )
-}
-
-function GuestAvatars({ profiles, extraCount }) {
-  const visible = profiles.slice(0, 3)
-  return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      {visible.map((profile, index) => (
-        <div
-          key={`${profile.id || profile.email || index}`}
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 13,
-            marginLeft: index === 0 ? 0 : -7,
-            background: ['#e055aa', '#f5a623', '#34C759'][index % 3],
-            border: '2px solid #fff',
-            color: '#fff',
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: 10,
-            fontWeight: 900,
-          }}
-        >
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' }} />
-          ) : getInitial(profile, 'I')}
-        </div>
-      ))}
-      {extraCount > 0 && (
-        <div style={{
-          width: 26,
-          height: 26,
-          borderRadius: 13,
-          marginLeft: visible.length ? -7 : 0,
-          background: '#E5E5EA',
-          border: '2px solid #fff',
-          color: '#6B6B72',
-          display: 'grid',
-          placeItems: 'center',
-          fontSize: 10,
-          fontWeight: 900,
-        }}>
-          +{extraCount}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function RsvpButton({ children, primary, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        minHeight: 36,
-        borderRadius: 13,
-        background: primary ? GRADIENT : '#F2F2F7',
-        color: primary ? '#fff' : '#4B4B52',
-        fontSize: 12,
-        fontWeight: 850,
-        display: 'grid',
-        placeItems: 'center',
-        padding: '0 8px',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ActionButton({ icon: Icon, label, onClick, border }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: 1,
-        height: 44,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 5,
-        color: '#5F5F66',
-        fontSize: 12,
-        fontWeight: 800,
-        borderLeft: border ? '0.5px solid rgba(0,0,0,0.08)' : 'none',
-      }}
-    >
-      <Icon size={14} strokeWidth={2.2} />
-      {label}
-    </button>
-  )
-}
-
-function EventCard({ item, onOpen, onManage, onChat, onShare, onCalendar, onRsvp }) {
-  const { event, isOrganizer, myStatus, stats, memberProfiles } = item
-  const coverUrl = getCoverUrl(event.cover_image)
-  const hasCover = !!coverUrl
-  const countdown = getCountdown(event.date)
-  const countdownColor = countdown.past
-    ? '#8E8E93'
-    : countdown.days < 14
-      ? '#e055aa'
-      : countdown.days < 60
-        ? '#f5a623'
-        : '#8E8E93'
-  const total = stats.yes + stats.no + stats.maybe
-  const progress = total > 0 ? Math.round((stats.yes / total) * 100) : 0
-  const canRsvpInline = !isOrganizer && myStatus !== 'yes'
-
-  const statusPill = !isOrganizer && (
-    myStatus === 'yes'
-      ? <Pill tone="green">✓ J'y serai</Pill>
-      : myStatus === 'maybe'
-        ? <Pill tone="orange">En attente</Pill>
-        : <Pill tone="gray">En attente</Pill>
-  )
-
-  return (
-    <article style={{
-      borderRadius: 18,
-      background: '#fff',
-      border: '0.5px solid rgba(0,0,0,0.08)',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-      overflow: 'hidden',
-      marginBottom: 12,
-    }}>
-      <button
-        onClick={() => onOpen(event)}
-        style={{
-          width: '100%',
-          height: 110,
-          position: 'relative',
-          background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
-          display: 'block',
-          textAlign: 'left',
-          overflow: 'hidden',
-        }}
-      >
-        {hasCover ? (
-          <img src={coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : null}
-        <span style={{ position: 'absolute', left: 14, right: 74, bottom: 12, textShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
-          <span style={{
-            display: 'block',
-            fontSize: 15,
-            fontWeight: 800,
-            color: '#fff',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {titleCase(event.name, 'Amiv')}
-          </span>
-          <span style={{
-            display: 'block',
-            fontSize: 11,
-            color: 'rgba(255,255,255,0.85)',
-            marginTop: 3,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {formatEventDate(event.date)}{event.location ? ` · ${event.location}` : ''}
-          </span>
-        </span>
-        <span style={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
-          minWidth: 54,
-          height: 30,
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.92)',
-          color: countdownColor,
-          fontSize: 12,
-          fontWeight: 900,
-          display: 'grid',
-          placeItems: 'center',
-          padding: '0 10px',
-          border: '0.5px solid rgba(0,0,0,0.06)',
-        }}>
-          {countdown.label}
-        </span>
-      </button>
-
-      <div style={{ padding: '12px 16px' }}>
-        {statusPill && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
-            {statusPill}
-          </div>
-        )}
-
-        <div style={{ marginBottom: canRsvpInline ? 12 : 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
-            <GuestAvatars profiles={memberProfiles} extraCount={Math.max(0, total - 3)} />
-            <div style={{ color: '#6B6B72', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              {stats.yes} oui · {stats.maybe} att.
-            </div>
-          </div>
-          <div style={{ height: 6, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden' }}>
-            <div style={{
-              width: `${progress}%`,
-              height: '100%',
-              borderRadius: 999,
-              background: GRADIENT,
-              minWidth: progress > 0 ? 10 : 0,
-            }} />
-          </div>
-        </div>
-
-        {canRsvpInline && (
-          <div style={{ display: 'flex', gap: 7 }}>
-            <RsvpButton primary onClick={() => onRsvp(item, 'yes')}>✓ J'y serai</RsvpButton>
-            <RsvpButton onClick={() => onRsvp(item, 'maybe')}>Peut-être</RsvpButton>
-            <RsvpButton onClick={() => onRsvp(item, 'no')}>✕ Pas là</RsvpButton>
-          </div>
-        )}
-      </div>
-
-      <div style={{ height: 1, background: 'rgba(0,0,0,0.08)', transform: 'scaleY(0.5)' }} />
-      <div style={{ display: 'flex', height: 44 }}>
-        {isOrganizer ? (
-          <>
-            <ActionButton icon={Settings} label="Gérer" onClick={() => onManage(event)} />
-            <ActionButton icon={MessageCircle} label="Chat" border onClick={() => onChat(event)} />
-            <ActionButton icon={Share2} label="Partager" border onClick={() => onShare(event)} />
-          </>
-        ) : (
-          <>
-            <ActionButton icon={Eye} label="Voir" onClick={() => onOpen(event)} />
-            <ActionButton icon={MessageCircle} label="Chat" border onClick={() => onChat(event)} />
-            <ActionButton icon={CalendarDays} label="Agenda" border onClick={() => onCalendar(event)} />
-          </>
-        )}
-      </div>
-    </article>
   )
 }
 
@@ -867,6 +567,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
             <EventCard
               key={item.id}
               item={item}
+              currentUser={currentUser}
               onOpen={openEvent}
               onManage={manageEvent}
               onChat={openChat}
