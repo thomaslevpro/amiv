@@ -69,13 +69,15 @@ function formatBirthdateShort(birthdate) {
   return `${day} ${MONTH_LABELS[month].toLowerCase()}`
 }
 
-function enrichBirthdays(rows, avatars, today) {
+function enrichBirthdays(rows, today) {
   return rows
     .map((birthday, index) => {
       const nextDate = getNextOccurrence(birthday.birthdate, today)
+      const linkedProfile = birthday.linked_profile ?? birthday.profiles ?? null
       return {
         ...birthday,
-        avatar_url: birthday.linked_profile_id ? avatars[birthday.linked_profile_id] : null,
+        linked_profile: linkedProfile,
+        avatar_url: linkedProfile?.avatar_url ?? null,
         daysUntil: getDaysUntil(birthday.birthdate, today),
         nextDate,
         theme: BUBBLE_THEMES[index % BUBBLE_THEMES.length],
@@ -86,6 +88,13 @@ function enrichBirthdays(rows, avatars, today) {
 
 function BirthdayBubble({ birthday, onClick }) {
   const firstName = getFirstName(birthday)
+  const linkedName = birthday.linked_profile?.first_name || birthday.linked_profile?.name || firstName
+  const linkedInitials = (linkedName || '?')
+    .split(' ')
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
   const birthdateLabel = formatBirthdateShort(birthday.birthdate)
   const progress = Math.max(8, Math.round((1 - birthday.daysUntil / 90) * 100))
   const dashOffset = RING_CIRCUMFERENCE * (1 - Math.min(progress, 100) / 100)
@@ -137,7 +146,7 @@ function BirthdayBubble({ birthday, onClick }) {
             width: 60,
             height: 60,
             borderRadius: '50%',
-            background: birthday.avatar_url ? '#fff' : theme.fill,
+            background: birthday.linked_profile_id ? 'linear-gradient(135deg,#e055aa,#f5a623)' : theme.fill,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -145,8 +154,10 @@ function BirthdayBubble({ birthday, onClick }) {
             color: '#fff',
           }}
         >
-          {birthday.avatar_url ? (
-            <img src={birthday.avatar_url} alt={firstName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {birthday.linked_profile_id && birthday.avatar_url ? (
+            <img src={birthday.avatar_url} alt={linkedName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : birthday.linked_profile_id ? (
+            <span style={{ fontSize: 19, fontWeight: 800, color: '#fff' }}>{linkedInitials}</span>
           ) : (
             <User size={32} strokeWidth={1.7} />
           )}
@@ -337,36 +348,79 @@ export default function BirthdaySection({ user, onToast, onMessage }) {
     }
 
     setLoading(true)
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('birthdays')
-      .select('id, name, last_name, birthdate, linked_profile_id, reminder_enabled, reminder_days')
+      .select('id, name, last_name, birthdate, linked_profile_id, reminder_enabled, reminder_days, linked_profile:profiles(id, first_name, name, avatar_url)')
       .eq('user_id', user.id)
       .order('birthdate', { ascending: true })
 
     if (error) {
-      console.error('Erreur lors du chargement des anniversaires :', error)
-      onToast?.('Erreur lors du chargement des anniversaires', true)
-      setLoading(false)
-      return
-    }
+      console.error('Chargement des anniversaires avec profil lié impossible :', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        error,
+      })
+      const fallback = await supabase
+        .from('birthdays')
+        .select('id, name, last_name, birthdate, linked_profile_id, reminder_enabled, reminder_days')
+        .eq('user_id', user.id)
+        .order('birthdate', { ascending: true })
 
-    const linkedIds = [...new Set((data ?? []).map(item => item.linked_profile_id).filter(Boolean))]
-    let avatars = {}
-    if (linkedIds.length > 0) {
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, avatar_url')
-        .in('id', linkedIds)
-
-      if (profileError) {
-        console.error('Erreur lors du chargement des avatars :', profileError)
+      if (fallback.error) {
+        console.error('Erreur lors du chargement des anniversaires :', fallback.error)
+        onToast?.('Erreur lors du chargement des anniversaires', true)
+        setLoading(false)
+        return
       } else {
-        avatars = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile.avatar_url]))
+        data = fallback.data ?? []
+        const linkedIds = [...new Set(data.map(item => item.linked_profile_id).filter(Boolean))]
+        if (linkedIds.length > 0) {
+          const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, first_name, name, avatar_url')
+            .in('id', linkedIds)
+
+          if (profileError) {
+            console.error('Erreur lors du chargement des profils liés :', profileError)
+          } else {
+            const profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
+            data = data.map(item => ({ ...item, linked_profile: profilesById[item.linked_profile_id] ?? null }))
+          }
+        }
       }
     }
 
-    setBirthdays(enrichBirthdays(data ?? [], avatars, today))
+    const enriched = enrichBirthdays(data ?? [], today)
+    setBirthdays(enriched)
+    setSelectedBirthday(current => current ? enriched.find(item => item.id === current.id) ?? current : current)
     setLoading(false)
+  }
+
+  function handleLinkedProfileChanged(birthdayId, profile) {
+    const linkedProfileId = profile?.id ?? null
+
+    setBirthdays(current => current.map(item =>
+      item.id === birthdayId
+        ? {
+            ...item,
+            linked_profile_id: linkedProfileId,
+            linked_profile: profile,
+            avatar_url: profile?.avatar_url ?? null,
+          }
+        : item
+    ))
+    setSelectedBirthday(current =>
+      current?.id === birthdayId
+        ? {
+            ...current,
+            linked_profile_id: linkedProfileId,
+            linked_profile: profile,
+            avatar_url: profile?.avatar_url ?? null,
+          }
+        : current
+    )
+    fetchBirthdays()
   }
 
   useEffect(() => {
@@ -522,6 +576,8 @@ export default function BirthdaySection({ user, onToast, onMessage }) {
             setSelectedBirthday(null)
             fetchBirthdays()
           }}
+          onLinkedProfileChanged={handleLinkedProfileChanged}
+          userId={user?.id}
           onToast={onToast}
         />
       )}

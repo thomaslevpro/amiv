@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bell, Pencil, Trash2 } from 'lucide-react'
+import { Bell, Link2, Pencil, Trash2, X } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
 import { supabase } from '../lib/supabase'
@@ -31,7 +31,47 @@ const gradientTextStyle = {
 
 const REMINDER_OPTIONS = [1, 3, 7, 14, 30]
 
-export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDeleted, onToast }) {
+function getProfileName(profile) {
+  return profile?.first_name || profile?.name || 'Ami'
+}
+
+function getInitials(profile) {
+  return getProfileName(profile)
+    .split(' ')
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+function FriendAvatar({ profile, size = 38 }) {
+  const name = getProfileName(profile)
+  return (
+    <div style={{
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      overflow: 'hidden',
+      flexShrink: 0,
+      background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+      color: '#fff',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: size > 44 ? 18 : 13,
+      fontWeight: 800,
+      boxShadow: '0 2px 8px rgba(224,85,170,0.16)',
+    }}>
+      {profile?.avatar_url ? (
+        <img src={profile.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        getInitials(profile)
+      )}
+    </div>
+  )
+}
+
+export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDeleted, onLinkedProfileChanged, onToast, userId }) {
   const [visible, setVisible] = useState(false)
   const [reminder, setReminder] = useState(birthday.reminder_enabled ?? true)
   const [reminderDays, setReminderDays] = useState(
@@ -41,8 +81,27 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [linkedProfile, setLinkedProfile] = useState(birthday.linked_profile ?? null)
+  const [linkedProfileId, setLinkedProfileId] = useState(birthday.linked_profile_id ?? null)
+  const [friendPickerOpen, setFriendPickerOpen] = useState(false)
+  const [friends, setFriends] = useState([])
+  const [friendsLoaded, setFriendsLoaded] = useState(false)
+  const [friendsLoading, setFriendsLoading] = useState(false)
+  const [linkingId, setLinkingId] = useState(null)
 
   useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
+
+  useEffect(() => {
+    setReminder(birthday.reminder_enabled ?? true)
+    setReminderDays(
+      Array.isArray(birthday.reminder_days)
+        ? birthday.reminder_days
+        : birthday.reminder_days != null ? [birthday.reminder_days] : [7]
+    )
+    setLinkedProfile(birthday.linked_profile ?? null)
+    setLinkedProfileId(birthday.linked_profile_id ?? null)
+    setFriendPickerOpen(false)
+  }, [birthday])
 
   function dismiss() {
     setVisible(false)
@@ -94,6 +153,104 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
       setVisible(false)
       setTimeout(() => { onClose(); onDeleted?.() }, 280)
     }
+  }
+
+  async function loadFriends() {
+    if (!userId || friendsLoaded || friendsLoading) return
+    setFriendsLoading(true)
+    const { data: friendships, error } = await supabase
+      .from('friendships')
+      .select('requester_id, addressee_id')
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+      .eq('status', 'accepted')
+
+    if (error) {
+      console.error('Erreur lors du chargement des amis :', error)
+      onToast?.('Impossible de charger les amis 😕', true)
+      setFriendsLoading(false)
+      return
+    }
+
+    const friendIds = [...new Set((friendships || []).map(friendship =>
+      friendship.requester_id === userId ? friendship.addressee_id : friendship.requester_id
+    ))]
+
+    if (friendIds.length === 0) {
+      setFriends([])
+      setFriendsLoaded(true)
+      setFriendsLoading(false)
+      return
+    }
+
+    const { data: profiles, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, first_name, name, avatar_url')
+      .in('id', friendIds)
+
+    if (profileError) {
+      console.error('Erreur lors du chargement des profils amis :', profileError)
+      onToast?.('Impossible de charger les amis 😕', true)
+    } else {
+      setFriends(profiles ?? [])
+      setFriendsLoaded(true)
+    }
+    setFriendsLoading(false)
+  }
+
+  function openFriendPicker() {
+    setFriendPickerOpen(true)
+    loadFriends()
+  }
+
+  async function linkFriend(profile) {
+    setLinkingId(profile.id)
+    const previousProfile = linkedProfile
+    const previousId = linkedProfileId
+    setLinkedProfile(profile)
+    setLinkedProfileId(profile.id)
+
+    const { data, error } = await supabase
+      .from('birthdays')
+      .update({ linked_profile_id: profile.id })
+      .eq('id', birthday.id)
+      .select()
+
+    console.log('[linkFriend] update result:', { data, error })
+
+    if (error) {
+      setLinkedProfile(previousProfile)
+      setLinkedProfileId(previousId)
+      onToast?.('Erreur lors de la liaison 😕', true)
+    } else {
+      setFriendPickerOpen(false)
+      onLinkedProfileChanged?.(birthday.id, profile)
+      onToast?.('Ami lié à cet anniversaire')
+    }
+    setLinkingId(null)
+  }
+
+  async function unlinkFriend() {
+    setLinkingId('unlink')
+    const previousProfile = linkedProfile
+    const previousId = linkedProfileId
+    setLinkedProfile(null)
+    setLinkedProfileId(null)
+
+    const { error } = await supabase
+      .from('birthdays')
+      .update({ linked_profile_id: null })
+      .eq('id', birthday.id)
+
+    if (error) {
+      setLinkedProfile(previousProfile)
+      setLinkedProfileId(previousId)
+      onToast?.('Erreur lors de la suppression du lien 😕', true)
+    } else {
+      setFriendPickerOpen(false)
+      onLinkedProfileChanged?.(birthday.id, null)
+      onToast?.('Anniversaire délié')
+    }
+    setLinkingId(null)
   }
 
   const { daysUntil, age } = calcStats(birthday.birthdate)
@@ -324,6 +481,141 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
             </div>
           </div>
         )}
+
+        {/* ── 3c. LINKED FRIEND ── */}
+        <div style={{
+          margin: '8px 16px 0',
+          background: '#fff',
+          borderRadius: 14,
+          boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+          padding: '14px',
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                Lier à un ami
+              </div>
+              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 3 }}>
+                {linkedProfileId ? 'Profil connecté associé' : 'Associe ce rappel à un ami Amiv'}
+              </div>
+            </div>
+            {!linkedProfileId && (
+              <button
+                type="button"
+                onClick={openFriendPicker}
+                style={{
+                  border: 'none',
+                  borderRadius: 18,
+                  padding: '8px 12px',
+                  background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Link2 size={14} strokeWidth={2} />
+                Lier à un ami
+              </button>
+            )}
+          </div>
+
+          {linkedProfileId && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              marginTop: 12,
+              padding: '10px 11px',
+              borderRadius: 12,
+              background: '#F8F8FA',
+            }}>
+              <FriendAvatar profile={linkedProfile || { first_name: birthday.name }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {getProfileName(linkedProfile || { first_name: birthday.name })}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={unlinkFriend}
+                disabled={linkingId === 'unlink'}
+                aria-label="Délier cet ami"
+                style={{
+                  minWidth: 78,
+                  height: 34,
+                  border: 'none',
+                  borderRadius: 17,
+                  background: '#fff',
+                  color: '#FF3B30',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  cursor: linkingId === 'unlink' ? 'default' : 'pointer',
+                  opacity: linkingId === 'unlink' ? 0.55 : 1,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                <X size={17} strokeWidth={2.2} />
+                Délier
+              </button>
+            </div>
+          )}
+
+          {friendPickerOpen && !linkedProfileId && (
+            <div style={{
+              marginTop: 12,
+              borderRadius: 12,
+              border: '1px solid #F2F2F7',
+              overflow: 'hidden',
+            }}>
+              {friendsLoading ? (
+                <div style={{ padding: 13, color: '#8E8E93', fontSize: 13 }}>Chargement...</div>
+              ) : friends.length === 0 ? (
+                <div style={{ padding: 13, color: '#8E8E93', fontSize: 13 }}>Aucun ami connecté pour le moment</div>
+              ) : (
+                friends.map((friend, index) => (
+                  <button
+                    key={friend.id}
+                    type="button"
+                    onClick={() => linkFriend(friend)}
+                    disabled={linkingId === friend.id}
+                    style={{
+                      width: '100%',
+                      border: 'none',
+                      borderBottom: index < friends.length - 1 ? '1px solid #F2F2F7' : 'none',
+                      background: '#fff',
+                      padding: '10px 11px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      cursor: linkingId === friend.id ? 'default' : 'pointer',
+                      opacity: linkingId === friend.id ? 0.6 : 1,
+                      textAlign: 'left',
+                    }}
+                  >
+                    <FriendAvatar profile={friend} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {getProfileName(friend)}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         {/* ── 4. ACTION ROW ── */}
         {!confirmDelete ? (
