@@ -5,7 +5,8 @@ import CollectiveCardContributorView from '../components/CollectiveCardContribut
 
 function frenchDate(dateStr) {
   if (!dateStr) return ''
-  const [y, m, d] = dateStr.split('-').map(Number)
+  const [datePart] = dateStr.split('T')
+  const [y, m, d] = datePart.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }
 
@@ -44,6 +45,14 @@ export default function SecretSpacePage() {
   const [gifts, setGifts] = useState([])
   const [giftsLoading, setGiftsLoading] = useState(false)
   const [giftSaving, setGiftSaving] = useState(false)
+  const [cagnotteUrl, setCagnotteUrl] = useState('')
+  const [cagnotteGiftId, setCagnotteGiftId] = useState('')
+  const [cagnotteGoal, setCagnotteGoal] = useState('')
+  const [cagnotteContributions, setCagnotteContributions] = useState([])
+  const [cagnotteContributionsLoading, setCagnotteContributionsLoading] = useState(false)
+  const [hasContributed, setHasContributed] = useState(false)
+  const [availableGifts, setAvailableGifts] = useState([])
+  const [cagnotteSaving, setCagnotteSaving] = useState(false)
   const [giftForm, setGiftForm] = useState({
     name: '',
     price: '',
@@ -94,6 +103,45 @@ export default function SecretSpacePage() {
     setGiftsLoading(false)
   }, [ensureGiftAccessByEmail, eventId, isOrganizer])
 
+  const fetchCagnotteContributions = useCallback(async () => {
+    if (!eventId) return
+
+    setCagnotteContributionsLoading(true)
+    const { data, error } = await supabase
+      .from('cagnotte_contributions')
+      .select('*, profiles:user_id(first_name)')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('[SecretSpace] cagnotte contributions query error:', error)
+      setCagnotteContributions([])
+      setHasContributed(false)
+    } else {
+      const contributions = data ?? []
+      setCagnotteContributions(contributions)
+      setHasContributed(Boolean(currentUserId && contributions.some((contribution) => contribution.user_id === currentUserId)))
+    }
+    setCagnotteContributionsLoading(false)
+  }, [currentUserId, eventId])
+
+  const fetchAvailableGifts = useCallback(async () => {
+    if (!eventId) return
+
+    const { data, error } = await supabase
+      .from('gifts')
+      .select('id, name, price')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('[SecretSpace] available gifts query error:', error)
+      setAvailableGifts([])
+    } else {
+      setAvailableGifts(data ?? [])
+    }
+  }, [eventId])
+
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -104,7 +152,7 @@ export default function SecretSpacePage() {
 
       const { data, error } = await supabase
         .from('events')
-        .select('id, name, date, user_id, birthday_person_user_id')
+        .select('id, name, date, created_at, user_id, birthday_person_user_id, cagnotte_url, cagnotte_created_by, cagnotte_goal, cagnotte_gift_id')
         .eq('id', eventId)
         .maybeSingle()
 
@@ -132,7 +180,19 @@ export default function SecretSpacePage() {
         data.birthdayFirstName = birthdayProfile?.first_name ?? null
       }
 
+      if (data.cagnotte_created_by) {
+        const { data: cagnotteCreatorProfile } = await supabase
+          .from('profiles')
+          .select('first_name')
+          .eq('id', data.cagnotte_created_by)
+          .maybeSingle()
+        data.cagnotteCreatorFirstName = cagnotteCreatorProfile?.first_name ?? 'quelqu’un'
+      }
+
       setEvent(data)
+      setCagnotteUrl(data.cagnotte_url ?? '')
+      setCagnotteGiftId(data.cagnotte_gift_id ?? '')
+      setCagnotteGoal(data.cagnotte_goal ?? '')
       setLoading(false)
     }
     init()
@@ -152,10 +212,20 @@ export default function SecretSpacePage() {
     fetchGifts()
   }, [activeTab, event, fetchGifts, isOrganizer])
 
+  useEffect(() => {
+    if (!event || activeTab !== 'cagnotte') return
+    fetchCagnotteContributions()
+    fetchAvailableGifts()
+  }, [activeTab, event, fetchAvailableGifts, fetchCagnotteContributions])
+
   if (!event) return null
 
   const firstName = event.organizerName?.split(' ')[0] ?? ''
   const secretFirstName = event.birthdayFirstName ?? firstName
+  const associatedGift = availableGifts.find((gift) => gift.id === event.cagnotte_gift_id)
+  const cagnotteGoalNumber = Number(event.cagnotte_goal)
+  const cagnotteProgress = event.cagnotte_goal && cagnotteGoalNumber > 0 ? Math.min(100, (cagnotteContributions.length / cagnotteGoalNumber) * 100) : 0
+  const cagnotteGoalLabel = event.cagnotte_goal ? Number(event.cagnotte_goal).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : ''
 
   const handleGiftFormChange = (field, value) => {
     setGiftForm((current) => ({ ...current, [field]: value }))
@@ -212,6 +282,65 @@ export default function SecretSpacePage() {
       console.error('[SecretSpace] gift delete error:', error)
     } else {
       await fetchGifts()
+    }
+  }
+
+  const handleCagnotteSubmit = async (e) => {
+    e.preventDefault()
+
+    const value = cagnotteUrl.trim()
+    if (!value || !currentUserId || isOrganizer) return
+
+    setCagnotteSaving(true)
+    const { data: creatorProfile } = await supabase
+      .from('profiles')
+      .select('first_name')
+      .eq('id', currentUserId)
+      .maybeSingle()
+
+    const { error } = await supabase
+      .from('events')
+      .update({
+        cagnotte_url: value,
+        cagnotte_created_by: currentUserId,
+        cagnotte_gift_id: cagnotteGiftId || null,
+        cagnotte_goal: cagnotteGoal || null,
+      })
+      .eq('id', eventId)
+
+    if (error) {
+      console.error('[SecretSpace] cagnotte update error:', error)
+      setCagnotteSaving(false)
+      return
+    }
+
+    setEvent((current) => current ? {
+      ...current,
+      cagnotte_url: value,
+      cagnotte_created_by: currentUserId,
+      cagnotteCreatorFirstName: creatorProfile?.first_name ?? current.cagnotteCreatorFirstName ?? 'toi',
+      cagnotte_gift_id: cagnotteGiftId || null,
+      cagnotte_goal: cagnotteGoal || null,
+    } : current)
+    setCagnotteUrl(value)
+    await fetchCagnotteContributions()
+    setCagnotteSaving(false)
+  }
+
+  const handleCagnotteContribution = async () => {
+    if (!currentUserId || isOrganizer || hasContributed) return
+
+    const { error } = await supabase
+      .from('cagnotte_contributions')
+      .insert({
+        event_id: eventId,
+        user_id: currentUserId,
+      })
+
+    if (error) {
+      console.error('[SecretSpace] cagnotte contribution insert error:', error)
+    } else {
+      await fetchCagnotteContributions()
     }
   }
 
@@ -414,7 +543,128 @@ export default function SecretSpacePage() {
             </form>
           </div>
         )}
-        {activeTab === 'cagnotte' && <p style={{ color: '#8E8E93', fontSize: 14 }}>Section cagnotte — à venir</p>}
+        {activeTab === 'cagnotte' && (
+          event.cagnotte_url ? (
+            <div style={{ background: '#fff', borderRadius: 14, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+              <div style={{ fontSize: 12, color: '#8E8E93' }}>
+                Créée par {event.cagnotteCreatorFirstName ?? 'quelqu’un'} · {frenchDate(event.cagnotte_created_at ?? event.created_at)}
+              </div>
+              {event.cagnotte_gift_id && associatedGift && (
+                <div style={{ marginTop: 10 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#e055aa', background: 'rgba(224,85,170,0.10)', borderRadius: 999, padding: '5px 10px' }}>
+                    🎁 {associatedGift.name}
+                  </span>
+                </div>
+              )}
+              {event.cagnotte_goal && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 12, color: '#8E8E93', fontWeight: 600, marginBottom: 7 }}>
+                    {cagnotteContributions.length} participants · objectif {cagnotteGoalLabel} €
+                  </div>
+                  <div style={{ width: '100%', height: 6, background: '#F2F2F7', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${cagnotteProgress}%`, height: '100%', background: GRADIENT, borderRadius: 3 }} />
+                  </div>
+                </div>
+              )}
+              {cagnotteContributions.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                    {cagnotteContributions.slice(0, 5).map((contribution, index) => {
+                      const firstName = contribution.profiles?.first_name ?? '?'
+                      return (
+                        <div
+                          key={contribution.id}
+                          style={{ width: 28, height: 28, borderRadius: 14, background: '#FF7A70', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, border: '2px solid #fff', marginLeft: index === 0 ? 0 : -6 }}
+                        >
+                          {firstName.charAt(0).toUpperCase()}
+                        </div>
+                      )
+                    })}
+                    {cagnotteContributions.length > 5 && (
+                      <div style={{ width: 28, height: 28, borderRadius: 14, background: '#C7C7CC', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, border: '2px solid #fff', marginLeft: -6 }}>
+                        +{cagnotteContributions.length - 5}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#8E8E93' }}>
+                    {cagnotteContributions.length} personne{cagnotteContributions.length > 1 ? 's' : ''} participent
+                  </div>
+                </div>
+              )}
+              <a
+                href={event.cagnotte_url}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'block', width: '100%', borderRadius: 14, padding: 14, background: GRADIENT, color: '#fff', fontSize: 14, fontWeight: 800, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box', marginTop: 14 }}
+              >
+                Participer à la cagnotte →
+              </a>
+              {!isOrganizer && (
+                hasContributed ? (
+                  <div style={{ fontSize: 13, color: '#34C759', fontWeight: 700, marginTop: 12 }}>
+                    ✓ Tu participes
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCagnotteContribution}
+                    disabled={cagnotteContributionsLoading}
+                    style={{ width: '100%', marginTop: 10, border: 'none', borderRadius: 14, padding: 14, background: cagnotteContributionsLoading ? '#C7C7CC' : '#F2F2F7', color: '#1C1C1E', fontSize: 14, fontWeight: 800, cursor: cagnotteContributionsLoading ? 'default' : 'pointer' }}
+                  >
+                    Je participe
+                  </button>
+                )
+              )}
+            </div>
+          ) : !isOrganizer ? (
+            <form onSubmit={handleCagnotteSubmit} style={{ background: '#fff', borderRadius: 14, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Lien de la cagnotte</div>
+                <input
+                  type="text"
+                  value={cagnotteUrl}
+                  onChange={(e) => setCagnotteUrl(e.target.value)}
+                  placeholder="https://leetchi.com/…"
+                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '11px 12px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Cadeau financé (optionnel)</div>
+                <select
+                  value={cagnotteGiftId}
+                  onChange={(e) => setCagnotteGiftId(e.target.value)}
+                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '11px 12px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box', background: '#fff' }}
+                >
+                  <option value="">— Aucun cadeau associé</option>
+                  {availableGifts.map((gift) => (
+                    <option key={gift.id} value={gift.id}>{gift.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Objectif de collecte (optionnel)</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={cagnotteGoal}
+                  onChange={(e) => setCagnotteGoal(e.target.value)}
+                  placeholder="150 €"
+                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '11px 12px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={cagnotteSaving || !cagnotteUrl.trim()}
+                style={{ width: '100%', border: 'none', borderRadius: 14, padding: 14, background: cagnotteSaving || !cagnotteUrl.trim() ? '#C7C7CC' : GRADIENT, color: '#fff', fontSize: 14, fontWeight: 800, cursor: cagnotteSaving || !cagnotteUrl.trim() ? 'default' : 'pointer' }}
+              >
+                {cagnotteSaving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </form>
+          ) : (
+            <p style={{ color: '#8E8E93', fontSize: 14 }}>Aucune cagnotte ajoutée pour le moment.</p>
+          )
+        )}
         {activeTab === 'carte' && (
           <CollectiveCardContributorView
             event={event}
