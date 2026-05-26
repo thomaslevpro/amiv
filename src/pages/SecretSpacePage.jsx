@@ -19,7 +19,7 @@ function LockIcon() {
 }
 
 const TABS = [
-  { id: 'carte', label: 'Mur des souvenirs' },
+  { id: 'carte', label: 'Flashback' },
   { id: 'cadeaux', label: 'Cadeaux' },
   { id: 'cagnotte', label: 'Cagnotte' },
 ]

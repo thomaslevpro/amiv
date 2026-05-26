@@ -2,9 +2,13 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast }) {
-  const [firstName, setFirstName] = useState(birthday.first_name ?? birthday.name?.split(' ')[0] ?? '')
-  const [lastName, setLastName]   = useState(birthday.last_name  ?? birthday.name?.split(' ').slice(1).join(' ') ?? '')
-  const [date, setDate]           = useState(birthday.birthdate)
+  const amiv = birthday
+  const nameParts = (amiv.name ?? '').trim().split(/\s+/).filter(Boolean)
+  const initialFirstName = amiv.last_name ? amiv.name ?? '' : nameParts[0] ?? ''
+  const initialLastName = amiv.last_name ?? nameParts.slice(1).join(' ')
+  const [firstName, setFirstName] = useState(initialFirstName)
+  const [lastName, setLastName]   = useState(initialLastName)
+  const [date, setDate]           = useState(amiv.birthdate)
   const [saving, setSaving]       = useState(false)
 
   async function handleSave(e) {
@@ -12,12 +16,13 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
     const trimFirst = firstName.trim()
     if (!trimFirst || !date) return
     const trimLast  = lastName.trim()
-    const fullName  = trimLast ? `${trimFirst} ${trimLast}` : trimFirst
+    const birthdate = date instanceof Date ? date.toISOString().slice(0, 10) : String(date).slice(0, 10)
+    const payload = { name: trimFirst, last_name: trimLast || null, birthdate }
     setSaving(true)
     const { error } = await supabase
       .from('birthdays')
-      .update({ first_name: trimFirst, last_name: trimLast || null, name: fullName, birthdate: date })
-      .eq('id', birthday.id)
+      .update(payload)
+      .eq('id', amiv.id)
     if (error) {
       onToast?.('Erreur lors de la mise à jour 😕', true)
     } else {

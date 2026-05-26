@@ -66,6 +66,14 @@ inspector_port = 8083
 enabled = true
 verify_jwt = false
 
+[functions.send-email]
+enabled = true
+verify_jwt = false
+
+[functions.send-reminder]
+enabled = true
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

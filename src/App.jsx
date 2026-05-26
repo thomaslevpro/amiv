@@ -29,6 +29,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
+        <Route path="/events/:id/manage" element={<OrganizerSpacePage />} />
         <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
         <Route path="/events/:id" element={<EventPage />} />
         <Route path="*" element={<MainApp />} />

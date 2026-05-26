@@ -8,12 +8,14 @@
 
 :root {
   --gradient: linear-gradient(135deg, #e055aa, #f5a623);
-  --bg: #faf9fb;
+  --grad: linear-gradient(135deg, #e055aa, #f5a623);
+  --bg: #F2F2F7;
   --white: #FFFFFF;
   --black: #1C1C1E;
   --blue: #007AFF;
   --red: #FF3B30;
   --green: #34C759;
+  --orange: #FF9500;
   --gray1: #8E8E93;
   --gray2: #AEAEB2;
   --gray3: #F2F2F7;
@@ -24,7 +26,7 @@
   --r-inner: 14px;
   --r-pill: 20px;
   --r-btn: 12px;
-  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 }
 
 html,

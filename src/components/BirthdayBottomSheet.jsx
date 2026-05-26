@@ -118,10 +118,11 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
     const next = prev.includes(value)
       ? prev.filter(v => v !== value)
       : [...prev, value].sort((a, b) => a - b)
+    const payload = { reminder_days: next.map(Number) }
     setReminderDays(next)
     const { error } = await supabase
       .from('birthdays')
-      .update({ reminder_days: next })
+      .update(payload)
       .eq('id', birthday.id)
     if (error) {
       setReminderDays(prev)
@@ -131,10 +132,11 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
 
   async function handleToggleReminder() {
     const next = !reminder
+    const payload = { reminder_enabled: next }
     setReminder(next)
     const { error } = await supabase
       .from('birthdays')
-      .update({ reminder_enabled: next })
+      .update(payload)
       .eq('id', birthday.id)
     if (error) {
       setReminder(!next)
@@ -209,9 +211,10 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
     setLinkedProfile(profile)
     setLinkedProfileId(profile.id)
 
+    const payload = { linked_profile_id: profile.id }
     const { data, error } = await supabase
       .from('birthdays')
-      .update({ linked_profile_id: profile.id })
+      .update(payload)
       .eq('id', birthday.id)
       .select()
 
@@ -236,9 +239,10 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
     setLinkedProfile(null)
     setLinkedProfileId(null)
 
+    const payload = { linked_profile_id: null }
     const { error } = await supabase
       .from('birthdays')
-      .update({ linked_profile_id: null })
+      .update(payload)
       .eq('id', birthday.id)
 
     if (error) {

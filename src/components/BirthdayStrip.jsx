@@ -5,7 +5,8 @@ import BirthdayEditModal from './BirthdayEditModal'
 
 function StripItem({ birthday, onAvatarTap }) {
   const { id, name, days } = birthday
-  const offset = Math.max(0, Math.min(169.6, 169.6 * days / 30))
+  const ringCircumference = 127.2
+  const offset = Math.max(0, Math.min(ringCircumference, ringCircumference * days / 30))
   const isUrgent = days <= 7
   const isSoon = days <= 14
 
@@ -25,9 +26,9 @@ function StripItem({ birthday, onAvatarTap }) {
     >
       <div
         onClick={onAvatarTap}
-        style={{ position: 'relative', width: 64, height: 64, marginBottom: 5, cursor: 'pointer' }}
+        style={{ position: 'relative', width: 48, height: 48, marginBottom: 5, cursor: 'pointer' }}
       >
-        <svg width="64" height="64" viewBox="0 0 64 64" style={{ position: 'absolute', inset: 0 }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" style={{ position: 'absolute', inset: 0 }}>
           {isUrgent && (
             <defs>
               <linearGradient id={`grad_${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -36,24 +37,24 @@ function StripItem({ birthday, onAvatarTap }) {
               </linearGradient>
             </defs>
           )}
-          <circle cx="32" cy="32" r="27" fill="none" stroke="#E5E5EA" strokeWidth="3" />
+          <circle cx="24" cy="24" r="20.25" fill="none" stroke="#E5E5EA" strokeWidth="2.25" />
           <circle
-            cx="32" cy="32" r="27" fill="none"
+            cx="24" cy="24" r="20.25" fill="none"
             stroke={ringStroke}
-            strokeWidth="3"
-            strokeDasharray="169.6"
+            strokeWidth="2.25"
+            strokeDasharray={ringCircumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
-            transform="rotate(-90 32 32)"
+            transform="rotate(-90 24 24)"
           />
         </svg>
         <div style={{
-          position: 'absolute', top: 7, left: 7, right: 7, bottom: 7,
+          position: 'absolute', top: 5.25, left: 5.25, right: 5.25, bottom: 5.25,
           background: '#FBBF9A', borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22,
+          fontSize: 16.5,
         }}>
-          <Cake size={20} strokeWidth={1.5} />
+          <Cake size={15} strokeWidth={1.5} />
         </div>
       </div>
 

@@ -20,7 +20,8 @@ export default function HeroBirthdayCard({ birthday, onMessage }) {
   const birthdayDate = new Date(birthdate)
   const age = new Date().getFullYear() - birthdayDate.getFullYear()
   const birthdayLabel = birthdayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-  const offset = Math.max(0, Math.min(169.6, 169.6 * days / 30))
+  const ringCircumference = 127.2
+  const offset = Math.max(0, Math.min(ringCircumference, ringCircumference * days / 30))
 
   return (
     <div style={{
@@ -39,16 +40,16 @@ export default function HeroBirthdayCard({ birthday, onMessage }) {
           </div>
         </div>
 
-        <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
-          <svg width="110" height="110" viewBox="0 0 64 64" style={{ position: 'absolute', inset: 0 }}>
-            <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="4" />
+        <div style={{ position: 'relative', width: 82.5, height: 82.5, flexShrink: 0 }}>
+          <svg width="82.5" height="82.5" viewBox="0 0 48 48" style={{ position: 'absolute', inset: 0 }}>
+            <circle cx="24" cy="24" r="20.25" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="3" />
             <circle
-              cx="32" cy="32" r="27" fill="none"
-              stroke="#fff" strokeWidth="4"
-              strokeDasharray="169.6"
+              cx="24" cy="24" r="20.25" fill="none"
+              stroke="#fff" strokeWidth="3"
+              strokeDasharray={ringCircumference}
               strokeDashoffset={offset}
               strokeLinecap="round"
-              transform="rotate(-90 32 32)"
+              transform="rotate(-90 24 24)"
             />
           </svg>
           <div style={{
@@ -57,11 +58,11 @@ export default function HeroBirthdayCard({ birthday, onMessage }) {
             alignItems: 'center', justifyContent: 'center',
           }}>
             {days === 0 ? (
-              <span style={{ fontSize: 36, lineHeight: 1 }}>🎉</span>
+              <span style={{ fontSize: 27, lineHeight: 1 }}>🎉</span>
             ) : (
               <>
-                <span style={{ fontSize: 48, fontWeight: 900, lineHeight: 1, color: '#fff' }}>{days}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.85, marginTop: 2, letterSpacing: '0.06em' }}>JOURS</span>
+                <span style={{ fontSize: 36, fontWeight: 900, lineHeight: 1, color: '#fff' }}>{days}</span>
+                <span style={{ fontSize: 8, fontWeight: 700, opacity: 0.85, marginTop: 2, letterSpacing: '0.06em' }}>JOURS</span>
               </>
             )}
           </div>
