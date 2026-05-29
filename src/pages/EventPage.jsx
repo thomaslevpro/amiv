@@ -19,6 +19,7 @@ export default function EventPage() {
     <EventDetail
       event={event}
       onBack={() => navigate(-1)}
+      onChat={() => {}}
       onMessagesClick={() => {}}
     />
   )

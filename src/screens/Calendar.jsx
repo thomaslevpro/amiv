@@ -13,13 +13,6 @@ const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const PAGE_BG = '#faf9fb'
 
-const FILTERS = [
-  { key: 'all', label: 'Tous' },
-  { key: 'organizer', label: "J'organise" },
-  { key: 'going', label: "J'y participe" },
-  { key: 'pending', label: 'En attente' },
-]
-
 function toYMD(date) {
   return date.toISOString().split('T')[0]
 }
@@ -217,32 +210,6 @@ function IconButton({ children, onClick, label, dark = false, style }) {
   )
 }
 
-function FilterChip({ label, count, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flexShrink: 0,
-        height: 38,
-        padding: '0 15px',
-        borderRadius: 999,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        background: active ? GRADIENT : '#faf9fb',
-        color: active ? '#fff' : '#6B6B72',
-        border: active ? '0.5px solid transparent' : '0.5px solid rgba(0,0,0,0.08)',
-        boxShadow: active ? '0 8px 18px rgba(224,85,170,0.22)' : '0 2px 8px rgba(0,0,0,0.03)',
-        fontSize: 13,
-        fontWeight: 800,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label} ({count})
-    </button>
-  )
-}
-
 function SectionPlaceholder({ label }) {
   return (
     <div style={{
@@ -351,7 +318,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   const [publicRsvpsByEvent, setPublicRsvpsByEvent] = useState({})
   const [profilesById, setProfilesById] = useState({})
   const [loadingEvents, setLoadingEvents] = useState(true)
-  const [activeFilter, setActiveFilter] = useState('all')
 
   const fetchCalendarDots = useCallback(async (monthDate) => {
     try {
@@ -547,20 +513,12 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     }
   }
 
-  const counts = useMemo(() => ({
-    all: items.length,
-    organizer: items.filter(item => item.filter === 'organizer').length,
-    going: items.filter(item => item.filter === 'going').length,
-    pending: items.filter(item => item.filter === 'pending').length,
-  }), [items])
-
   const visibleItems = useMemo(() => {
     return items.filter(item => {
-      const matchesFilter = activeFilter === 'all' || item.filter === activeFilter
       const matchesDate = !selectedDate || item.event.date?.startsWith(selectedDate)
-      return matchesFilter && matchesDate
+      return matchesDate
     })
-  }, [items, activeFilter, selectedDate])
+  }, [items, selectedDate])
 
   const upcomingItems = useMemo(() => visibleItems.filter(item => !item.isPast), [visibleItems])
   const pastItems = useMemo(() => visibleItems.filter(item => item.isPast), [visibleItems])
@@ -749,46 +707,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
           calendarDots={calendarDots}
           onOpenCalendar={() => setIsCalendarOpen(true)}
         />
-
-        <div style={{
-          position: 'sticky',
-          top: -1,
-          zIndex: 20,
-          margin: '0 -14px',
-          padding: '9px 14px 12px',
-          background: 'rgba(242,242,247,0.86)',
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)',
-        }}>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 0' }}>
-            {FILTERS.map(filter => (
-              <FilterChip
-                key={filter.key}
-                label={filter.label}
-                count={counts[filter.key]}
-                active={activeFilter === filter.key}
-                onClick={() => setActiveFilter(filter.key)}
-              />
-            ))}
-          </div>
-          {selectedDate && (
-            <button
-              onClick={() => setSelectedDate(null)}
-              style={{
-                marginTop: 8,
-                height: 30,
-                padding: '0 11px',
-                borderRadius: 999,
-                background: 'rgba(224,85,170,0.1)',
-                color: '#B8337F',
-                fontSize: 12,
-                fontWeight: 850,
-              }}
-            >
-              {formatEventDate(selectedDate)} · effacer
-            </button>
-          )}
-        </div>
 
         <CalendarBottomSheet
           isOpen={isCalendarOpen}

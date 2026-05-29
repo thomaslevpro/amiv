@@ -1,4 +1,4 @@
-import { Eye, MessageCircle, Settings, Share2 } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -74,17 +74,6 @@ function getTotalCount(stats, event) {
   return yes + maybe + no
 }
 
-async function fallbackShare(event) {
-  const token = event?.invite_token || event?.share_token
-  const url = token ? `${window.location.origin}/invite/${token}` : `${window.location.origin}/events/${event?.id}`
-  const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
-  if (navigator.share) {
-    navigator.share({ title: event?.name || 'Amiv', text, url }).catch(() => {})
-  } else if (navigator.clipboard) {
-    await navigator.clipboard.writeText(url)
-  }
-}
-
 function FooterButton({ icon: Icon, label, onClick }) {
   return (
     <button
@@ -114,7 +103,7 @@ function FooterButton({ icon: Icon, label, onClick }) {
   )
 }
 
-function OrganizerEventCard({ event, stats, dateParts, openEvent, primaryAction, primaryActionIcon: PrimaryActionIcon = Settings, primaryActionLabel = 'Gérer', openChat, onShare }) {
+function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
   const coverUrl = getCoverUrl(event.cover_image)
   const yesCount = getYesCount(stats, event)
   const maybeCount = getMaybeCount(stats, event)
@@ -253,10 +242,8 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, primaryAction,
           }} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-          <FooterButton icon={PrimaryActionIcon} label={primaryActionLabel} onClick={primaryAction} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
           <FooterButton icon={MessageCircle} label="Chat" onClick={openChat} />
-          <FooterButton icon={Share2} label="Partager" onClick={() => onShare ? onShare(event) : fallbackShare(event)} />
         </div>
       </div>
     </article>
@@ -266,18 +253,12 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, primaryAction,
 export default function EventCard({
   event: eventProp,
   item,
-  currentUser,
   onClick,
   onOpen,
-  onManage,
   onChat,
-  onShare,
 }) {
   const navigate = useNavigate()
   const event = item?.event ?? eventProp ?? {}
-  const currentUserId = currentUser?.id
-  const fallbackOrganizer = item?.isOrganizer ?? event.isOrganizer ?? ['organizer', 'organise', 'organizing'].includes(event.role)
-  const isOrganizer = currentUserId ? event.user_id === currentUserId : fallbackOrganizer
   const stats = item?.stats ?? event.rsvpStats ?? {}
   const dateParts = getLocalDateParts(event.date)
 
@@ -285,11 +266,6 @@ export default function EventCard({
     if (onOpen) onOpen(event)
     else if (onClick) onClick(event)
     else if (event.id) navigate(`/events/${event.id}`)
-  }
-
-  const manageEvent = () => {
-    if (onManage) onManage(event)
-    else if (event.id) navigate(`/events/${event.id}/manage`)
   }
 
   const openChat = () => {
@@ -303,11 +279,7 @@ export default function EventCard({
       stats={stats}
       dateParts={dateParts}
       openEvent={openEvent}
-      primaryAction={isOrganizer ? manageEvent : openEvent}
-      primaryActionIcon={isOrganizer ? Settings : Eye}
-      primaryActionLabel={isOrganizer ? 'Gérer' : 'Voir'}
       openChat={openChat}
-      onShare={onShare}
     />
   )
 }

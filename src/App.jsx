@@ -161,7 +161,7 @@ function MainApp() {
       <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} notifications={notifications} markAsRead={markAsRead} />
     )
     if (screen === 'eventDetail' && selectedEvent) return (
-      <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
+      <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} onChat={ev => { setConversationEvent(ev); setScreen('messages') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
     )
     if (screen === 'invitation' && selectedEvent) return (
       <Invitation event={selectedEvent} onBack={() => setScreen('eventDetail')} />

@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon } from 'lucide-react'
+import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon, MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import CardView from '../components/card/CardView'
 
@@ -70,7 +70,7 @@ function birthdayFriendInitial(friend) {
   return birthdayFriendName(friend).charAt(0).toUpperCase()
 }
 
-export default function EventDetail({ event, onBack, onMessagesClick }) {
+export default function EventDetail({ event, onBack, onChat, onMessagesClick }) {
   const coverInputRef = useRef(null)
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [userId, setUserId] = useState(null)
@@ -109,6 +109,29 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
   function showToast(msg) {
     setToast(msg)
     setTimeout(() => setToast(null), 2500)
+  }
+
+  function renderChatEntry() {
+    return (
+      <div
+        onClick={() => onChat?.(event)}
+        style={{
+          flex: '0 0 96px', background: '#fff', borderRadius: 16, padding: '12px 10px',
+          boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
+          flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 7, cursor: 'pointer', textAlign: 'center',
+        }}
+      >
+        <div style={{
+          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+          background: 'rgba(0,122,255,0.10)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <MessageCircle size={20} strokeWidth={1.8} color="#007AFF" />
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Chat</div>
+      </div>
+    )
   }
 
   function handleShare() {
@@ -699,74 +722,80 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
         {/* ── ORGANIZER SPACE ENTRY ── */}
         {isOrganizer && (
-          <div
-            onClick={() => navigate(`/events/${event.id}/organizer-space`)}
-            style={{
-              background: '#fff', borderRadius: 16, padding: '14px 16px',
-              boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
-              alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: 14,
-            }}
-          >
-            <div style={{
-              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(0,122,255,0.10)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="4" width="16" height="13" rx="2" stroke="#007AFF" strokeWidth="1.5" />
-                <path d="M6 4V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1" stroke="#007AFF" strokeWidth="1.5" />
-                <path d="M6 9h8M6 12.5h5" stroke="#007AFF" strokeWidth="1.5" strokeLinecap="round" />
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <div
+              onClick={() => navigate(`/events/${event.id}/organizer-space`)}
+              style={{
+                flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px',
+                boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
+                alignItems: 'center', gap: 12, cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(0,122,255,0.10)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="4" width="16" height="13" rx="2" stroke="#007AFF" strokeWidth="1.5" />
+                  <path d="M6 4V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1" stroke="#007AFF" strokeWidth="1.5" />
+                  <path d="M6 9h8M6 12.5h5" stroke="#007AFF" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Mon espace organisateur</div>
+                <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Checklist & suivi</div>
+              </div>
+              <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Mon espace organisateur</div>
-              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Checklist & suivi</div>
-            </div>
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            {renderChatEntry()}
           </div>
         )}
 
         {/* ── SECRET SPACE ENTRY ── */}
         {!isOrganizer && isInvitedGuest && (
-          <div
-            onClick={() => navigate(`/events/${event.id}/secret-space`)}
-            style={{
-              background: '#fff', borderRadius: 16, padding: '14px 16px',
-              boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
-              alignItems: 'center', gap: 12, cursor: 'pointer', marginBottom: 14,
-            }}
-          >
-            <div style={{
-              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-              background: 'rgba(224,85,170,0.10)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="9" width="16" height="12" rx="2.5" stroke="#e055aa" strokeWidth="1.5" />
-                <path d="M5 9V6a4 4 0 0 1 8 0v3" stroke="#e055aa" strokeWidth="1.5" strokeLinecap="round" />
-                <circle cx="9" cy="15" r="1.5" fill="#e055aa" />
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <div
+              onClick={() => navigate(`/events/${event.id}/secret-space`)}
+              style={{
+                flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px',
+                boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
+                alignItems: 'center', gap: 12, cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                background: 'rgba(224,85,170,0.10)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="9" width="16" height="12" rx="2.5" stroke="#e055aa" strokeWidth="1.5" />
+                  <path d="M5 9V6a4 4 0 0 1 8 0v3" stroke="#e055aa" strokeWidth="1.5" strokeLinecap="round" />
+                  <circle cx="9" cy="15" r="1.5" fill="#e055aa" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Espace secret</div>
+                <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Cadeaux · Cagnotte · Carte</div>
+                {organizerName && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', marginTop: 6,
+                    padding: '3px 10px', borderRadius: 20,
+                    background: 'rgba(224,85,170,0.08)',
+                    border: '1px solid rgba(224,85,170,0.20)',
+                    fontSize: 10, fontWeight: 600, color: '#993556',
+                  }}>
+                    🔒 Caché de {organizerName}
+                  </div>
+                )}
+              </div>
+              <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Espace secret</div>
-              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Cadeaux · Cagnotte · Carte</div>
-              {organizerName && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', marginTop: 6,
-                  padding: '3px 10px', borderRadius: 20,
-                  background: 'rgba(224,85,170,0.08)',
-                  border: '1px solid rgba(224,85,170,0.20)',
-                  fontSize: 10, fontWeight: 600, color: '#993556',
-                }}>
-                  🔒 Caché de {organizerName}
-                </div>
-              )}
-            </div>
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            {renderChatEntry()}
           </div>
         )}
 
