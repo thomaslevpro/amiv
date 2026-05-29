@@ -18,7 +18,7 @@ const BUBBLE_THEMES = [
 ]
 const DAY_HEADERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
 const DAY_MS = 24 * 60 * 60 * 1000
-const RING_RADIUS = 32
+const RING_RADIUS = 26
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
 function startOfToday() {
@@ -105,7 +105,7 @@ function BirthdayBubble({ birthday, onClick }) {
     <div
       onClick={onClick}
       style={{
-        width: 76,
+        width: 60,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -116,18 +116,18 @@ function BirthdayBubble({ birthday, onClick }) {
         WebkitTouchCallout: 'none',
       }}
     >
-      <div style={{ position: 'relative', width: 74, height: 74, marginBottom: 4 }}>
-        <svg width="74" height="74" viewBox="0 0 74 74" style={{ position: 'absolute', inset: 0 }}>
+      <div style={{ position: 'relative', width: 60, height: 60, marginBottom: 4 }}>
+        <svg width="60" height="60" viewBox="0 0 60 60" style={{ position: 'absolute', inset: 0 }}>
           <defs>
-            <linearGradient id={gradientId} x1="7" y1="7" x2="67" y2="67" gradientUnits="userSpaceOnUse">
+            <linearGradient id={gradientId} x1="5" y1="5" x2="55" y2="55" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor={theme.ringStart} />
               <stop offset="100%" stopColor={theme.ringEnd} />
             </linearGradient>
           </defs>
-          <circle cx="37" cy="37" r={RING_RADIUS} fill="none" stroke="#E7E7ED" strokeWidth="3" />
+          <circle cx="30" cy="30" r={RING_RADIUS} fill="none" stroke="#E7E7ED" strokeWidth="3" />
           <circle
-            cx="37"
-            cy="37"
+            cx="30"
+            cy="30"
             r={RING_RADIUS}
             fill="none"
             stroke={`url(#${gradientId})`}
@@ -135,16 +135,16 @@ function BirthdayBubble({ birthday, onClick }) {
             strokeDasharray={RING_CIRCUMFERENCE}
             strokeDashoffset={dashOffset}
             strokeLinecap="round"
-            transform="rotate(-90 37 37)"
+            transform="rotate(-90 30 30)"
           />
         </svg>
         <div
           style={{
             position: 'absolute',
-            top: 7,
-            left: 7,
-            width: 60,
-            height: 60,
+            top: 6,
+            left: 6,
+            width: 48,
+            height: 48,
             borderRadius: '50%',
             background: birthday.linked_profile_id ? 'linear-gradient(135deg,#e055aa,#f5a623)' : theme.fill,
             display: 'flex',
@@ -157,17 +157,17 @@ function BirthdayBubble({ birthday, onClick }) {
           {birthday.linked_profile_id && birthday.avatar_url ? (
             <img src={birthday.avatar_url} alt={linkedName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : birthday.linked_profile_id ? (
-            <span style={{ fontSize: 19, fontWeight: 800, color: '#fff' }}>{linkedInitials}</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{linkedInitials}</span>
           ) : (
-            <User size={32} strokeWidth={1.7} />
+            <User size={26} strokeWidth={1.7} />
           )}
         </div>
       </div>
       <div
         style={{
-          maxWidth: 76,
+          maxWidth: 60,
           color: '#1C1C1E',
-          fontSize: 16,
+          fontSize: 13,
           fontWeight: 500,
           lineHeight: 1.2,
           overflow: 'hidden',
@@ -181,9 +181,9 @@ function BirthdayBubble({ birthday, onClick }) {
       {birthdateLabel && (
         <div
           style={{
-            maxWidth: 76,
+            maxWidth: 60,
             color: '#8E8E93',
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 500,
             lineHeight: 1.2,
             marginTop: 2,
@@ -541,7 +541,7 @@ export default function BirthdaySection({ user, onToast, onMessage }) {
           data-birthday-scroll
           style={{
             display: 'flex',
-            gap: 10,
+            gap: 8,
             overflowX: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',

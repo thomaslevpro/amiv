@@ -13,7 +13,6 @@ import {
   Pencil,
   Share2,
   Star,
-  Trash2,
   UserCheck,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -434,15 +433,6 @@ export default function Profile({ session, onCalendarClick }) {
               <ChevronRight size={16} strokeWidth={1.7} color={COLORS.hint} />
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => window.confirm('Cette action est irréversible...')}
-            style={{ width: '100%', border: 'none', background: COLORS.card, borderRadius: 20, padding: 14, boxShadow: CARD_SHADOW, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: COLORS.destructive, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}
-          >
-            <Trash2 size={18} strokeWidth={1.8} color={COLORS.destructive} />
-            <span>Supprimer mon compte</span>
-          </button>
 
           <div style={{ textAlign: 'center', fontSize: 11, color: COLORS.hint, fontWeight: 500, padding: '10px 0 32px' }}>
             Amiv v1.0.0 · Made with ❤️ in France
