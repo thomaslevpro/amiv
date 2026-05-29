@@ -1,23 +1,29 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
+import EventCard from '../components/EventCard'
 
 const formatDate = (d) => d.toISOString().split('T')[0]
 
-function daysUntil(dateStr) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return Math.round((new Date(y, m - 1, d) - today) / 86400000)
-}
-
-function frenchDate(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-}
-
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
+
+const parseDateStr = (dateStr) => {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+const formatLocalDate = (date) => (
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+)
+
+const getWeekStart = (date) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+  return start
+}
+
+const sameMonth = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
 
 function normalizeStatus(status) {
   if (status === 'going' || status === 'yes' || status === 'accepted' || status === 'confirmed' || status === 'organizing') return 'yes'
@@ -34,71 +40,6 @@ function countStatuses(rows = []) {
     else acc.maybe += 1
     return acc
   }, { yes: 0, no: 0, maybe: 0 })
-}
-
-function getCountdown(dateStr) {
-  if (!dateStr) return { label: 'J-?', days: null }
-  const eventDate = new Date(dateStr)
-  if (Number.isNaN(eventDate.getTime())) return { label: 'J-?', days: null }
-  const today = new Date()
-  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const startEvent = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate())
-  const days = Math.ceil((startEvent - startToday) / 86400000)
-  if (days < 0) return { label: 'Passé', days }
-  if (days === 0) return { label: 'Jour J', days }
-  return { label: `J-${days}`, days }
-}
-
-function getInitial(profile, fallback = 'I') {
-  return (profile?.first_name || profile?.name || profile?.full_name || profile?.email || fallback || 'I').charAt(0).toUpperCase()
-}
-
-function GuestAvatars({ profiles, extraCount }) {
-  const visible = profiles.slice(0, 3)
-  return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      {visible.map((profile, index) => (
-        <div
-          key={`${profile.id || profile.email || index}`}
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 13,
-            marginLeft: index === 0 ? 0 : -7,
-            background: ['#e055aa', '#f5a623', '#34C759'][index % 3],
-            border: '2px solid #fff',
-            color: '#fff',
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: 10,
-            fontWeight: 900,
-            overflow: 'hidden',
-          }}
-        >
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : getInitial(profile)}
-        </div>
-      ))}
-      {extraCount > 0 && (
-        <div style={{
-          width: 26,
-          height: 26,
-          borderRadius: 13,
-          marginLeft: visible.length ? -7 : 0,
-          background: '#E5E5EA',
-          border: '2px solid #fff',
-          color: '#6B6B72',
-          display: 'grid',
-          placeItems: 'center',
-          fontSize: 10,
-          fontWeight: 900,
-        }}>
-          +{extraCount}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function CalendarBottomSheet({ isOpen, onClose, currentMonth, onPrevMonth, onNextMonth, calendarDots, selectedDate, onSelectDate }) {
@@ -249,158 +190,167 @@ function CalendarBottomSheet({ isOpen, onClose, currentMonth, onPrevMonth, onNex
   )
 }
 
-function CalendarTrigger({ currentMonth, onClick }) {
-  const monthLabel = currentMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+function WeekStrip({ currentMonth, setCurrentMonth, fetchDots, calendarDots, selectedDate, setSelectedDate, onOpenCalendar }) {
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(selectedDate ? parseDateStr(selectedDate) : new Date()))
+  const todayStr = formatLocalDate(new Date())
+
+  const dotMap = {}
+  calendarDots.forEach(({ event_date, dot_type }) => {
+    if (!dotMap[event_date]) dotMap[event_date] = new Set()
+    dotMap[event_date].add(dot_type)
+  })
+
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart)
+    date.setDate(weekStart.getDate() + index)
+    return date
+  })
+
+  const displayMonth = new Date(weekStart)
+  displayMonth.setDate(weekStart.getDate() + 3)
+  const monthLabel = displayMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+
+  const syncMonth = useCallback((date) => {
+    const nextMonth = new Date(date.getFullYear(), date.getMonth(), 1)
+    if (!sameMonth(nextMonth, currentMonth)) {
+      setCurrentMonth(nextMonth)
+      fetchDots(nextMonth)
+    }
+  }, [currentMonth, fetchDots, setCurrentMonth])
+
+  const moveWeek = (direction) => {
+    const nextStart = new Date(weekStart)
+    nextStart.setDate(weekStart.getDate() + direction * 7)
+    setWeekStart(nextStart)
+    const nextDisplayMonth = new Date(nextStart)
+    nextDisplayMonth.setDate(nextStart.getDate() + 3)
+    syncMonth(nextDisplayMonth)
+  }
+
+  useEffect(() => {
+    if (!selectedDate) return
+    const selected = parseDateStr(selectedDate)
+    setWeekStart(getWeekStart(selected))
+    syncMonth(selected)
+  }, [selectedDate, syncMonth])
 
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        background: '#fff',
-        border: '1px solid #E5E5EA',
-        borderRadius: 20,
-        padding: '6px 12px 6px 10px',
-        cursor: 'pointer',
-        fontSize: 14,
-        fontWeight: 600,
-        color: '#1C1C1E',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        marginBottom: 16,
-      }}
-    >
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="2.5" width="14" height="12.5" rx="2.5" stroke="#1C1C1E" strokeWidth="1.4" />
-        <path d="M1 6.5h14" stroke="#1C1C1E" strokeWidth="1.4" />
-        <path d="M4.5 1v3M11.5 1v3" stroke="#1C1C1E" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-      <span style={{ textTransform: 'capitalize' }}>{monthLabel}</span>
-      <svg width="8" height="5" viewBox="0 0 8 5" fill="none" style={{ marginLeft: 1 }}>
-        <path d="M1 1l3 3 3-3" stroke="#8E8E93" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
-  )
-}
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <button
+          onClick={() => moveWeek(-1)}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            border: 'none',
+            background: '#F2F2F7',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+          aria-label="Semaine précédente"
+        >
+          <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
+            <path d="M6.5 1.5L1.5 6.5L6.5 11.5" stroke="#1C1C1E" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
 
-function InvitedEventCard({ event, navigate }) {
-  const firstName = event.profiles?.full_name?.split(' ')[0] ?? ''
-  const status = event.rsvpStatus
-  const hasCover = !!event.cover_image
-  const countdown = getCountdown(event.date)
-  const countdownColor = countdown.days === null
-    ? '#AEAEB2'
-    : countdown.days < 14
-      ? '#e055aa'
-      : countdown.days < 60
-        ? '#f5a623'
-        : '#AEAEB2'
-  const rsvpChip = normalizeStatus(status) === 'yes'
-    ? { label: "✓ J'y serai", bg: 'rgba(52,199,89,0.09)', color: '#1d7a38' }
-    : { label: 'En attente', bg: '#F2F2F7', color: '#6B6B6B' }
-  const stats = event.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
-  const total = stats.yes + stats.maybe + stats.no
-  const progress = total > 0 ? Math.round((stats.yes / total) * 100) : 0
+        <button
+          onClick={onOpenCalendar}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            padding: '6px 10px',
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#1C1C1E',
+            textTransform: 'capitalize',
+          }}
+        >
+          {monthLabel}
+        </button>
 
-  const dateValue = event.date || ''
-  const [datePart_str, timePart_str] = dateValue.includes('T') ? dateValue.split('T') : [dateValue, null]
-  const [y, mo, d] = datePart_str ? datePart_str.split('-').map(Number) : []
-  const dateObj = y ? new Date(y, mo - 1, d) : null
-  const dateFmt = dateObj ? dateObj.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' }) : 'Date à définir'
-  const timeFmt = timePart_str ? timePart_str.substring(0, 5).replace(':', 'h') : null
-  const dateTimeLabel = timeFmt && timeFmt !== '00h00' ? `${dateFmt} · ${timeFmt}` : dateFmt
-
-  const displayName = event.name
-    ? event.name.charAt(0).toUpperCase() + event.name.slice(1)
-    : `Amiv de ${firstName}`
-
-  return (
-    <div
-      onClick={() => navigate(`/events/${event.id}/secret-space`)}
-      style={{
-        background: '#fff',
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 12,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{
-        height: 110,
-        position: 'relative',
-        background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
-        overflow: 'hidden',
-      }}>
-        {hasCover ? (
-          <img src={event.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : null}
-        <div style={{ position: 'absolute', left: 14, right: 74, bottom: 12, textShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {displayName}
-          </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {dateTimeLabel}{event.location ? ` · ${event.location}` : ''}
-          </div>
-        </div>
-        <div style={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
-          minWidth: 54,
-          height: 30,
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.92)',
-          color: countdownColor,
-          fontSize: 12,
-          fontWeight: 900,
-          display: 'grid',
-          placeItems: 'center',
-          padding: '0 10px',
-          border: '0.5px solid rgba(0,0,0,0.06)',
-        }}>
-          {countdown.label}
-        </div>
+        <button
+          onClick={() => moveWeek(1)}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            border: 'none',
+            background: '#F2F2F7',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 0,
+            cursor: 'pointer',
+          }}
+          aria-label="Semaine suivante"
+        >
+          <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
+            <path d="M1.5 1.5L6.5 6.5L1.5 11.5" stroke="#1C1C1E" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
 
-      <div style={{ padding: '12px 14px 14px', position: 'relative' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
-          <div style={{
-            background: rsvpChip.bg,
-            borderRadius: 999,
-            padding: '6px 9px',
-            fontSize: 11,
-            fontWeight: 800,
-            color: rsvpChip.color,
-            lineHeight: 1,
-          }}>
-            {rsvpChip.label}
-          </div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+        {weekDays.map((date, index) => {
+          const dateStr = formatLocalDate(date)
+          const isToday = dateStr === todayStr
+          const isSelected = dateStr === selectedDate
+          const showSelected = isSelected && !isToday
+          const types = dotMap[dateStr] ?? new Set()
+          const hasInvited = types.has('invited')
+          const hasOwn = types.has('own')
 
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
-            <GuestAvatars profiles={event.memberProfiles ?? []} extraCount={Math.max(0, total - 3)} />
-            <div style={{ color: '#6B6B72', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              {stats.yes} oui · {stats.maybe} att.
-            </div>
-          </div>
-          <div style={{ height: 6, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden' }}>
-            <div style={{
-              width: `${progress}%`,
-              height: '100%',
-              borderRadius: 999,
-              background: GRADIENT,
-              minWidth: progress > 0 ? 10 : 0,
-            }} />
-          </div>
-        </div>
+          return (
+            <button
+              key={dateStr}
+              onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+              style={{
+                width: 36,
+                height: 48,
+                border: 'none',
+                background: 'transparent',
+                padding: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer',
+                color: '#1C1C1E',
+              }}
+            >
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#8E8E93', lineHeight: '13px' }}>
+                {DAY_LABELS[index].charAt(0)}
+              </span>
+              <span
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  marginTop: 1,
+                  fontSize: 14,
+                  fontWeight: isToday || showSelected ? 600 : 400,
+                  color: isToday ? '#fff' : '#1C1C1E',
+                  background: isToday ? GRADIENT : showSelected ? '#F2F2F7' : 'transparent',
+                }}
+              >
+                {date.getDate()}
+              </span>
+              <span style={{ height: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginTop: 1 }}>
+                {hasInvited && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#e055aa' }} />}
+                {hasOwn && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#007AFF' }} />}
+              </span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
 }
-
 
 export default function CalendarPage({ navigate = () => {} }) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
@@ -512,11 +462,38 @@ export default function CalendarPage({ navigate = () => {} }) {
     fetchData()
   }, [fetchData])
 
+  const openEvent = useCallback((event) => {
+    navigate(`/events/${event.id}`)
+  }, [navigate])
+
+  const manageEvent = useCallback((event) => {
+    navigate(`/events/${event.id}/organizer-space`)
+  }, [navigate])
+
+  const openChat = useCallback((event) => {
+    navigate(`/events/${event.id}`)
+  }, [navigate])
+
+  const shareEvent = useCallback(async (event) => {
+    const url = `${window.location.origin}/events/${event.id}`
+    const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
+    if (navigator.share) {
+      navigator.share({ title: event.name || 'Amiv', text, url }).catch(() => {})
+    } else if (navigator.clipboard) {
+      await navigator.clipboard.writeText(url)
+    }
+  }, [])
+
   return (
     <div className="calendar-page">
-      <CalendarTrigger
+      <WeekStrip
         currentMonth={currentMonth}
-        onClick={() => setIsCalendarOpen(true)}
+        setCurrentMonth={setCurrentMonth}
+        fetchDots={fetchDots}
+        calendarDots={calendarDots}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        onOpenCalendar={() => setIsCalendarOpen(true)}
       />
 
       <CalendarBottomSheet
@@ -539,12 +516,13 @@ export default function CalendarPage({ navigate = () => {} }) {
         const allEventsMap = new Map()
         ;[...organizedEvents, ...invitedEvents].forEach(e => { if (!allEventsMap.has(e.id)) allEventsMap.set(e.id, e) })
         const allEvents = [...allEventsMap.values()].sort((a, b) => a.date.localeCompare(b.date))
+        const bySelectedDate = events => selectedDate ? events.filter(event => event.date?.startsWith(selectedDate)) : events
 
         const TABS = [
-          { key: 'all', label: 'Tous', events: allEvents },
-          { key: 'organizing', label: "J'organise", events: organizedEvents },
-          { key: 'going', label: "J'y participe", events: goingEvents },
-          { key: 'pending', label: 'En attente', events: pendingEvents },
+          { key: 'all', label: 'Tous', events: bySelectedDate(allEvents) },
+          { key: 'organizing', label: "J'organise", events: bySelectedDate(organizedEvents) },
+          { key: 'going', label: "J'y participe", events: bySelectedDate(goingEvents) },
+          { key: 'pending', label: 'En attente', events: bySelectedDate(pendingEvents) },
         ]
         const currentEvents = TABS.find(t => t.key === activeTab)?.events ?? []
 
@@ -574,7 +552,14 @@ export default function CalendarPage({ navigate = () => {} }) {
             </div>
             {currentEvents.length > 0
               ? currentEvents.map(event => (
-                  <InvitedEventCard key={event.id} event={event} navigate={navigate} />
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onOpen={openEvent}
+                    onManage={manageEvent}
+                    onChat={openChat}
+                    onShare={shareEvent}
+                  />
                 ))
               : !loading && (
                   <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, marginTop: 32 }}>

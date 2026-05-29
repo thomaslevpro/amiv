@@ -270,10 +270,78 @@ function SectionPlaceholder({ label }) {
   )
 }
 
+function WeekStrip({ weekOffset, setWeekOffset, selectedDate, setSelectedDate, calendarDots, onOpenCalendar }) {
+  const today = new Date()
+
+  // Premier lundi de la semaine courante + offset
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) + weekOffset * 7)
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d
+  })
+
+  const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  const dotMap = {}
+  ;(calendarDots || []).forEach(({ event_date, dot_type }) => {
+    if (!dotMap[event_date]) dotMap[event_date] = new Set()
+    dotMap[event_date].add(dot_type)
+  })
+
+  const monthLabel = monday.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+
+  return (
+    <div style={{ padding: '8px 16px 4px', background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <button onClick={() => setWeekOffset(w => w - 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: '#F2F2F7', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M6 1L1 6l5 5" stroke="#1C1C1E" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        <button onClick={onOpenCalendar} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#1C1C1E', textTransform: 'capitalize' }}>
+          {monthLabel} ▾
+        </button>
+        <button onClick={() => setWeekOffset(w => w + 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: '#F2F2F7', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1l5 5-5 5" stroke="#1C1C1E" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        {days.map((d, i) => {
+          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          const isToday = dateStr === todayStr
+          const isSelected = dateStr === selectedDate
+          const types = dotMap[dateStr] ?? new Set()
+          return (
+            <div key={i} onClick={() => setSelectedDate(isSelected ? null : dateStr)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'pointer', paddingBottom: 4 }}>
+              <span style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500 }}>{DAY_LETTERS[i]}</span>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14, fontWeight: isSelected || isToday ? 600 : 400,
+                color: isSelected ? '#fff' : '#1C1C1E',
+                background: isSelected ? 'linear-gradient(135deg, #e055aa, #f5a623)' : isToday ? '#F2F2F7' : 'transparent',
+                border: isToday && !isSelected ? '1.5px solid #1C1C1E' : '1.5px solid transparent',
+              }}>
+                {d.getDate()}
+              </div>
+              <div style={{ height: 5, display: 'flex', gap: 2, alignItems: 'center' }}>
+                {types.has('invited') && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#e055aa' }} />}
+                {types.has('own') && <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#007AFF' }} />}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function Calendar({ onEventClick, onCreateClick, onMessagesClick }) {
   const navigate = useNavigate()
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState(null)
+  const [weekOffset, setWeekOffset] = useState(0)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [calendarDots, setCalendarDots] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
@@ -285,10 +353,10 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   const [loadingEvents, setLoadingEvents] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
 
-  const fetchCalendarDots = useCallback(async () => {
+  const fetchCalendarDots = useCallback(async (monthDate) => {
     try {
-      const year = currentMonth.getFullYear()
-      const month = currentMonth.getMonth()
+      const year = monthDate.getFullYear()
+      const month = monthDate.getMonth()
       const monthStart = toYMD(new Date(year, month, 1))
       const monthEnd = toYMD(new Date(year, month + 1, 0))
       const { data } = await supabase.rpc('get_calendar_dots', { month_start: monthStart, month_end: monthEnd })
@@ -296,7 +364,22 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     } catch (err) {
       console.error('Calendar dots error:', err)
     }
-  }, [currentMonth])
+  }, [])
+
+  const fetchUpcomingCalendarDots = useCallback(async () => {
+    try {
+      const today = new Date()
+      const rangeEnd = new Date(today)
+      rangeEnd.setDate(today.getDate() + 90)
+      const { data } = await supabase.rpc('get_calendar_dots', {
+        month_start: toYMD(today),
+        month_end: toYMD(rangeEnd),
+      })
+      setCalendarDots(data || [])
+    } catch (err) {
+      console.error('Calendar dots error:', err)
+    }
+  }, [])
 
   const fetchEvents = useCallback(async () => {
     setLoadingEvents(true)
@@ -371,8 +454,21 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     setLoadingEvents(false)
   }, [])
 
-  useEffect(() => { fetchCalendarDots() }, [fetchCalendarDots])
+  useEffect(() => { fetchUpcomingCalendarDots() }, [fetchUpcomingCalendarDots])
   useEffect(() => { fetchEvents() }, [fetchEvents])
+
+  useEffect(() => {
+    if (!selectedDate) return
+    const today = new Date()
+    const selected = new Date(selectedDate)
+    const todayMonday = new Date(today)
+    todayMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+    const selectedMonday = new Date(selected)
+    selectedMonday.setDate(selected.getDate() - ((selected.getDay() + 6) % 7))
+    const diffMs = selectedMonday - todayMonday
+    const diffWeeks = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000))
+    setWeekOffset(diffWeeks)
+  }, [selectedDate])
 
   function groupByEvent(rows) {
     return rows.reduce((acc, row) => {
@@ -461,7 +557,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   const visibleItems = useMemo(() => {
     return items.filter(item => {
       const matchesFilter = activeFilter === 'all' || item.filter === activeFilter
-      const matchesDate = !selectedDate || safeYMD(item.event.date) === selectedDate
+      const matchesDate = !selectedDate || item.event.date?.startsWith(selectedDate)
       return matchesFilter && matchesDate
     })
   }, [items, activeFilter, selectedDate])
@@ -492,16 +588,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     } else if (navigator.clipboard) {
       await navigator.clipboard.writeText(url)
     }
-  }
-
-  function addToCalendar(event) {
-    if (!event.date) return
-    const date = new Date(event.date)
-    if (Number.isNaN(date.getTime())) return
-    const end = new Date(date.getTime() + 2 * 60 * 60 * 1000)
-    const format = value => value.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.name || 'Amiv')}&dates=${format(date)}/${format(end)}&location=${encodeURIComponent(event.location || '')}`
-    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   async function handleRsvp(item, status) {
@@ -540,11 +626,15 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   }
 
   function handlePrevMonth() {
-    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+    setCurrentMonth(next)
+    fetchCalendarDots(next)
   }
 
   function handleNextMonth() {
-    setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    setCurrentMonth(next)
+    fetchCalendarDots(next)
   }
 
   function renderSection(label, sectionItems) {
@@ -572,7 +662,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
               onManage={manageEvent}
               onChat={openChat}
               onShare={shareEvent}
-              onCalendar={addToCalendar}
               onRsvp={handleRsvp}
             />
           ))
@@ -651,6 +740,15 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
           </button>
 
         </header>
+
+        <WeekStrip
+          weekOffset={weekOffset}
+          setWeekOffset={setWeekOffset}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          calendarDots={calendarDots}
+          onOpenCalendar={() => setIsCalendarOpen(true)}
+        />
 
         <div style={{
           position: 'sticky',

@@ -1,4 +1,4 @@
-import { CalendarDays, Eye, MessageCircle, Settings, Share2 } from 'lucide-react'
+import { Eye, MessageCircle, Settings, Share2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -15,14 +15,6 @@ function getCoverUrl(coverImage) {
 function titleCase(value, fallback = 'Événement') {
   const text = (value || fallback).trim()
   return text.charAt(0).toUpperCase() + text.slice(1)
-}
-
-function normalizeStatus(status) {
-  if (status === 'yes' || status === 'going' || status === 'accepted' || status === 'confirmed') return 'yes'
-  if (status === 'no' || status === 'declined' || status === 'not_going') return 'no'
-  if (status === 'maybe' || status === 'invited' || status === 'pending') return 'maybe'
-  if (status === 'organizer' || status === 'organizing') return 'organizer'
-  return status || null
 }
 
 function getLocalDateParts(dateStr) {
@@ -82,16 +74,6 @@ function getTotalCount(stats, event) {
   return yes + maybe + no
 }
 
-function fallbackCalendar(event) {
-  if (!event?.date) return
-  const start = new Date(event.date)
-  if (Number.isNaN(start.getTime())) return
-  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
-  const format = value => value.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.name || 'Amiv')}&dates=${format(start)}/${format(end)}&location=${encodeURIComponent(event.location || '')}`
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
-
 async function fallbackShare(event) {
   const token = event?.invite_token || event?.share_token
   const url = token ? `${window.location.origin}/invite/${token}` : `${window.location.origin}/events/${event?.id}`
@@ -101,163 +83,6 @@ async function fallbackShare(event) {
   } else if (navigator.clipboard) {
     await navigator.clipboard.writeText(url)
   }
-}
-
-function RoundIconButton({ icon: Icon, label, onClick, size = 26, iconSize = 13 }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={(event) => {
-        event.stopPropagation()
-        onClick?.()
-      }}
-      style={{
-        width: size,
-        height: size,
-        flex: `0 0 ${size}px`,
-        borderRadius: size / 2,
-        background: 'var(--gray3)',
-        color: 'var(--black)',
-        display: 'grid',
-        placeItems: 'center',
-      }}
-    >
-      <Icon size={iconSize} strokeWidth={2.2} />
-    </button>
-  )
-}
-
-function Chip({ children, tone = 'gray' }) {
-  const isGreen = tone === 'green'
-  return (
-    <span style={{
-      height: 24,
-      maxWidth: '100%',
-      padding: '2px 8px',
-      borderRadius: 20,
-      background: isGreen ? 'rgba(52,199,89,0.14)' : 'var(--gray3)',
-      color: isGreen ? '#178C3B' : 'var(--gray1)',
-      fontSize: 10,
-      fontWeight: 800,
-      display: 'inline-flex',
-      alignItems: 'center',
-      whiteSpace: 'nowrap',
-      lineHeight: 1,
-    }}>
-      {children}
-    </span>
-  )
-}
-
-function CompactEventCard({ event, stats, dateParts, openEvent, openChat, onCalendar, isGoing }) {
-  const yesCount = getYesCount(stats, event)
-  const title = titleCase(event.name, 'Événement')
-  const subtitle = `${dateParts.time}${event.location ? ` · ${event.location}` : ''}`
-  return (
-    <article
-      onClick={openEvent}
-      style={{
-        height: 88,
-        borderRadius: 20,
-        background: 'var(--white)',
-        border: '0.5px solid rgba(0,0,0,0.08)',
-        boxShadow: 'var(--shadow-sm)',
-        overflow: 'hidden',
-        marginBottom: 12,
-        display: 'flex',
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{
-        width: 60,
-        flexShrink: 0,
-        background: AMIV_GRADIENT,
-        color: 'var(--white)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 0.9 }}>{dateParts.day}</div>
-        <div style={{ marginTop: 5, fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.85)' }}>
-          {dateParts.month}
-        </div>
-        <div style={{ marginTop: 3, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'capitalize' }}>
-          {dateParts.weekday}
-        </div>
-      </div>
-
-      <div style={{
-        minWidth: 0,
-        flex: 1,
-        padding: '10px 12px 8px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-      }}>
-        <div style={{ minWidth: 0, position: 'relative', paddingRight: dateParts.badge ? 90 : 0 }}>
-          <div style={{
-            color: 'var(--black)',
-            fontSize: 14,
-            fontWeight: 700,
-            lineHeight: 1.22,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {title}
-          </div>
-          <div style={{
-            marginTop: 4,
-            color: 'var(--gray1)',
-            fontSize: 11,
-            fontWeight: 600,
-            lineHeight: 1.2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {subtitle}
-          </div>
-          {dateParts.badge && (
-            <span style={{
-              position: 'absolute',
-              top: -1,
-              right: 0,
-              maxWidth: 84,
-              borderRadius: 20,
-              padding: '3px 9px',
-              background: AMIV_GRADIENT,
-              color: 'var(--white)',
-              fontSize: 11,
-              fontWeight: 800,
-              lineHeight: 1.2,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}>
-              {dateParts.badge}
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-            {isGoing && <Chip tone="green">✓ J'y serai</Chip>}
-            <Chip>{yesCount} oui</Chip>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-            <RoundIconButton icon={Eye} label="Voir" onClick={openEvent} />
-            <RoundIconButton icon={MessageCircle} label="Chat" onClick={openChat} />
-            <RoundIconButton icon={CalendarDays} label="Agenda" onClick={() => onCalendar ? onCalendar(event) : fallbackCalendar(event)} />
-          </div>
-        </div>
-      </div>
-    </article>
-  )
 }
 
 function FooterButton({ icon: Icon, label, onClick }) {
@@ -289,7 +114,7 @@ function FooterButton({ icon: Icon, label, onClick }) {
   )
 }
 
-function OrganizerEventCard({ event, stats, dateParts, openEvent, manageEvent, openChat, onShare }) {
+function OrganizerEventCard({ event, stats, dateParts, openEvent, primaryAction, primaryActionIcon: PrimaryActionIcon = Settings, primaryActionLabel = 'Gérer', openChat, onShare }) {
   const coverUrl = getCoverUrl(event.cover_image)
   const yesCount = getYesCount(stats, event)
   const maybeCount = getMaybeCount(stats, event)
@@ -429,7 +254,7 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, manageEvent, o
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-          <FooterButton icon={Settings} label="Gérer" onClick={manageEvent} />
+          <FooterButton icon={PrimaryActionIcon} label={primaryActionLabel} onClick={primaryAction} />
           <FooterButton icon={MessageCircle} label="Chat" onClick={openChat} />
           <FooterButton icon={Share2} label="Partager" onClick={() => onShare ? onShare(event) : fallbackShare(event)} />
         </div>
@@ -447,17 +272,14 @@ export default function EventCard({
   onManage,
   onChat,
   onShare,
-  onCalendar,
 }) {
   const navigate = useNavigate()
   const event = item?.event ?? eventProp ?? {}
   const currentUserId = currentUser?.id
   const fallbackOrganizer = item?.isOrganizer ?? event.isOrganizer ?? ['organizer', 'organise', 'organizing'].includes(event.role)
   const isOrganizer = currentUserId ? event.user_id === currentUserId : fallbackOrganizer
-  const status = normalizeStatus(item?.myStatus ?? event.myStatus ?? event.rsvpStatus ?? event.status)
   const stats = item?.stats ?? event.rsvpStats ?? {}
   const dateParts = getLocalDateParts(event.date)
-  const isGoing = status === 'yes'
 
   const openEvent = () => {
     if (onOpen) onOpen(event)
@@ -475,25 +297,17 @@ export default function EventCard({
     else if (event.id) navigate(`/events/${event.id}/chat`)
   }
 
-  return isOrganizer ? (
+  return (
     <OrganizerEventCard
       event={event}
       stats={stats}
       dateParts={dateParts}
       openEvent={openEvent}
-      manageEvent={manageEvent}
+      primaryAction={isOrganizer ? manageEvent : openEvent}
+      primaryActionIcon={isOrganizer ? Settings : Eye}
+      primaryActionLabel={isOrganizer ? 'Gérer' : 'Voir'}
       openChat={openChat}
       onShare={onShare}
-    />
-  ) : (
-    <CompactEventCard
-      event={event}
-      stats={stats}
-      dateParts={dateParts}
-      openEvent={openEvent}
-      openChat={openChat}
-      onCalendar={onCalendar}
-      isGoing={isGoing}
     />
   )
 }

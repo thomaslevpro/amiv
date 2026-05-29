@@ -2,7 +2,6 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import CardManage from '../components/card/CardManage'
 import CardView from '../components/card/CardView'
 
 
@@ -526,8 +525,6 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
 
   const infoRows = [
     { icon: <MapPin size={16} strokeWidth={1.5} />, label: 'Lieu', value: displayLocation || 'Lieu non précisé', badge: false },
-    { icon: null, label: 'Type', value: event.type || 'Autre', badge: true },
-    { icon: null, label: 'Visibilité', value: visibility, badge: true },
     ...(!isOrganizer && organizerName ? [{ icon: null, label: 'Organisé par', value: organizerName, badge: false }] : []),
   ]
 
@@ -908,10 +905,17 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
         </div>
 
         {/* ── DESCRIPTION ── */}
-        {displayDescription && (
-          <div style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+        {(displayDescription || isOrganizer) && (
+          <div
+            onClick={!displayDescription && isOrganizer ? handleEditOpen : undefined}
+            style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', cursor: !displayDescription && isOrganizer ? 'pointer' : 'default' }}
+          >
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>Description</div>
-            <div style={{ fontSize: 13, color: '#1C1C1E', lineHeight: 1.5 }}>{displayDescription}</div>
+            {displayDescription ? (
+              <div style={{ fontSize: 13, color: '#1C1C1E', lineHeight: 1.5 }}>{displayDescription}</div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#AEAEB2', fontStyle: 'italic' }}>Ajouter une description… ✏️</div>
+            )}
           </div>
         )}
 
@@ -1087,13 +1091,8 @@ export default function EventDetail({ event, onBack, onMessagesClick }) {
           </div>
         )}
 
-        {/* ── GROUP CARD ── */}
         {userId && isOrganizer && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
-              Carte collective
-            </div>
-            <CardManage eventId={event.id} currentUserId={userId} />
             <CardView eventId={event.id} currentUserId={userId} />
           </div>
         )}
