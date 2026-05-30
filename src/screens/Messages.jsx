@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { BellOff, Calendar as CalendarIcon, CalendarFold, ChevronLeft, Lock, MapPin, MessageCircle, Mic, MoreHorizontal, Plus, Search, Send, Trash2, X } from 'lucide-react'
+import { BellOff, Calendar as CalendarIcon, CalendarFold, ChevronLeft, EyeOff, Lock, MapPin, MessageCircle, Mic, MoreHorizontal, Plus, Search, Send, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -15,6 +15,7 @@ const GRAY2 = '#AEAEB2'
 const CARD_SHADOW = '0 2px 16px rgba(0,0,0,0.08)'
 const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif"
 const DELETE_REVEAL_WIDTH = 86
+const CHANNEL_HIDE_REVEAL_WIDTH = 72
 
 const typeEmoji = {
   Anniversaire: '🎂',
@@ -71,7 +72,7 @@ function formatEventDateTime(ts) {
   if (!ts) return 'Date à définir'
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return 'Date à définir'
-  const date = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace('.', '')
+  const date = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
   const time = `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`
   return `${date} · ${time}`
 }
@@ -172,6 +173,34 @@ function readChannelLastRead(eventId, isSecret) {
 function writeChannelLastRead(eventId, isSecret) {
   if (!eventId) return
   writeSeen(channelLastReadKey(eventId, isSecret))
+}
+
+function hiddenChannelKey(eventId, isSecret) {
+  return `hidden_channel_${eventId}_${isSecret ? 'secret' : 'general'}`
+}
+
+function readHiddenChannels() {
+  if (typeof window === 'undefined') return {}
+  const hidden = {}
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i)
+    if (key?.startsWith('hidden_channel_')) hidden[key] = true
+  }
+  return hidden
+}
+
+function isChannelHidden(hiddenChannels, eventId, isSecret) {
+  return Boolean(hiddenChannels[hiddenChannelKey(eventId, isSecret)])
+}
+
+function clearHiddenChannelStorage() {
+  if (typeof window === 'undefined') return
+  const keys = []
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i)
+    if (key?.startsWith('hidden_channel_')) keys.push(key)
+  }
+  keys.forEach(key => window.localStorage.removeItem(key))
 }
 
 function hiddenConversationsKey(userId) {
@@ -443,92 +472,191 @@ function EventAvatar({ emoji, size = 50 }) {
   )
 }
 
-function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
+function ChannelPreview({ type, message, unreadCount = 0, onClick, onHide }) {
   const isSecretChannel = type === 'secret'
   const preview = previewMessage(message?.content)
-  const secretUnread = isSecretChannel && unreadCount > 0
-  const accent = secretUnread ? '#7c5cbf' : BLACK
+  const hasUnread = unreadCount > 0
+  const [offset, setOffset] = useState(0)
+  const [transition, setTransition] = useState('none')
+  const pointerRef = useRef(null)
+  const suppressClickRef = useRef(false)
+
+  function handlePointerDown(event) {
+    pointerRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      offset,
+      active: true,
+    }
+    suppressClickRef.current = false
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  function handlePointerMove(event) {
+    const pointer = pointerRef.current
+    if (!pointer?.active) return
+    const dx = event.clientX - pointer.x
+    const dy = event.clientY - pointer.y
+    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+    if (Math.abs(dy) > Math.abs(dx) && offset === 0) return
+    const nextOffset = Math.min(0, Math.max(-CHANNEL_HIDE_REVEAL_WIDTH, pointer.offset + dx))
+    setTransition('none')
+    setOffset(nextOffset)
+    if (Math.abs(dx) > 8) suppressClickRef.current = true
+  }
+
+  function handlePointerUp(event) {
+    const pointer = pointerRef.current
+    pointerRef.current = null
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    const nextOffset = pointer
+      ? Math.min(0, Math.max(-CHANNEL_HIDE_REVEAL_WIDTH, pointer.offset + event.clientX - pointer.x))
+      : offset
+    const reachedThreshold = nextOffset <= -60
+    setTransition(reachedThreshold ? 'transform 0.2s ease-out' : 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)')
+    setOffset(reachedThreshold ? -CHANNEL_HIDE_REVEAL_WIDTH : 0)
+  }
+
+  function handleClick(event) {
+    if (suppressClickRef.current || offset < 0) {
+      event.preventDefault()
+      setTransition('transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)')
+      setOffset(0)
+      suppressClickRef.current = false
+      return
+    }
+    onClick()
+  }
+
+  function handleHide(event) {
+    event.stopPropagation()
+    setTransition('transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)')
+    setOffset(0)
+    window.setTimeout(onHide, 300)
+  }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        border: secretUnread ? '1px solid #7c5cbf44' : '1px solid rgba(28,28,30,0.07)',
-        borderRadius: 12,
-        background: secretUnread ? '#7c5cbf0d' : '#F8F8FA',
-        padding: '10px 11px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        textAlign: 'left',
-        cursor: 'pointer',
-        fontFamily: FONT,
-        position: 'relative',
-      }}
-    >
-      {isSecretChannel ? (
-        <Lock size={16} strokeWidth={2.2} color={secretUnread ? '#7c5cbf' : GRAY1} style={{ flexShrink: 0 }} />
-      ) : (
-        <MessageCircle size={16} strokeWidth={2} color={BLACK} style={{ flexShrink: 0 }} />
-      )}
-      <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{
-          display: 'block',
-          fontSize: 12,
-          fontWeight: 700,
-          color: isSecretChannel ? accent : BLACK,
-          lineHeight: 1.2,
-        }}>
-          {isSecretChannel ? 'Secret' : 'Général'}
-        </span>
-        <span style={{
-          display: 'block',
-          marginTop: 2,
-          fontSize: 11,
-          color: isSecretChannel ? (secretUnread ? '#7c5cbf' : GRAY1) : GRAY1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          lineHeight: 1.25,
-        }}>
-          {preview.text}
-        </span>
-      </span>
-      {secretUnread && (
-        <span style={{
+    <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#FF3B30' }}>
+      <button
+        type="button"
+        onClick={handleHide}
+        aria-label={`Masquer le channel ${isSecretChannel ? 'Secret' : 'Général'}`}
+        style={{
           position: 'absolute',
-          top: 8,
-          right: 8,
-          width: 7,
-          height: 7,
-          borderRadius: '50%',
-          background: '#7c5cbf',
-          boxShadow: '0 0 0 2px #fff',
-        }} />
-      )}
-    </button>
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: CHANNEL_HIDE_REVEAL_WIDTH,
+          border: 'none',
+          borderRadius: 10,
+          background: '#FF3B30',
+          color: WHITE,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 3,
+          fontSize: 11,
+          fontWeight: 750,
+          fontFamily: FONT,
+          cursor: 'pointer',
+          padding: 0,
+        }}
+      >
+        <EyeOff size={16} strokeWidth={2.2} color={WHITE} />
+        Masquer
+      </button>
+      <button
+        type="button"
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={{
+          width: '100%',
+          minWidth: 0,
+          border: isSecretChannel ? 'none' : '0.5px solid rgba(0,0,0,0.08)',
+          borderRadius: 12,
+          background: isSecretChannel ? GRADIENT : '#f5f5f7',
+          padding: '10px 11px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontFamily: FONT,
+          position: 'relative',
+          overflow: 'hidden',
+          transform: `translateX(${offset}px)`,
+          transition,
+          touchAction: 'pan-y',
+        }}
+      >
+        {isSecretChannel ? (
+          <Lock size={14} strokeWidth={2.2} color={WHITE} style={{ flexShrink: 0 }} />
+        ) : (
+          <MessageCircle size={14} strokeWidth={2} color={GRAY1} style={{ flexShrink: 0 }} />
+        )}
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span style={{
+            display: 'block',
+            fontSize: 13,
+            fontWeight: 600,
+            color: isSecretChannel ? WHITE : BLACK,
+            lineHeight: 1.2,
+          }}>
+            {isSecretChannel ? 'Secret' : 'Général'}
+          </span>
+          <span style={{
+            display: 'block',
+            marginTop: 2,
+            fontSize: 11,
+            color: isSecretChannel ? 'rgba(255,255,255,0.75)' : GRAY1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            lineHeight: 1.25,
+          }}>
+            {preview.text}
+          </span>
+        </span>
+        {hasUnread && (
+          <span style={{
+            position: 'absolute',
+            top: 7,
+            right: 7,
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: isSecretChannel ? WHITE : '#FF3B30',
+            boxShadow: isSecretChannel ? '0 0 0 2px rgba(224,85,170,0.65)' : '0 0 0 2px #f5f5f7',
+          }} />
+        )}
+      </button>
+    </div>
   )
 }
 
-function EventConversationCard({ conversation, onOpenChannel }) {
+function EventConversationCard({ conversation, hiddenChannels, onOpenChannel, onHideChannel }) {
   const event = conversation.event ?? {}
+  const hideGeneral = isChannelHidden(hiddenChannels, conversation.eventId, false)
+  const hideSecret = isChannelHidden(hiddenChannels, conversation.eventId, true)
+
+  if (hideGeneral && hideSecret) return null
 
   return (
     <div style={{
       background: WHITE,
-      borderRadius: 16,
-      boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+      borderRadius: 20,
       overflow: 'hidden',
       marginBottom: 10,
     }}>
       <div
         style={{
           width: '100%',
-          background: 'linear-gradient(135deg, #e055aa14, #f5a62314)',
-          padding: '12px 14px',
+          background: 'transparent',
+          padding: '14px 14px 12px',
           display: 'flex',
           alignItems: 'center',
           gap: 10,
@@ -546,32 +674,38 @@ function EventConversationCard({ conversation, onOpenChannel }) {
           justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <CalendarFold size={20} strokeWidth={2.2} color={WHITE} />
+          <CalendarFold size={20} strokeWidth={1.7} color={WHITE} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {conversation.title}
           </div>
           <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: GRAY1, minWidth: 0 }}>
-            <CalendarIcon size={12} strokeWidth={1.9} color={GRAY1} />
+            <CalendarIcon size={11} strokeWidth={1.9} color={GRAY1} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatEventDateTime(event.date)}</span>
           </div>
         </div>
       </div>
 
-      <div style={{ padding: '10px 14px 12px', display: 'flex', gap: 8 }}>
-        <ChannelPreview
-          type="general"
-          message={conversation.generalMessage}
-          unreadCount={conversation.generalUnreadCount || 0}
-          onClick={() => onOpenChannel(false)}
-        />
-        <ChannelPreview
-          type="secret"
-          message={conversation.secretMessage}
-          unreadCount={conversation.secretUnreadCount || 0}
-          onClick={() => onOpenChannel(true)}
-        />
+      <div style={{ padding: '0 14px 14px', display: 'flex', gap: 8 }}>
+        {!hideGeneral && (
+          <ChannelPreview
+            type="general"
+            message={conversation.generalMessage}
+            unreadCount={conversation.generalUnreadCount || 0}
+            onClick={() => onOpenChannel(false)}
+            onHide={() => onHideChannel(false)}
+          />
+        )}
+        {!hideSecret && (
+          <ChannelPreview
+            type="secret"
+            message={conversation.secretMessage}
+            unreadCount={conversation.secretUnreadCount || 0}
+            onClick={() => onOpenChannel(true)}
+            onHide={() => onHideChannel(true)}
+          />
+        )}
       </div>
     </div>
   )
@@ -784,6 +918,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [activeTab, setActiveTab] = useState('all')
   const [showNewMessage, setShowNewMessage] = useState(false)
   const [hiddenConversations, setHiddenConversations] = useState({})
+  const [hiddenChannels, setHiddenChannels] = useState(() => readHiddenChannels())
   const appOpenedAtRef = useRef(null)
   const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const { unreadByConversation, totalUnread: unreadTotal } = useUnreadCounts(userId)
@@ -801,6 +936,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (typeof window !== 'undefined' && !appOpenedAtRef.current) {
       appOpenedAtRef.current = window.localStorage.getItem('last_app_opened_at') || new Date(0).toISOString()
       window.localStorage.setItem('last_app_opened_at', new Date().toISOString())
+      setHiddenChannels(readHiddenChannels())
     }
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
@@ -1030,10 +1166,10 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     })
 
     return (eventsData ?? [])
-      .filter(ev => lastByEvent[ev.id])
       .map(ev => {
         const generalUnreadCount = generalUnreadByEvent[ev.id] || 0
         const secretUnreadCount = secretUnreadByEvent[ev.id] || 0
+        const lastMessage = lastByEvent[ev.id] || null
         return {
           id: `event-${ev.id}`,
           kind: 'event',
@@ -1041,10 +1177,10 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
           eventId: ev.id,
           title: ev.name || 'Événement',
           emoji: ev.emoji || typeEmoji[ev.type] || '🎉',
-          lastMessage: lastByEvent[ev.id],
+          lastMessage: lastMessage || { content: 'Aucun message', created_at: ev.date },
           generalMessage: generalLastByEvent[ev.id] || null,
           secretMessage: secretLastByEvent[ev.id] || null,
-          lastAt: lastByEvent[ev.id]?.created_at,
+          lastAt: lastMessage?.created_at || ev.date,
           unreadCount: generalUnreadCount + secretUnreadCount,
           generalUnreadCount,
           secretUnreadCount,
@@ -1131,7 +1267,14 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     return map
   }, [conversations, hiddenConversations])
 
-  const inboxConversations = conversations.filter(conv => !isConversationHidden(conv, hiddenConversations))
+  const inboxConversations = conversations.filter(conv => {
+    if (isConversationHidden(conv, hiddenConversations)) return false
+    if (conv.kind !== 'event') return true
+    return !(
+      isChannelHidden(hiddenChannels, conv.eventId, false) &&
+      isChannelHidden(hiddenChannels, conv.eventId, true)
+    )
+  })
 
   const visibleConversations = inboxConversations.filter(conv => {
     if (activeTab === 'events') return conv.kind === 'event'
@@ -1144,6 +1287,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     () => buildEventMessageRows(messages, userId),
     [messages, userId]
   )
+  const hasHiddenChannels = Object.keys(hiddenChannels).length > 0
 
   function hideConversation(conversation) {
     setHiddenConversations(prev => {
@@ -1161,6 +1305,18 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       writeHiddenConversations(userId, next)
       return next
     })
+  }
+
+  function hideChannel(eventId, isSecretChannel) {
+    if (!eventId || typeof window === 'undefined') return
+    const key = hiddenChannelKey(eventId, isSecretChannel)
+    window.localStorage.setItem(key, new Date().toISOString())
+    setHiddenChannels(prev => ({ ...prev, [key]: true }))
+  }
+
+  function showHiddenChannels() {
+    clearHiddenChannelStorage()
+    setHiddenChannels({})
   }
 
   async function openFriend(friend) {
@@ -1337,6 +1493,26 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
           </section>
 
           <section style={{ padding: '12px 16px 0' }}>
+            {hasHiddenChannels && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <button
+                  type="button"
+                  onClick={showHiddenChannels}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#007AFF',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    fontFamily: FONT,
+                    padding: 0,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Afficher masqués
+                </button>
+              </div>
+            )}
             {listLoading ? (
               <div>
                 <SkeletonRow />
@@ -1352,7 +1528,9 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
                     <EventConversationCard
                       key={conv.id}
                       conversation={conv}
+                      hiddenChannels={hiddenChannels}
                       onOpenChannel={secretChannel => handleConversationTap(conv, secretChannel)}
+                      onHideChannel={secretChannel => hideChannel(conv.eventId, secretChannel)}
                     />
                   ) : (
                     <ConversationRow
