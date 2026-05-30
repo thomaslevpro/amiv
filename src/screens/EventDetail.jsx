@@ -1,8 +1,10 @@
 import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon, MessageCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon, MessageCircle, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import CardView from '../components/card/CardView'
+import PlusOneRequest from '../components/PlusOneRequest'
+import PlusOneReviewList from '../components/PlusOneReviewList'
 
 
 const typeEmoji = {
@@ -70,11 +72,19 @@ function birthdayFriendInitial(friend) {
   return birthdayFriendName(friend).charAt(0).toUpperCase()
 }
 
+function readSeen(key) {
+  if (typeof window === 'undefined') return 0
+  const value = window.localStorage.getItem(key)
+  return value ? new Date(value).getTime() : 0
+}
+
 export default function EventDetail({ event, onBack, onChat, onMessagesClick }) {
   const coverInputRef = useRef(null)
   const [rsvpStatus, setRsvpStatus] = useState(null)
+  const [myRsvp, setMyRsvp] = useState(null)
   const [userId, setUserId] = useState(null)
   const [userEmail, setUserEmail] = useState(null)
+  const [currentUserName, setCurrentUserName] = useState('')
   const [loading, setLoading] = useState(false)
   const [guestRsvps, setGuestRsvps] = useState([])
   const [toast, setToast] = useState(null)
@@ -103,6 +113,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const [organizerName, setOrganizerName] = useState(null)
   const [eventGuests, setEventGuests] = useState([])
   const [isInvitedGuest, setIsInvitedGuest] = useState(false)
+  const [chatUnreadCount, setChatUnreadCount] = useState(0)
 
   const navigate = useNavigate()
 
@@ -116,25 +127,67 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     birthday_person_user_id: eventOverrides.birthday_person_user_id ?? birthdayPersonId ?? event?.birthday_person_user_id ?? null,
   }
 
-  function renderChatEntry() {
+  function renderChatBanner() {
+    const subtitle = chatUnreadCount > 0
+      ? `${chatUnreadCount} message${chatUnreadCount > 1 ? 's' : ''} non lu${chatUnreadCount > 1 ? 's' : ''}`
+      : "Aucun message pour l'instant"
+
     return (
       <div
         onClick={() => onChat?.(eventForMessages)}
         style={{
-          flex: '0 0 96px', background: '#fff', borderRadius: 16, padding: '12px 10px',
-          boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
-          flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 7, cursor: 'pointer', textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 20,
+          padding: 14,
+          marginBottom: 12,
+          background: 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          cursor: 'pointer',
         }}
       >
         <div style={{
-          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-          background: 'rgba(0,122,255,0.10)',
+          position: 'absolute',
+          right: -20,
+          top: -20,
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          background: 'rgba(255,255,255,0.10)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          flexShrink: 0,
+          background: 'rgba(255,255,255,0.20)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'relative',
+          zIndex: 1,
         }}>
-          <MessageCircle size={20} strokeWidth={1.8} color="#007AFF" />
+          <MessageCircle size={20} strokeWidth={1.8} color="#fff" />
         </div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Chat</div>
+        <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Chat de l'événement</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{subtitle}</div>
+        </div>
+        <div style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          background: 'rgba(255,255,255,0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          position: 'relative',
+          zIndex: 1,
+        }}>
+          <ChevronRight size={14} strokeWidth={2.5} color="#fff" />
+        </div>
       </div>
     )
   }
@@ -167,6 +220,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     setMyVotes({})
     setAllVoteCounts({})
     setRsvpStats({ confirmed: 0, pending: 0, declined: 0 })
+    setMyRsvp(null)
+    setCurrentUserName('')
     setParticipants([])
     setOrganizerName(null)
     setEventGuests([])
@@ -184,7 +239,12 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       const isOrg = user.id === event.user_id
 
       const [rsvpRes, optRes, guestRes, allRsvpsRes, eventInfoRes] = await Promise.all([
-        supabase.from('rsvps').select('status').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
+        supabase
+          .from('rsvps')
+          .select('id, status, plus_one_requested, plus_one_status, plus_one_name, plus_one_message')
+          .eq('event_id', event.id)
+          .eq('user_id', user.id)
+          .maybeSingle(),
         supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
         isOrg
           ? supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })
@@ -208,6 +268,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       console.log('DEBUG isInvitedGuest:', isInvitedGuest);
 
       setRsvpStatus(rsvpRes.data?.status ?? null)
+      setMyRsvp(rsvpRes.data ?? null)
 
       const guestsData = guestRes.data ?? []
       if (isOrg) setGuestRsvps(guestsData)
@@ -228,9 +289,13 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         if (profiles) profiles.forEach(p => { profileMap[p.id] = p.name })
       }
 
-      if (!isOrg && event.user_id) {
-        const { data: orgProfile } = await supabase.from('profiles').select('name').eq('id', event.user_id).maybeSingle()
-        if (!cancelled && orgProfile?.name) setOrganizerName(orgProfile.name.split(' ')[0])
+      if (event.user_id) {
+        const { data: orgProfile } = await supabase
+          .from('profiles')
+          .select('first_name, name')
+          .eq('id', event.user_id)
+          .maybeSingle()
+        if (!cancelled) setOrganizerName(orgProfile?.name || orgProfile?.first_name || 'Organisateur')
       }
 
       if (!isOrg) {
@@ -296,6 +361,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         .select('id, first_name, name, avatar_url')
         .eq('id', user.id)
         .single()
+      if (!cancelled) setCurrentUserName(selfProfile?.first_name || selfProfile?.name || user.email || '')
 
       const allPickerProfiles = [
         ...(selfProfile ? [{ ...selfProfile, first_name: `${selfProfile.first_name || selfProfile.name || 'Moi'} (moi)` }] : []),
@@ -315,6 +381,58 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     init()
     return () => { cancelled = true }
   }, [event?.id])
+
+  useEffect(() => {
+    if (!event?.id || !userId) {
+      setChatUnreadCount(0)
+      return undefined
+    }
+
+    let cancelled = false
+
+    async function fetchChatUnreadCount() {
+      const seenAt = readSeen(`last_seen_event_${event.id}`)
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, created_at, user_id')
+        .eq('event_id', event.id)
+        .eq('is_secret', false)
+        .neq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (cancelled) return
+      if (error) {
+        console.error('Erreur messages non lus événement :', error)
+        setChatUnreadCount(0)
+        return
+      }
+
+      setChatUnreadCount(
+        (data ?? []).filter(message => new Date(message.created_at).getTime() > seenAt).length
+      )
+    }
+
+    fetchChatUnreadCount()
+
+    const suffix = Math.random().toString(36).slice(2, 8)
+    const channel = supabase
+      .channel(`event-detail-chat:${event.id}:${suffix}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `event_id=eq.${event.id}` },
+        fetchChatUnreadCount
+      )
+      .subscribe()
+
+    const handleRefresh = () => fetchChatUnreadCount()
+    window.addEventListener('amiv:unread-counts-refresh', handleRefresh)
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+      window.removeEventListener('amiv:unread-counts-refresh', handleRefresh)
+    }
+  }, [event?.id, userId])
 
   async function handleRsvp(status) {
     if (!userId || loading) return
@@ -349,11 +467,14 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     }
 
     // Keep rsvps in sync
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('rsvps')
       .upsert({ event_id: event.id, user_id: userId, status }, { onConflict: 'event_id,user_id' })
+      .select('id, status, plus_one_requested, plus_one_status, plus_one_name, plus_one_message')
+      .maybeSingle()
     if (!error) {
-      setRsvpStatus(status)
+      setRsvpStatus(data?.status ?? status)
+      setMyRsvp(data ?? { ...myRsvp, status })
       showToast('Réponse enregistrée ✓')
       if (status === 'going' && event.user_id && event.user_id !== userId) {
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
@@ -535,6 +656,46 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     }
   }
 
+  function handleAddToCalendar() {
+    if (!event?.date) {
+      showToast('Date non précisée')
+      return
+    }
+
+    const start = new Date(eventOverrides.date ?? event.date)
+    if (isNaN(start)) {
+      showToast('Date non précisée')
+      return
+    }
+
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
+    const formatIcsDate = date => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+    const clean = value => String(value || '').replace(/[\\;,]/g, '\\$&').replace(/\n/g, '\\n')
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Amiv//Event//FR',
+      'BEGIN:VEVENT',
+      `UID:${event.id}@amiv.app`,
+      `DTSTAMP:${formatIcsDate(new Date())}`,
+      `DTSTART:${formatIcsDate(start)}`,
+      `DTEND:${formatIcsDate(end)}`,
+      `SUMMARY:${clean(eventOverrides.name ?? event.name)}`,
+      `DESCRIPTION:${clean(eventOverrides.description ?? event.description ?? '')}`,
+      `LOCATION:${clean(eventOverrides.location ?? event.location ?? '')}`,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n')
+
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${(eventOverrides.name ?? event.name ?? 'evenement').toLowerCase().replace(/[^a-z0-9]+/gi, '-')}.ics`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (!event) return null
 
   const isOrganizer = userId !== null && userId === event.user_id
@@ -552,8 +713,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const maxVoteCount = isPollActive ? Math.max(0, ...dateOptions.map(o => allVoteCounts[o.id] || 0)) : 0
 
   const infoRows = [
-    { icon: <MapPin size={16} strokeWidth={1.5} />, label: 'Lieu', value: displayLocation || 'Lieu non précisé', badge: false },
-    ...(!isOrganizer && organizerName ? [{ icon: null, label: 'Organisé par', value: organizerName, badge: false }] : []),
+    { icon: MapPin, label: 'Lieu', value: displayLocation || 'Lieu non précisé' },
+    { icon: User, label: 'Organisé par', value: organizerName || 'Organisateur' },
   ]
 
   const rawCoverImage = eventOverrides.cover_image !== undefined ? eventOverrides.cover_image : event.cover_image
@@ -727,7 +888,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
         {/* ── ORGANIZER SPACE ENTRY ── */}
         {isOrganizer && (
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ marginBottom: 14 }}>
             <div
               onClick={() => navigate(`/events/${event.id}/organizer-space`)}
               style={{
@@ -755,13 +916,14 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
                 <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            {renderChatEntry()}
           </div>
         )}
 
+        {renderChatBanner()}
+
         {/* ── SECRET SPACE ENTRY ── */}
         {!isOrganizer && isInvitedGuest && (
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ marginBottom: 14 }}>
             <div
               onClick={() => navigate(`/events/${event.id}/secret-space`)}
               style={{
@@ -800,7 +962,6 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
                 <path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            {renderChatEntry()}
           </div>
         )}
 
@@ -920,19 +1081,35 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── INFO CARD ── */}
-        <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 }}>
           {infoRows.map((row, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: i < infoRows.length - 1 ? '0.5px solid rgba(0,0,0,0.08)' : 'none' }}>
-              <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>{row.icon}</div>
+            <div
+              key={row.label}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '8px 0',
+                borderBottom: i === 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
+              }}
+            >
+              <div style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                background: '#F2F2F7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <row.icon size={17} strokeWidth={1.8} color="#8E8E93" />
+              </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, color: '#8E8E93', fontWeight: 500 }}>{row.label}</div>
-                {row.badge ? (
-                  <div style={{ display: 'inline-block', background: '#F2F2F7', borderRadius: 8, padding: '3px 10px', fontSize: 12, fontWeight: 600, color: '#1C1C1E', marginTop: 2 }}>
-                    {row.value}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{row.value}</div>
-                )}
+                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500 }}>{row.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', marginTop: 1 }}>
+                  {row.value}
+                </div>
               </div>
             </div>
           ))}
@@ -1125,6 +1302,10 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           </div>
         )}
 
+        {isOrganizer && (
+          <PlusOneReviewList eventId={event.id} isOrganizer={isOrganizer} />
+        )}
+
         {userId && isOrganizer && (
           <div style={{ marginBottom: 14 }}>
             <CardView eventId={event.id} currentUserId={userId} />
@@ -1201,19 +1382,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── BOTTOM ACTIONS ── */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-          <div
-            onClick={() => onMessagesClick?.(eventForMessages)}
-            style={{
-              flex: 1, background: '#fff', border: '1.5px solid #E5E5EA',
-              borderRadius: 14, padding: '14px', textAlign: 'center',
-              fontSize: 14, fontWeight: 700, color: '#1C1C1E', cursor: 'pointer',
-              boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
-            }}
-          >
-            💬 Messages
-          </div>
-          {isOrganizer && (
+        {isOrganizer && (
+          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
             <div
               onClick={() => setShowDeleteModal(true)}
               style={{
@@ -1224,36 +1394,89 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
             >
               Supprimer
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ── RSVP BUTTONS (guests only) ── */}
         {!isOrganizer && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            {[
-              { status: 'going', label: "✓ J'y serai" },
-              { status: 'maybe', label: 'Peut-être' },
-              { status: 'declined', label: '✕ Je ne peux pas' },
-            ].map(({ status, label }) => {
-              const active = rsvpStatus === status
-              return (
-                <div
-                  key={status}
-                  onClick={() => !loading && handleRsvp(status)}
-                  style={{
-                    flex: 1, padding: '13px 6px', borderRadius: 14, textAlign: 'center',
-                    fontSize: 13, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
-                    background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
-                    color: active ? '#fff' : '#8E8E93',
-                    boxShadow: active ? '0 4px 16px rgba(224,85,170,0.35)' : 'none',
-                    transition: 'all 0.15s', opacity: loading ? 0.6 : 1,
-                  }}
-                >
-                  {label}
-                </div>
-              )
-            })}
-          </div>
+          <>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1E', margin: '6px 0 10px' }}>
+              Votre réponse
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              {[
+                { status: 'going', label: "✓ J'y serai !" },
+                { status: 'maybe', label: 'Peut-être' },
+                { status: 'declined', label: 'Non' },
+              ].map(({ status, label }) => {
+                const active = rsvpStatus === status
+                return (
+                  <div
+                    key={status}
+                    onClick={() => !loading && handleRsvp(status)}
+                    style={{
+                      flex: 1,
+                      minHeight: 44,
+                      padding: '11px 8px',
+                      borderRadius: active ? 14 : 12,
+                      textAlign: 'center',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: loading ? 'default' : 'pointer',
+                      background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+                      color: active ? '#fff' : '#1C1C1E',
+                      boxShadow: 'none',
+                      transition: 'all 0.15s',
+                      opacity: loading ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {status === 'declined' && <span style={{ fontSize: 18, lineHeight: 0.8, fontWeight: 500 }}>×</span>}
+                    {label}
+                  </div>
+                )
+              })}
+            </div>
+            {myRsvp?.id && (
+              <PlusOneRequest
+                rsvpId={myRsvp.id}
+                table="rsvps"
+                currentStatus={myRsvp.plus_one_status || 'none'}
+                currentName={myRsvp.plus_one_name || ''}
+                eventId={event.id}
+                requesterName={currentUserName}
+                variant="pill"
+              />
+            )}
+            <button
+              type="button"
+              onClick={handleAddToCalendar}
+              style={{
+                width: '100%',
+                minHeight: 54,
+                borderRadius: 16,
+                border: '1.5px dashed #B5B5BC',
+                background: 'transparent',
+                color: '#1C1C1E',
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginTop: 10,
+                marginBottom: 10,
+              }}
+            >
+              <Calendar size={18} strokeWidth={1.8} color="#A8A8AF" />
+              Ajouter à mon calendrier
+            </button>
+          </>
         )}
 
       </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { BellOff, Calendar as CalendarIcon, Lock, MessageCircle, Mic, Plus, Search, Trash2, X } from 'lucide-react'
+import { BellOff, Calendar as CalendarIcon, CalendarFold, ChevronLeft, Lock, MapPin, MessageCircle, Mic, MoreHorizontal, Plus, Search, Send, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -23,15 +23,6 @@ const typeEmoji = {
   Brunch: '🥐',
   Voyage: '✈️',
   Soirée: '🎉',
-}
-
-const eventTypeBg = {
-  Anniversaire: '#FBBF9A',
-  Apéro: '#FFE3A3',
-  Dîner: '#D7C7FF',
-  Brunch: '#FDE68A',
-  Voyage: '#BDE7F0',
-  Soirée: '#F7B7C8',
 }
 
 function getInitials(name) {
@@ -81,8 +72,82 @@ function formatEventDateTime(ts) {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return 'Date à définir'
   const date = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace('.', '')
-  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const time = `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`
   return `${date} · ${time}`
+}
+
+const GROUP_INTERVAL_MS = 2 * 60 * 1000
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function isSameDay(a, b) {
+  if (!a || !b) return false
+  const da = new Date(a)
+  const db = new Date(b)
+  return startOfDay(da).getTime() === startOfDay(db).getTime()
+}
+
+function formatDateSeparator(ts) {
+  const date = new Date(ts)
+  const today = startOfDay(new Date())
+  const msgDay = startOfDay(date)
+  const diffDays = Math.round((today.getTime() - msgDay.getTime()) / 86400000)
+  if (diffDays === 0) return "Aujourd'hui"
+  if (diffDays === 1) return 'Hier'
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+}
+
+function formatEventHeaderDate(ts) {
+  if (!ts) return 'Date à définir'
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return 'Date à définir'
+  const weekday = d.toLocaleDateString('fr-FR', { weekday: 'short' })
+  const day = d.getDate()
+  const month = d.toLocaleDateString('fr-FR', { month: 'long' })
+  const h = d.getHours()
+  const m = d.getMinutes()
+  const time = m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
+  return `${weekday} ${day} ${month} · ${time}`
+}
+
+function buildEventMessageRows(messages, currentUserId) {
+  return messages.flatMap((msg, index) => {
+    const previous = messages[index - 1]
+    const next = messages[index + 1]
+    const isSystem = Boolean(msg.event)
+    const showDate = index === 0 || !isSameDay(previous?.created_at, msg.created_at)
+    const rows = []
+
+    if (showDate) {
+      rows.push({ id: `date-${msg.id}`, type: 'date', label: formatDateSeparator(msg.created_at) })
+    }
+
+    if (isSystem) {
+      rows.push({ id: msg.id, type: 'system', message: msg })
+      return rows
+    }
+
+    const prevGroupable = previous && !previous.event
+      && previous.user_id === msg.user_id
+      && Math.abs(new Date(msg.created_at) - new Date(previous.created_at)) < GROUP_INTERVAL_MS
+    const nextGroupable = next && !next.event
+      && next.user_id === msg.user_id
+      && Math.abs(new Date(next.created_at) - new Date(msg.created_at)) < GROUP_INTERVAL_MS
+
+    rows.push({
+      id: msg.id,
+      type: 'message',
+      message: msg,
+      isMine: msg.user_id === currentUserId,
+      compactTop: Boolean(prevGroupable),
+      showName: msg.user_id !== currentUserId && !prevGroupable,
+      showAvatar: msg.user_id !== currentUserId && !nextGroupable,
+    })
+
+    return rows
+  })
 }
 
 function readSeen(key) {
@@ -94,6 +159,19 @@ function readSeen(key) {
 function writeSeen(key) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(key, new Date().toISOString())
+}
+
+function channelLastReadKey(eventId, isSecret) {
+  return `lastRead_${eventId}_${isSecret}`
+}
+
+function readChannelLastRead(eventId, isSecret) {
+  return readSeen(channelLastReadKey(eventId, isSecret))
+}
+
+function writeChannelLastRead(eventId, isSecret) {
+  if (!eventId) return
+  writeSeen(channelLastReadKey(eventId, isSecret))
 }
 
 function hiddenConversationsKey(userId) {
@@ -368,7 +446,8 @@ function EventAvatar({ emoji, size = 50 }) {
 function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
   const isSecretChannel = type === 'secret'
   const preview = previewMessage(message?.content)
-  const badgeBg = isSecretChannel ? '#7F77DD' : GRADIENT
+  const secretUnread = isSecretChannel && unreadCount > 0
+  const accent = secretUnread ? '#7c5cbf' : BLACK
 
   return (
     <button
@@ -377,10 +456,10 @@ function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
       style={{
         flex: 1,
         minWidth: 0,
-        border: isSecretChannel ? '0.5px solid #AFA9EC' : '0.5px solid rgba(0,0,0,0.08)',
-        borderRadius: 10,
-        background: isSecretChannel ? '#EEEDFE' : BG,
-        padding: '9px 9px',
+        border: secretUnread ? '1px solid #7c5cbf44' : '1px solid rgba(28,28,30,0.07)',
+        borderRadius: 12,
+        background: secretUnread ? '#7c5cbf0d' : '#F8F8FA',
+        padding: '10px 11px',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
@@ -390,28 +469,17 @@ function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
         position: 'relative',
       }}
     >
-      <span style={{
-        width: 28,
-        height: 28,
-        borderRadius: 8,
-        background: isSecretChannel ? '#CECBF6' : WHITE,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}>
-        {isSecretChannel ? (
-          <Lock size={15} strokeWidth={2.2} color="#534AB7" />
-        ) : (
-          <MessageCircle size={15} strokeWidth={2} color={BLACK} />
-        )}
-      </span>
+      {isSecretChannel ? (
+        <Lock size={16} strokeWidth={2.2} color={secretUnread ? '#7c5cbf' : GRAY1} style={{ flexShrink: 0 }} />
+      ) : (
+        <MessageCircle size={16} strokeWidth={2} color={BLACK} style={{ flexShrink: 0 }} />
+      )}
       <span style={{ minWidth: 0, flex: 1 }}>
         <span style={{
           display: 'block',
           fontSize: 12,
-          fontWeight: 600,
-          color: isSecretChannel ? '#3C3489' : BLACK,
+          fontWeight: 700,
+          color: isSecretChannel ? accent : BLACK,
           lineHeight: 1.2,
         }}>
           {isSecretChannel ? 'Secret' : 'Général'}
@@ -420,7 +488,7 @@ function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
           display: 'block',
           marginTop: 2,
           fontSize: 11,
-          color: isSecretChannel ? '#534AB7' : GRAY1,
+          color: isSecretChannel ? (secretUnread ? '#7c5cbf' : GRAY1) : GRAY1,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -429,35 +497,24 @@ function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
           {preview.text}
         </span>
       </span>
-      {unreadCount > 0 && (
+      {secretUnread && (
         <span style={{
           position: 'absolute',
-          top: 7,
-          right: 7,
-          minWidth: 17,
-          height: 17,
-          padding: '0 5px',
-          borderRadius: 9,
-          background: badgeBg,
-          color: WHITE,
-          fontSize: 10,
-          fontWeight: 800,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          lineHeight: 1,
-        }}>
-          {unreadCount > 9 ? '9+' : unreadCount}
-        </span>
+          top: 8,
+          right: 8,
+          width: 7,
+          height: 7,
+          borderRadius: '50%',
+          background: '#7c5cbf',
+          boxShadow: '0 0 0 2px #fff',
+        }} />
       )}
     </button>
   )
 }
 
-function EventConversationCard({ conversation, currentUserId, onOpenChannel }) {
+function EventConversationCard({ conversation, onOpenChannel }) {
   const event = conversation.event ?? {}
-  const canUseSecret = !!event.birthday_person_user_id && !!currentUserId && currentUserId !== event.birthday_person_user_id
-  const eventBg = eventTypeBg[event.type] || '#FBBF9A'
 
   return (
     <div style={{
@@ -470,56 +527,51 @@ function EventConversationCard({ conversation, currentUserId, onOpenChannel }) {
       <div
         style={{
           width: '100%',
-          background: WHITE,
+          background: 'linear-gradient(135deg, #e055aa14, #f5a62314)',
           padding: '12px 14px',
           display: 'flex',
           alignItems: 'center',
-          gap: 11,
+          gap: 10,
           textAlign: 'left',
           fontFamily: FONT,
         }}
       >
         <div style={{
-          width: 44,
-          height: 44,
-          borderRadius: 13,
-          background: eventBg,
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          background: GRADIENT,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 21,
           flexShrink: 0,
         }}>
-          {conversation.emoji || '🎉'}
+          <CalendarFold size={20} strokeWidth={2.2} color={WHITE} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {conversation.title}
           </div>
-          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: GRAY1, minWidth: 0 }}>
-            <CalendarIcon size={13} strokeWidth={1.9} color={GRAY1} />
+          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: GRAY1, minWidth: 0 }}>
+            <CalendarIcon size={12} strokeWidth={1.9} color={GRAY1} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatEventDateTime(event.date)}</span>
           </div>
         </div>
       </div>
 
-      <div style={{ height: 0.5, background: 'rgba(0,0,0,0.08)' }} />
-
-      <div style={{ padding: '10px 14px', display: 'flex', gap: 8 }}>
+      <div style={{ padding: '10px 14px 12px', display: 'flex', gap: 8 }}>
         <ChannelPreview
           type="general"
           message={conversation.generalMessage}
           unreadCount={conversation.generalUnreadCount || 0}
           onClick={() => onOpenChannel(false)}
         />
-        {canUseSecret && (
-          <ChannelPreview
-            type="secret"
-            message={conversation.secretMessage}
-            unreadCount={conversation.secretUnreadCount || 0}
-            onClick={() => onOpenChannel(true)}
-          />
-        )}
+        <ChannelPreview
+          type="secret"
+          message={conversation.secretMessage}
+          unreadCount={conversation.secretUnreadCount || 0}
+          onClick={() => onOpenChannel(true)}
+        />
       </div>
     </div>
   )
@@ -724,6 +776,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null)
   const bottomRef = useRef(null)
 
+  const [myRsvpStatus, setMyRsvpStatus] = useState(null)
   const [conversations, setConversations] = useState([])
   const [listLoading, setListLoading] = useState(true)
   const [friends, setFriends] = useState([])
@@ -760,6 +813,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   useEffect(() => {
     if (!event?.id) return
     writeSeen(`last_seen_event_${event.id}`)
+    writeChannelLastRead(event.id, isSecret)
     const unreadIds = notifications
       .filter(n => n.type === 'message_received' && !n.read && n.data?.event_id === event.id)
       .map(n => n.id)
@@ -796,6 +850,19 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   useEffect(() => {
     if (!canUseSecretChannel && isSecret) setIsSecret(false)
   }, [canUseSecretChannel, isSecret])
+
+  useEffect(() => {
+    if (!event?.id || !userId) { setMyRsvpStatus(null); return undefined }
+    let cancelled = false
+    supabase
+      .from('rsvps')
+      .select('status')
+      .eq('event_id', event.id)
+      .eq('user_id', userId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled) setMyRsvpStatus(data?.status ?? null) })
+    return () => { cancelled = true }
+  }, [event?.id, userId])
 
   useEffect(() => {
     if (!event?.id || !userId) return undefined
@@ -916,10 +983,15 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   async function fetchEventConversations() {
-    const [{ data: rsvpRows }, { data: ownRows }] = await Promise.all([
-      supabase.from('rsvps').select('event_id').eq('user_id', userId),
+    const [rsvpResult, { data: ownRows }] = await Promise.all([
+      supabase.from('rsvps').select('event_id, last_read_at').eq('user_id', userId),
       supabase.from('events').select('id').eq('user_id', userId),
     ])
+    let rsvpRows = rsvpResult.data ?? []
+    if (rsvpResult.error) {
+      const fallback = await supabase.from('rsvps').select('event_id').eq('user_id', userId)
+      rsvpRows = fallback.data ?? []
+    }
 
     const allIds = [...new Set([
       ...(rsvpRows?.map(r => r.event_id) ?? []),
@@ -936,34 +1008,48 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     const lastByEvent = {}
     const generalLastByEvent = {}
     const secretLastByEvent = {}
-    const unreadByEvent = {}
+    const generalUnreadByEvent = {}
+    const secretUnreadByEvent = {}
+    const lastReadByEvent = Object.fromEntries((rsvpRows ?? []).map(row => [row.event_id, row.last_read_at]))
     ;(msgs ?? []).forEach(message => {
       if (!lastByEvent[message.event_id]) lastByEvent[message.event_id] = message
       if (message.is_secret && !secretLastByEvent[message.event_id]) secretLastByEvent[message.event_id] = message
       if (!message.is_secret && !generalLastByEvent[message.event_id]) generalLastByEvent[message.event_id] = message
-      const seenAt = readSeen(`last_seen_event_${message.event_id}`)
+      const dbSeenAt = lastReadByEvent[message.event_id]
+        ? new Date(lastReadByEvent[message.event_id]).getTime()
+        : 0
+      const channelSeenAt = Math.max(dbSeenAt, readChannelLastRead(message.event_id, message.is_secret))
+      const seenAt = channelSeenAt || (message.is_secret ? 0 : readSeen(`last_seen_event_${message.event_id}`))
       if (message.user_id !== userId && new Date(message.created_at).getTime() > seenAt) {
-        unreadByEvent[message.event_id] = (unreadByEvent[message.event_id] || 0) + 1
+        if (message.is_secret) {
+          secretUnreadByEvent[message.event_id] = (secretUnreadByEvent[message.event_id] || 0) + 1
+        } else {
+          generalUnreadByEvent[message.event_id] = (generalUnreadByEvent[message.event_id] || 0) + 1
+        }
       }
     })
 
     return (eventsData ?? [])
       .filter(ev => lastByEvent[ev.id])
-      .map(ev => ({
-        id: `event-${ev.id}`,
-        kind: 'event',
-        event: ev,
-        eventId: ev.id,
-        title: ev.name || 'Événement',
-        emoji: ev.emoji || typeEmoji[ev.type] || '🎉',
-        lastMessage: lastByEvent[ev.id],
-        generalMessage: generalLastByEvent[ev.id] || null,
-        secretMessage: secretLastByEvent[ev.id] || null,
-        lastAt: lastByEvent[ev.id]?.created_at,
-        unreadCount: unreadByEvent[ev.id] || 0,
-        generalUnreadCount: 0,
-        secretUnreadCount: 0,
-      }))
+      .map(ev => {
+        const generalUnreadCount = generalUnreadByEvent[ev.id] || 0
+        const secretUnreadCount = secretUnreadByEvent[ev.id] || 0
+        return {
+          id: `event-${ev.id}`,
+          kind: 'event',
+          event: ev,
+          eventId: ev.id,
+          title: ev.name || 'Événement',
+          emoji: ev.emoji || typeEmoji[ev.type] || '🎉',
+          lastMessage: lastByEvent[ev.id],
+          generalMessage: generalLastByEvent[ev.id] || null,
+          secretMessage: secretLastByEvent[ev.id] || null,
+          lastAt: lastByEvent[ev.id]?.created_at,
+          unreadCount: generalUnreadCount + secretUnreadCount,
+          generalUnreadCount,
+          secretUnreadCount,
+        }
+      })
   }
 
   async function fetchDirectConversations(friendRows = []) {
@@ -1054,6 +1140,11 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     return true
   })
 
+  const eventMessageRows = useMemo(
+    () => buildEventMessageRows(messages, userId),
+    [messages, userId]
+  )
+
   function hideConversation(conversation) {
     setHiddenConversations(prev => {
       const next = { ...prev, [conversation.id]: new Date().toISOString() }
@@ -1092,6 +1183,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   async function handleConversationTap(conv, secretChannel = false) {
     if (conv.kind === 'event') {
       writeSeen(`last_seen_event_${conv.eventId}`)
+      writeChannelLastRead(conv.eventId, secretChannel)
       const unreadIds = notifications
         .filter(n => n.type === 'message_received' && !n.read && n.data?.event_id === conv.eventId)
         .map(n => n.id)
@@ -1260,7 +1352,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
                     <EventConversationCard
                       key={conv.id}
                       conversation={conv}
-                      currentUserId={userId}
                       onOpenChannel={secretChannel => handleConversationTap(conv, secretChannel)}
                     />
                   ) : (
@@ -1292,136 +1383,224 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     )
   }
 
+  const rsvpPill = myRsvpStatus === 'going'
+    ? { label: 'Présent ✓', bg: 'rgba(52,199,89,0.22)', color: '#fff' }
+    : myRsvpStatus === 'declined'
+      ? { label: 'Décliné', bg: 'rgba(255,59,48,0.22)', color: '#fff' }
+      : null
+
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PAGE_BG, overflow: 'hidden', fontFamily: FONT }}>
-      <div style={{ padding: '10px 16px', background: WHITE, borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-        {onBack && (
-          <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', color: '#007AFF', cursor: 'pointer' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-            <span style={{ fontSize: 16 }}>Retour</span>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden', fontFamily: FONT }}>
+
+      {/* Gradient header */}
+      <div style={{
+        background: 'linear-gradient(160deg, #e055aa 0%, #f5a623 100%)',
+        flexShrink: 0,
+        paddingBottom: 14,
+      }}>
+        {/* Top row: back + more */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px 0' }}>
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Retour"
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              border: 'none', cursor: 'pointer',
+              background: 'rgba(255,255,255,0.22)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, padding: 0,
+            }}
+          >
+            <ChevronLeft size={18} color={WHITE} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            aria-label="Plus d'options"
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              border: 'none', cursor: 'pointer',
+              background: 'rgba(255,255,255,0.22)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, padding: 0,
+            }}
+          >
+            <MoreHorizontal size={18} color={WHITE} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* Emoji + name */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 16px 0' }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 14,
+            background: 'rgba(255,255,255,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, marginBottom: 8,
+          }}>
+            {event.emoji || '🎉'}
           </div>
-        )}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: onBack ? 'center' : 'flex-start', gap: 8 }}>
-          <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 18, fontWeight: 700, color: BLACK }}>
-            {event?.name ?? 'Messages'}
+          <div style={{ fontSize: 19, fontWeight: 800, color: WHITE, textAlign: 'center', lineHeight: 1.2 }}>
+            {event.name}
           </div>
-          {isSecret && (
-            <span style={{
-              flexShrink: 0,
-              borderRadius: 12,
-              background: '#EEEDFE',
-              color: '#534AB7',
-              padding: '4px 8px',
-              fontSize: 12,
-              fontWeight: 800,
-              lineHeight: 1,
+        </div>
+
+        {/* Info pills */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 16px 0' }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.22)', borderRadius: 20, padding: '5px 11px',
+            fontSize: 12, color: WHITE, fontWeight: 600,
+            display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+          }}>
+            <CalendarIcon size={12} strokeWidth={2} color={WHITE} />
+            {formatEventHeaderDate(event.date)}
+          </div>
+          {event.location && (
+            <div style={{
+              background: 'rgba(255,255,255,0.22)', borderRadius: 20, padding: '5px 11px',
+              fontSize: 12, color: WHITE, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 5,
+              maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              🔒 Secret
-            </span>
+              <MapPin size={12} strokeWidth={2} color={WHITE} />
+              {event.location}
+            </div>
+          )}
+          {rsvpPill && (
+            <div style={{
+              background: rsvpPill.bg, borderRadius: 20, padding: '5px 11px',
+              fontSize: 12, color: rsvpPill.color, fontWeight: 700, flexShrink: 0,
+            }}>
+              {rsvpPill.label}
+            </div>
           )}
         </div>
-        {onBack && <div style={{ width: 68 }} />}
+
+        {/* General / Secret channel switcher */}
+        {canUseSecretChannel && (
+          <div style={{ padding: '12px 16px 0' }}>
+            <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 16, background: 'rgba(255,255,255,0.18)' }}>
+              <button
+                type="button"
+                onClick={() => setIsSecret(false)}
+                style={{
+                  flex: 1, minHeight: 32, border: 'none', borderRadius: 13,
+                  background: !isSecret ? 'rgba(255,255,255,0.90)' : 'transparent',
+                  color: !isSecret ? BLACK : 'rgba(255,255,255,0.85)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 6, fontSize: 12, fontWeight: 800, fontFamily: FONT, cursor: 'pointer',
+                }}
+              >
+                <MessageCircle size={13} strokeWidth={2} />
+                Général
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSecret(true)}
+                style={{
+                  flex: 1, minHeight: 32, border: 'none', borderRadius: 13,
+                  background: isSecret ? 'rgba(255,255,255,0.90)' : 'transparent',
+                  color: isSecret ? '#534AB7' : 'rgba(255,255,255,0.85)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 6, fontSize: 12, fontWeight: 800, fontFamily: FONT, cursor: 'pointer',
+                }}
+              >
+                <Lock size={13} strokeWidth={2.2} />
+                Secret
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {console.log('event:', event?.birthday_person_user_id, 'user:', user?.id)}
-      {canUseSecretChannel && (
-        <div style={{ padding: '10px 16px 0', background: PAGE_BG, flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 8, padding: 3, borderRadius: 18, background: WHITE, boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
-            <button
-              type="button"
-              onClick={() => setIsSecret(false)}
-              style={{
-                flex: 1,
-                minHeight: 36,
-                border: 'none',
-                borderRadius: 15,
-                background: !isSecret ? BG : 'transparent',
-                color: BLACK,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 7,
-                fontSize: 13,
-                fontWeight: 800,
-                fontFamily: FONT,
-                cursor: 'pointer',
-              }}
-            >
-              <MessageCircle size={16} strokeWidth={2} color={BLACK} />
-              Général
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsSecret(true)}
-              style={{
-                flex: 1,
-                minHeight: 36,
-                border: 'none',
-                borderLeft: isSecret ? '3px solid #7F77DD' : '3px solid transparent',
-                borderRadius: 15,
-                background: isSecret ? '#EEEDFE' : 'transparent',
-                color: isSecret ? '#534AB7' : GRAY1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 7,
-                fontSize: 13,
-                fontWeight: 800,
-                fontFamily: FONT,
-                cursor: 'pointer',
-              }}
-            >
-              <Lock size={16} strokeWidth={2.2} color={isSecret ? '#534AB7' : GRAY1} />
-              Secret
-            </button>
-          </div>
+      {/* Secret channel notice */}
+      {isSecret && (
+        <div style={{
+          background: '#EEEDFE', color: '#534AB7',
+          padding: '9px 14px', display: 'flex', alignItems: 'center',
+          gap: 7, fontSize: 12, fontWeight: 700, flexShrink: 0,
+        }}>
+          <Lock size={14} strokeWidth={2.2} color="#534AB7" />
+          {birthdayPersonFirstName} ne peut pas voir ces messages
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {isSecret && (
-          <div style={{
-            background: '#EEEDFE',
-            color: '#534AB7',
-            borderRadius: 16,
-            padding: '11px 13px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontSize: 13,
-            fontWeight: 800,
-            marginBottom: 8,
-          }}>
-            <Lock size={16} strokeWidth={2.2} color="#534AB7" />
-            <span>{birthdayPersonFirstName} ne peut pas voir ces messages</span>
-          </div>
-        )}
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '10px 14px 14px', display: 'flex', flexDirection: 'column' }}>
         {messages.length === 0 ? (
           <div style={{ textAlign: 'center', color: GRAY1, fontSize: 14, marginTop: 40 }}>
             Aucun message pour l'instant
           </div>
         ) : (
-          messages.map((m) => {
-            const isMe = m.user_id === userId
-            const authorName = isMe ? 'Toi' : profileDisplayName(m.profile)
+          eventMessageRows.map(row => {
+            if (row.type === 'date') {
+              return (
+                <div
+                  key={row.id}
+                  style={{ textAlign: 'center', color: GRAY1, fontSize: 11, fontWeight: 600, margin: '12px 0 4px' }}
+                >
+                  {row.label}
+                </div>
+              )
+            }
+
+            if (row.type === 'system') {
+              const { message: sm } = row
+              return (
+                <div key={sm.id} style={{ display: 'flex', justifyContent: 'center', margin: '6px 0' }}>
+                  <div style={{
+                    background: 'rgba(0,122,255,0.09)', color: '#007AFF',
+                    borderRadius: 14, padding: '5px 14px',
+                    fontSize: 12, fontWeight: 600, textAlign: 'center', maxWidth: '82%',
+                  }}>
+                    {sm.content || 'Mise à jour'}
+                  </div>
+                </div>
+              )
+            }
+
+            const { message: msg, isMine, compactTop, showName, showAvatar } = row
+            const senderName = profileDisplayName(msg.profile)
+
             return (
-              <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-                {!isMe && (
-                  <div style={{ maxWidth: '72%', fontSize: 11, color: GRAY1, fontWeight: 650, marginBottom: 3, paddingLeft: 4, paddingRight: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {authorName}
+              <div
+                key={msg.id}
+                style={{
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: isMine ? 'flex-end' : 'flex-start',
+                  marginTop: compactTop ? 2 : 10,
+                }}
+              >
+                {!isMine && showName && (
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, color: GRAY1,
+                    marginBottom: 3, paddingLeft: 36,
+                  }}>
+                    {senderName}
                   </div>
                 )}
-                <div style={{
-                  maxWidth: '72%', padding: '10px 14px', fontSize: 14, lineHeight: 1.4,
-                  background: isMe ? GRADIENT : WHITE,
-                  color: isMe ? WHITE : BLACK,
-                  borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                  boxShadow: isMe ? 'none' : '0 1px 4px rgba(0,0,0,0.08)',
-                }}>
-                  {m.content}
-                </div>
-                <div style={{ fontSize: 10, color: GRAY1, marginTop: 2, paddingLeft: 4, paddingRight: 4 }}>
-                  {isMe ? `${authorName} · ` : ''}{formatTime(m.created_at)}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7, maxWidth: '78%' }}>
+                  {!isMine && (
+                    showAvatar
+                      ? <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} />
+                      : <div style={{ width: 28, flexShrink: 0 }} />
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+                    <div style={{
+                      padding: '9px 13px',
+                      borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      background: isMine ? GRADIENT : WHITE,
+                      color: isMine ? WHITE : BLACK,
+                      fontSize: 14, lineHeight: 1.4,
+                      wordBreak: 'break-word',
+                      opacity: msg.isOptimistic ? 0.7 : 1,
+                      boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)',
+                    }}>
+                      {msg.content}
+                    </div>
+                    <div style={{ fontSize: 10, color: GRAY1, marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>
+                      {formatTime(msg.created_at)}
+                    </div>
+                  </div>
                 </div>
               </div>
             )
@@ -1430,26 +1609,37 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         <div ref={bottomRef} />
       </div>
 
-      <div style={{ padding: '10px 16px 20px', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+      {/* Input bar */}
+      <div style={{
+        padding: '10px 14px 20px', background: WHITE,
+        display: 'flex', gap: 9, alignItems: 'center',
+        flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)',
+      }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
           placeholder="Message..."
           style={{
-            flex: 1, padding: '10px 14px', borderRadius: 20, background: BG,
-            fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: 'inherit',
+            flex: 1, padding: '10px 16px', borderRadius: 20, background: BG,
+            fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: FONT,
           }}
         />
-        <div onClick={send} style={{
-          width: 36, height: 36, background: GRADIENT,
-          borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2" fill="white"/>
-          </svg>
-        </div>
+        <button
+          type="button"
+          aria-label="Envoyer"
+          onClick={send}
+          style={{
+            width: 32, height: 32,
+            background: input.trim() ? GRADIENT : '#D1D1D6',
+            borderRadius: '50%', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: input.trim() ? 'pointer' : 'default',
+            transition: 'background 0.15s', flexShrink: 0, padding: 0,
+          }}
+        >
+          <Send size={14} color={WHITE} fill={WHITE} strokeWidth={2.2} />
+        </button>
       </div>
     </div>
   )

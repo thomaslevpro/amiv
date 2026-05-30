@@ -13,7 +13,7 @@ const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const AVATAR_COLORS = ['#FBBF9A', '#7c5cbf', '#4D96FF', '#FF6B9D', '#34C759', '#FFD93D']
 const FILTERS = [
   { key: 'all', label: 'Tout', types: null },
-  { key: 'events', label: 'Événements', types: ['rsvp_received', 'event_invitation'] },
+  { key: 'events', label: 'Événements', types: ['rsvp_received', 'event_invitation', 'plus_one_request', 'plus_one_response'] },
   { key: 'messages', label: 'Messages', types: ['message_received'] },
   { key: 'friends', label: 'Amis', types: ['friend_request', 'friend_accepted', 'birthday_reminder'] },
 ]
@@ -124,7 +124,7 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
   const [removing, setRemoving] = useState(false)
   const title = notification.title || 'Activité'
   const body = notification.body || ''
-  const hasEventThumb = notification.type === 'rsvp_received' || notification.type === 'message_received' || notification.type === 'event_invitation'
+  const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'plus_one_request', 'plus_one_response'].includes(notification.type)
   const friendshipId = notification.data?.friendship_id || notification.data?.request_id
 
   async function handleFriendAction(action, event) {
@@ -391,7 +391,12 @@ export default function NotificationPanel({
       onMessagesOpen?.({ id: notification.data.event_id })
       return
     }
-    if ((notification.type === 'rsvp_received' || notification.type === 'event_invitation') && notification.data?.event_id) {
+    if (notification.type === 'plus_one_request' && notification.data?.event_id) {
+      onClose?.()
+      onEventOpen?.({ id: notification.data.event_id, initialTab: 'guests' })
+      return
+    }
+    if ((notification.type === 'rsvp_received' || notification.type === 'event_invitation' || notification.type === 'plus_one_response') && notification.data?.event_id) {
       onClose?.()
       onEventOpen?.({ id: notification.data.event_id })
       return

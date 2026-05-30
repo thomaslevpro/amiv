@@ -87,7 +87,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
           birthday: nextBirthday,
         })
         .eq('id', user.id)
-        .select('id, first_name, name, email, avatar_url, created_at, birthday')
+        .select('id, first_name, name, email, avatar_url, created_at, birthday, username')
         .maybeSingle()
 
       if (updateError) throw updateError

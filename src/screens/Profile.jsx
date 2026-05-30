@@ -7,10 +7,12 @@ import {
   FileText,
   Gift,
   Key,
+  Copy,
   LogOut,
   Mail,
   MessageCircle,
   Pencil,
+  QrCode,
   Share2,
   Star,
   UserCheck,
@@ -21,6 +23,7 @@ import 'dayjs/locale/fr'
 import { supabase } from '../lib/supabase'
 import EditProfileModal from '../components/profile/EditProfileModal'
 import ChangePasswordModal from '../components/profile/ChangePasswordModal'
+import AmivQrModal from '../components/profile/AmivQrModal'
 
 dayjs.locale('fr')
 
@@ -41,7 +44,7 @@ const CARD_SHADOW = '0 1px 8px rgba(0,0,0,0.07)'
 async function fetchProfile(user) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, first_name, email, avatar_url, created_at, birthday')
+    .select('name, first_name, email, avatar_url, created_at, birthday, username')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -60,6 +63,7 @@ async function fetchProfile(user) {
     avatar_url: data?.avatar_url ?? null,
     created_at: data?.created_at ?? user.created_at ?? null,
     birthday: data?.birthday ?? null,
+    username: data?.username ?? null,
     share_token: tokenData?.share_token ?? user.id,
   }
 }
@@ -192,6 +196,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [error, setError] = useState(null)
   const [showEditProfile, setShowEditProfile] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [showQrModal, setShowQrModal] = useState(false)
   const [toastMsg, setToastMsg] = useState(null)
 
   useEffect(() => {
@@ -243,8 +248,7 @@ export default function Profile({ session, onCalendarClick }) {
   }
 
   const copyInviteLink = async () => {
-    const token = profile?.share_token ?? session?.user?.id ?? ''
-    const link = `https://amiv.app/invite/${token}`
+    const link = profile?.username ? `https://amiv.app/u/${profile.username}` : 'https://amiv.app'
     try {
       await navigator.clipboard.writeText(link)
       showToast('Lien copié ✓')
@@ -279,6 +283,7 @@ export default function Profile({ session, onCalendarClick }) {
   const birthdayStats = getBirthdayStats(profile?.birthday)
   const memberSince = profile?.created_at ? dayjs(profile.created_at).format('MMMM YYYY') : '—'
   const displayName = getDisplayName(profile)
+  const publicProfileLink = profile?.username ? `https://amiv.app/u/${profile.username}` : null
   const statsItems = [
     { label: 'Événements', value: stats.eventsCount, icon: '🎉' },
     { label: 'Amis', value: stats.friendsCount, icon: '👥' },
@@ -393,6 +398,29 @@ export default function Profile({ session, onCalendarClick }) {
           </div>
 
           <div style={{ marginBottom: 18 }}>
+            <SectionTitle>Mon lien Amiv</SectionTitle>
+            <div style={{ background: COLORS.card, borderRadius: 20, padding: 14, boxShadow: CARD_SHADOW }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: COLORS.page, borderRadius: 14, padding: '12px 13px', marginBottom: 12 }}>
+                <div style={{ flex: 1, minWidth: 0, color: COLORS.text, fontSize: 14, fontWeight: 800, overflowWrap: 'anywhere' }}>
+                  {publicProfileLink ? publicProfileLink.replace(/^https:\/\//, '') : 'Choisis ton lien dans ton profil'}
+                </div>
+                <button type="button" onClick={copyInviteLink} aria-label="Copier le lien" style={{ width: 34, height: 34, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Copy size={16} strokeWidth={2} color="#e055aa" />
+                </button>
+              </div>
+              <button
+                type="button"
+                disabled={!publicProfileLink}
+                onClick={() => setShowQrModal(true)}
+                style={{ width: '100%', minHeight: 46, borderRadius: 14, background: publicProfileLink ? COLORS.gradient : '#E5E5EA', color: publicProfileLink ? '#fff' : COLORS.secondary, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 800, cursor: publicProfileLink ? 'pointer' : 'default' }}
+              >
+                <QrCode size={17} strokeWidth={2.2} />
+                <span>Voir mon QR code</span>
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
             <SectionTitle>Notifications</SectionTitle>
             <div style={{ background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
               {notificationRows.map((row, index) => (
@@ -455,6 +483,12 @@ export default function Profile({ session, onCalendarClick }) {
       <ChangePasswordModal
         isOpen={showChangePassword}
         onClose={() => setShowChangePassword(false)}
+      />
+      <AmivQrModal
+        isOpen={showQrModal}
+        link={publicProfileLink}
+        onClose={() => setShowQrModal(false)}
+        onToast={showToast}
       />
     </div>
   )

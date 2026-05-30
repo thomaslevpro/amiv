@@ -9,7 +9,7 @@ export default function OnboardingBirthday({ userId, onNext }) {
   const [error, setError] = useState(null)
 
   const updateStep = () =>
-    supabase.from('profiles').update({ onboarding_step: 3 }).eq('id', userId)
+    supabase.from('profiles').update({ onboarding_step: 5 }).eq('id', userId)
 
   const handleSave = async () => {
     if (!name.trim() || !date) { setError('Prénom et date requis'); return }

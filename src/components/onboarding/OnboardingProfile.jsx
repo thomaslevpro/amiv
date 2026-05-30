@@ -51,7 +51,7 @@ export default function OnboardingProfile({ userId, onNext }) {
       const updates = {
         first_name: firstName.trim(),
         name: firstName.trim(),
-        onboarding_step: 2,
+        onboarding_step: 3,
       }
       if (birthday) updates.birthday = birthday
       if (avatar_url) updates.avatar_url = avatar_url

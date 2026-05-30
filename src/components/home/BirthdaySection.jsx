@@ -329,7 +329,7 @@ function CalendarSheet({ birthdays, months, today, onClose }) {
   )
 }
 
-export default function BirthdaySection({ user, onToast, onMessage }) {
+export default function BirthdaySection({ user, onToast, onMessage, refreshTrigger = 0 }) {
   const [birthdays, setBirthdays] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
@@ -446,7 +446,7 @@ export default function BirthdaySection({ user, onToast, onMessage }) {
 
   useEffect(() => {
     fetchBirthdays()
-  }, [user?.id])
+  }, [user?.id, refreshTrigger])
 
   const filteredBirthdays = useMemo(() => {
     if (activeFilter === 'all') return birthdays

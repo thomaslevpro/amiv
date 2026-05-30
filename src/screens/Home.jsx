@@ -358,6 +358,7 @@ export default function Home({
   onCalendarClick,
   onTrendingClick,
   session,
+  birthdayRefreshTrigger = 0,
 }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -708,7 +709,7 @@ export default function Home({
           </>
         )}
 
-        <BirthdaySection user={session?.user} onToast={showToast} onMessage={onMessagesClick} />
+        <BirthdaySection user={session?.user} onToast={showToast} onMessage={onMessagesClick} refreshTrigger={birthdayRefreshTrigger} />
 
         {pendingRequests.length > 0 && (
           <>

@@ -16,6 +16,7 @@ import Create from './screens/Create'
 import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
 import Profile from './screens/Profile'
+import PublicUserProfile from './screens/PublicUserProfile'
 import EditProfile from './screens/EditProfile'
 import GuestRsvpPage from './screens/GuestRsvpPage'
 import AllEvents from './screens/AllEvents'
@@ -23,6 +24,7 @@ import ConversationScreen from './screens/ConversationScreen'
 import SecretSpacePage from './pages/SecretSpacePage'
 import OrganizerSpacePage from './pages/OrganizerSpacePage'
 import EventPage from './pages/EventPage'
+import UsernamePrompt from './components/UsernamePrompt'
 
 export default function App() {
   return (
@@ -32,6 +34,7 @@ export default function App() {
         <Route path="/events/:id/manage" element={<OrganizerSpacePage />} />
         <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
         <Route path="/events/:id" element={<EventPage />} />
+        <Route path="/u/:username" element={<PublicUserProfile />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>
@@ -41,16 +44,19 @@ export default function App() {
 function MainApp() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
+  const authPath = window.location.pathname === '/login' || window.location.pathname === '/register'
 
-  const [hasOnboarded, setHasOnboarded] = useState(false)
-  const [authInitLogin, setAuthInitLogin] = useState(false)
+  const [hasOnboarded, setHasOnboarded] = useState(authPath)
+  const [authInitLogin, setAuthInitLogin] = useState(window.location.pathname === '/login')
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(null)
+  const [hasUsername, setHasUsername] = useState(null)
   const [tab, setTab] = useState('home')
   const [screen, setScreen] = useState('home')
   const [showCreateSheet, setShowCreateSheet] = useState(false)
   const [showAddAmiv, setShowAddAmiv] = useState(false)
+  const [birthdayRefreshTrigger, setBirthdayRefreshTrigger] = useState(0)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [conversationEvent, setConversationEvent] = useState(null)
   const [directConv, setDirectConv] = useState(null)
@@ -73,8 +79,14 @@ function MainApp() {
       setSession(session)
       if (!session) {
         setOnboardingCompleted(null)
+        setHasUsername(null)
       } else if (_event === 'SIGNED_IN') {
         const path = window.location.pathname
+        const redirect = new URLSearchParams(window.location.search).get('redirect')
+        if (redirect?.startsWith('/') && !redirect.startsWith('//')) {
+          window.history.replaceState(null, '', redirect)
+          return
+        }
         if (path !== '/' && !path.startsWith('/invite/') && !path.startsWith('/events/')) {
           window.history.replaceState(null, '', '/')
         }
@@ -87,11 +99,12 @@ function MainApp() {
     if (!session || onboardingCompleted !== null) return
     supabase
       .from('profiles')
-      .select('onboarding_completed')
+      .select('onboarding_completed, username')
       .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data }) => {
         setOnboardingCompleted(data?.onboarding_completed === true)
+        setHasUsername(!!data?.username)
       })
   }, [session, onboardingCompleted])
 
@@ -110,7 +123,7 @@ function MainApp() {
     })
   }, [session])
 
-  const isLoading = loading || (!!session && onboardingCompleted === null)
+  const isLoading = loading || (!!session && (onboardingCompleted === null || hasUsername === null))
 
   if (isLoading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
@@ -120,7 +133,8 @@ function MainApp() {
 
   if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
   if (!session) return <Auth initialIsLogin={authInitLogin} />
-  if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => setOnboardingCompleted(true)} />
+  if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => { setOnboardingCompleted(true); setHasUsername(true) }} />
+  if (!hasUsername) return <UsernamePrompt session={session} onComplete={() => setHasUsername(true)} />
 
   const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
   const handleTabChange = (newTab) => {
@@ -168,7 +182,7 @@ function MainApp() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={unreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={unreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
@@ -213,7 +227,7 @@ function MainApp() {
       {showAddAmiv && (
         <AddAmivModal
           onClose={() => setShowAddAmiv(false)}
-          onSaved={() => setShowAddAmiv(false)}
+          onSaved={() => { setShowAddAmiv(false); setBirthdayRefreshTrigger(t => t + 1) }}
         />
       )}
     </div>
