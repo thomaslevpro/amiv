@@ -390,7 +390,7 @@ export default function Home({
     const eventIds = rsvps.map(r => r.event_id)
     const { data: eventsData, error: eventsError } = await supabase
       .from('events')
-      .select('id, name, date')
+      .select('id, name, date, birthday_person_user_id')
       .in('id', eventIds)
     if (eventsError) { console.error('Erreur invitations (events):', eventsError); return }
 
@@ -431,14 +431,14 @@ export default function Home({
       const [organizedRes, invitationsRes] = await Promise.all([
         supabase
           .from('events')
-          .select('id, name, date, location, user_id, cover_image')
+          .select('id, name, date, location, user_id, cover_image, birthday_person_user_id')
           .eq('user_id', userId)
           .gte('date', now)
           .order('date', { ascending: true })
           .limit(5),
         supabase
           .from('invitations')
-          .select('status, events(id, name, date, location, user_id, cover_image)')
+          .select('status, events(id, name, date, location, user_id, cover_image, birthday_person_user_id)')
           .eq('invited_user_id', userId)
           .neq('status', 'declined')
       ])

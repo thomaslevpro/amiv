@@ -380,7 +380,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
       return
     }
 
-    const eventSelect = 'id, name, emoji, date, location, type, visibility, user_id, invite_token, cover_image'
+    const eventSelect = 'id, name, emoji, date, location, type, visibility, user_id, invite_token, cover_image, birthday_person_user_id'
     const [organizedRes, guestRes] = await Promise.all([
       supabase.from('events').select(eventSelect).eq('user_id', user.id).order('date', { ascending: true }),
       supabase

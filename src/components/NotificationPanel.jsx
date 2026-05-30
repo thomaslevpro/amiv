@@ -56,7 +56,7 @@ async function enrichNotification(notification) {
   const senderId = notification?.data?.sender_id
   const [eventRes, senderRes] = await Promise.all([
     eventId
-      ? supabase.from('events').select('id, name, emoji').eq('id', eventId).maybeSingle()
+      ? supabase.from('events').select('id, name, emoji, birthday_person_user_id').eq('id', eventId).maybeSingle()
       : Promise.resolve({ data: null }),
     senderId
       ? supabase.from('profiles').select('id, first_name, name, avatar_url').eq('id', senderId).maybeSingle()
@@ -301,7 +301,7 @@ export default function NotificationPanel({
     const senderIds = [...new Set(rows.map(n => n.data?.sender_id).filter(Boolean))]
     const [{ data: events }, { data: senders }] = await Promise.all([
       eventIds.length
-        ? supabase.from('events').select('id, name, emoji').in('id', eventIds)
+        ? supabase.from('events').select('id, name, emoji, birthday_person_user_id').in('id', eventIds)
         : Promise.resolve({ data: [] }),
       senderIds.length
         ? supabase.from('profiles').select('id, first_name, name, avatar_url').in('id', senderIds)

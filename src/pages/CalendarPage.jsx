@@ -391,11 +391,11 @@ export default function CalendarPage({ navigate = () => {} }) {
         }),
         supabase
           .from('rsvps')
-          .select('status, events!inner(id, name, date, user_id, location, type, cover_image, profiles!user_id(full_name))')
+          .select('status, events!inner(id, name, date, user_id, location, type, cover_image, birthday_person_user_id, profiles!user_id(full_name))')
           .eq('user_id', user.id),
         supabase
           .from('events')
-          .select('id, name, date, user_id, location, type, cover_image, profiles!user_id(full_name)')
+          .select('id, name, date, user_id, location, type, cover_image, birthday_person_user_id, profiles!user_id(full_name)')
           .eq('user_id', user.id)
           .gte('date', today)
           .lte('date', ninetyDaysLater)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { BellOff, MessageCircle, Mic, PenLine, Search, Trash2, X } from 'lucide-react'
+import { BellOff, Calendar as CalendarIcon, Lock, MessageCircle, Mic, Plus, Search, Trash2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -23,6 +23,15 @@ const typeEmoji = {
   Brunch: '🥐',
   Voyage: '✈️',
   Soirée: '🎉',
+}
+
+const eventTypeBg = {
+  Anniversaire: '#FBBF9A',
+  Apéro: '#FFE3A3',
+  Dîner: '#D7C7FF',
+  Brunch: '#FDE68A',
+  Voyage: '#BDE7F0',
+  Soirée: '#F7B7C8',
 }
 
 function getInitials(name) {
@@ -57,11 +66,23 @@ function formatConvTime(ts) {
   const d = new Date(ts)
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
   const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
   if (msgDay.getTime() === today.getTime()) {
     return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   }
+  if (msgDay.getTime() === yesterday.getTime()) return 'Hier'
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace('.', '')
+}
+
+function formatEventDateTime(ts) {
+  if (!ts) return 'Date à définir'
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return 'Date à définir'
+  const date = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace('.', '')
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return `${date} · ${time}`
 }
 
 function readSeen(key) {
@@ -109,6 +130,16 @@ async function fetchProfilesByIds(ids) {
     .in('id', ids)
 
   return data ?? []
+}
+
+async function enrichMessagesWithProfiles(rows = []) {
+  const userIds = [...new Set(rows.map(message => message.user_id).filter(Boolean))]
+  const profiles = await fetchProfilesByIds(userIds)
+  const profilesById = Object.fromEntries(profiles.map(profile => [profile.id, profile]))
+  return rows.map(message => ({
+    ...message,
+    profile: message.profiles ?? profilesById[message.user_id] ?? null,
+  }))
 }
 
 function parseVoice(content) {
@@ -174,16 +205,15 @@ function IconButton({ children, gradient = false, label, onClick }) {
 
 function SkeletonRow({ isLast }) {
   return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: 12 }}>
-        <div style={{ width: 50, height: 50, borderRadius: '50%', background: BG, flexShrink: 0 }} />
+    <div style={{ background: WHITE, borderRadius: 20, boxShadow: CARD_SHADOW, marginBottom: isLast ? 0 : 10, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '12px 18px', gap: 14, minHeight: 82 }}>
+        <div style={{ width: 56, height: 56, borderRadius: '50%', background: BG, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ width: '55%', height: 14, borderRadius: 7, background: BG, marginBottom: 8 }} />
-          <div style={{ width: '80%', height: 12, borderRadius: 6, background: BG }} />
+          <div style={{ width: '55%', height: 16, borderRadius: 8, background: BG, marginBottom: 8 }} />
+          <div style={{ width: '80%', height: 13, borderRadius: 7, background: BG }} />
         </div>
       </div>
-      {!isLast && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
-    </>
+    </div>
   )
 }
 
@@ -317,20 +347,180 @@ function NewMessageSheet({ friends, loading, onClose, onSelectFriend }) {
   )
 }
 
-function EventAvatar({ emoji }) {
+function EventAvatar({ emoji, size = 50 }) {
   return (
     <div style={{
-      width: 50,
-      height: 50,
-      borderRadius: 16,
+      width: size,
+      height: size,
+      borderRadius: 18,
       background: 'linear-gradient(135deg, rgba(224,85,170,0.10), rgba(245,166,35,0.10))',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontSize: 22,
+      fontSize: size > 52 ? 24 : 22,
       flexShrink: 0,
     }}>
       {emoji || '🎉'}
+    </div>
+  )
+}
+
+function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
+  const isSecretChannel = type === 'secret'
+  const preview = previewMessage(message?.content)
+  const badgeBg = isSecretChannel ? '#7F77DD' : GRADIENT
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        border: isSecretChannel ? '0.5px solid #AFA9EC' : '0.5px solid rgba(0,0,0,0.08)',
+        borderRadius: 10,
+        background: isSecretChannel ? '#EEEDFE' : BG,
+        padding: '9px 9px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        textAlign: 'left',
+        cursor: 'pointer',
+        fontFamily: FONT,
+        position: 'relative',
+      }}
+    >
+      <span style={{
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        background: isSecretChannel ? '#CECBF6' : WHITE,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        {isSecretChannel ? (
+          <Lock size={15} strokeWidth={2.2} color="#534AB7" />
+        ) : (
+          <MessageCircle size={15} strokeWidth={2} color={BLACK} />
+        )}
+      </span>
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{
+          display: 'block',
+          fontSize: 12,
+          fontWeight: 600,
+          color: isSecretChannel ? '#3C3489' : BLACK,
+          lineHeight: 1.2,
+        }}>
+          {isSecretChannel ? 'Secret' : 'Général'}
+        </span>
+        <span style={{
+          display: 'block',
+          marginTop: 2,
+          fontSize: 11,
+          color: isSecretChannel ? '#534AB7' : GRAY1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          lineHeight: 1.25,
+        }}>
+          {preview.text}
+        </span>
+      </span>
+      {unreadCount > 0 && (
+        <span style={{
+          position: 'absolute',
+          top: 7,
+          right: 7,
+          minWidth: 17,
+          height: 17,
+          padding: '0 5px',
+          borderRadius: 9,
+          background: badgeBg,
+          color: WHITE,
+          fontSize: 10,
+          fontWeight: 800,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: 1,
+        }}>
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+      )}
+    </button>
+  )
+}
+
+function EventConversationCard({ conversation, currentUserId, onOpenChannel }) {
+  const event = conversation.event ?? {}
+  const canUseSecret = !!event.birthday_person_user_id && !!currentUserId && currentUserId !== event.birthday_person_user_id
+  const eventBg = eventTypeBg[event.type] || '#FBBF9A'
+
+  return (
+    <div style={{
+      background: WHITE,
+      borderRadius: 16,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+      overflow: 'hidden',
+      marginBottom: 10,
+    }}>
+      <div
+        style={{
+          width: '100%',
+          background: WHITE,
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 11,
+          textAlign: 'left',
+          fontFamily: FONT,
+        }}
+      >
+        <div style={{
+          width: 44,
+          height: 44,
+          borderRadius: 13,
+          background: eventBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 21,
+          flexShrink: 0,
+        }}>
+          {conversation.emoji || '🎉'}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {conversation.title}
+          </div>
+          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: GRAY1, minWidth: 0 }}>
+            <CalendarIcon size={13} strokeWidth={1.9} color={GRAY1} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatEventDateTime(event.date)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ height: 0.5, background: 'rgba(0,0,0,0.08)' }} />
+
+      <div style={{ padding: '10px 14px', display: 'flex', gap: 8 }}>
+        <ChannelPreview
+          type="general"
+          message={conversation.generalMessage}
+          unreadCount={conversation.generalUnreadCount || 0}
+          onClick={() => onOpenChannel(false)}
+        />
+        {canUseSecret && (
+          <ChannelPreview
+            type="secret"
+            message={conversation.secretMessage}
+            unreadCount={conversation.secretUnreadCount || 0}
+            onClick={() => onOpenChannel(true)}
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -391,7 +581,14 @@ function ConversationRow({ conversation, isLast, onClick, onDelete }) {
   }
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', background: '#FF3B30' }}>
+    <div style={{
+      position: 'relative',
+      overflow: 'hidden',
+      background: '#FF3B30',
+      borderRadius: 20,
+      boxShadow: CARD_SHADOW,
+      marginBottom: 10,
+    }}>
       <button
         type="button"
         aria-label={`Supprimer ${conversation.title}`}
@@ -400,7 +597,7 @@ function ConversationRow({ conversation, isLast, onClick, onDelete }) {
           position: 'absolute',
           top: 0,
           right: 0,
-          bottom: isLast ? 0 : 0.5,
+          bottom: 0,
           width: DELETE_REVEAL_WIDTH,
           border: 'none',
           background: '#FF3B30',
@@ -430,6 +627,7 @@ function ConversationRow({ conversation, isLast, onClick, onDelete }) {
           transition: dragging ? 'none' : 'transform 0.18s ease',
           touchAction: 'pan-y',
           background: WHITE,
+          borderRadius: 20,
         }}
       >
         <button
@@ -439,38 +637,40 @@ function ConversationRow({ conversation, isLast, onClick, onDelete }) {
             width: '100%',
             border: 'none',
             background: WHITE,
-            padding: '12px 16px',
+            padding: '12px 18px',
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
+            gap: 14,
             textAlign: 'left',
             cursor: 'pointer',
             fontFamily: FONT,
+            borderRadius: 20,
+            minHeight: 82,
           }}
         >
           <div style={{ position: 'relative', flexShrink: 0 }}>
             {conversation.kind === 'event' ? (
-              <EventAvatar emoji={conversation.emoji} />
+              <EventAvatar emoji={conversation.emoji} size={56} />
             ) : (
-              <Avatar name={conversation.title} url={conversation.avatarUrl} />
+              <Avatar name={conversation.title} url={conversation.avatarUrl} size={56} />
             )}
             {unread && (
               <div style={{
                 position: 'absolute',
-                top: -2,
-                right: -2,
-                minWidth: 18,
-                height: 18,
-                padding: '0 5px',
-                borderRadius: 9,
+                top: -4,
+                right: -4,
+                minWidth: 22,
+                height: 22,
+                padding: '0 6px',
+                borderRadius: 11,
                 background: GRADIENT,
                 border: `2px solid ${WHITE}`,
                 color: WHITE,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 10,
-                fontWeight: 700,
+                fontSize: 12,
+                fontWeight: 800,
                 lineHeight: 1,
               }}>
                 {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
@@ -479,12 +679,12 @@ function ConversationRow({ conversation, isLast, onClick, onDelete }) {
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <div style={{
                 flex: 1,
                 minWidth: 0,
-                fontSize: 15,
-                fontWeight: unread ? 700 : 600,
+                fontSize: 17,
+                fontWeight: 800,
                 color: BLACK,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -493,25 +693,24 @@ function ConversationRow({ conversation, isLast, onClick, onDelete }) {
                 {conversation.title}
               </div>
               {conversation.isMuted && <BellOff size={14} strokeWidth={1.8} color={GRAY2} />}
-              <div style={{ fontSize: 11, color: GRAY2, flexShrink: 0 }}>{formatConvTime(conversation.lastAt)}</div>
+              <div style={{ fontSize: 14, color: GRAY2, flexShrink: 0 }}>{formatConvTime(conversation.lastAt)}</div>
             </div>
             <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: 5,
-              fontSize: 13,
+              fontSize: 15,
               color: unread ? BLACK : GRAY1,
-              fontWeight: unread ? 500 : 400,
+              fontWeight: unread ? 800 : 400,
               minWidth: 0,
             }}>
-              {preview.voice && <Mic size={13} strokeWidth={2} color={unread ? BLACK : GRAY1} />}
+              {preview.voice && <Mic size={16} strokeWidth={2} color={unread ? BLACK : GRAY1} />}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {preview.text}
               </span>
             </div>
           </div>
         </button>
-        {!isLast && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
       </div>
     </div>
   )
@@ -521,6 +720,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [userId, setUserId] = useState(null)
+  const [isSecret, setIsSecret] = useState(false)
+  const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null)
   const bottomRef = useRef(null)
 
   const [conversations, setConversations] = useState([])
@@ -533,6 +734,15 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const appOpenedAtRef = useRef(null)
   const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const { unreadByConversation, totalUnread: unreadTotal } = useUnreadCounts(userId)
+  const user = userId ? { id: userId } : null
+  const canUseSecretChannel = !!event?.birthday_person_user_id && !!userId && userId !== event.birthday_person_user_id
+  const birthdayPersonFirstName =
+    event?.birthdayFirstName ||
+    event?.birthday_person?.first_name ||
+    event?.birthdayPerson?.first_name ||
+    birthdayPersonProfile?.first_name ||
+    (birthdayPersonProfile?.name ? firstName(birthdayPersonProfile.name) : null) ||
+    'La personne fêtée'
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !appOpenedAtRef.current) {
@@ -555,32 +765,77 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       .map(n => n.id)
     unreadIds.forEach(id => markAsRead?.(id))
     fetchMessages()
-  }, [event?.id])
+  }, [event?.id, isSecret])
+
+  useEffect(() => {
+    if (!event?.id) return
+    setIsSecret(event.initialIsSecret === true)
+    setBirthdayPersonProfile(null)
+  }, [event?.id, event?.initialIsSecret])
+
+  useEffect(() => {
+    if (!event?.birthday_person_user_id) {
+      setBirthdayPersonProfile(null)
+      return
+    }
+    if (event?.birthdayFirstName || event?.birthday_person?.first_name || event?.birthdayPerson?.first_name) return
+
+    let cancelled = false
+    supabase
+      .from('profiles')
+      .select('id, name, first_name')
+      .eq('id', event.birthday_person_user_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setBirthdayPersonProfile(data ?? null)
+      })
+
+    return () => { cancelled = true }
+  }, [event?.birthday_person_user_id, event?.birthdayFirstName, event?.birthday_person?.first_name, event?.birthdayPerson?.first_name])
+
+  useEffect(() => {
+    if (!canUseSecretChannel && isSecret) setIsSecret(false)
+  }, [canUseSecretChannel, isSecret])
 
   useEffect(() => {
     if (!event?.id || !userId) return undefined
 
     const suffix = Math.random().toString(36).slice(2, 8)
     const channel = supabase
-      .channel(`messages:${event.id}:${suffix}`)
+      .channel(`messages:${event.id}:${isSecret ? 'secret' : 'general'}:${suffix}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `event_id=eq.${event.id}`,
+          filter: `is_secret=eq.${isSecret}`,
         },
         async (payload) => {
-          const { data } = await supabase
+          if (payload.new.event_id !== event.id) return
+          const { data, error } = await supabase
             .from('messages')
-            .select('*, profiles!messages_user_id_fkey(name, first_name, avatar_url)')
+            .select('*, profiles(id, name, first_name, avatar_url)')
             .eq('id', payload.new.id)
+            .eq('is_secret', isSecret)
             .single()
 
-          if (!data) return
+          let message = null
+          if (error) {
+            const fallback = await supabase
+              .from('messages')
+              .select('*')
+              .eq('id', payload.new.id)
+              .eq('is_secret', isSecret)
+              .single()
+            if (!fallback.data) return
+            const enriched = await enrichMessagesWithProfiles([fallback.data])
+            message = enriched[0]
+          } else {
+            message = { ...data, profile: data.profiles ?? null }
+          }
+          if (!message) return
 
-          const message = { ...data, profile: data.profiles ?? null }
           setMessages(prev => {
             if (prev.find(m => m.id === message.id)) return prev
             const withoutOptimistic = prev.filter(m => !(m.isOptimistic && m.user_id === message.user_id && m.content === message.content))
@@ -591,7 +846,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [event?.id, userId])
+  }, [event?.id, userId, isSecret])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -635,14 +890,29 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   async function fetchMessages() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('messages')
-      .select('*, profiles!messages_user_id_fkey(id, name, first_name, avatar_url)')
+      .select('*, profiles(id, name, first_name, avatar_url)')
       .eq('event_id', event.id)
+      .eq('is_secret', isSecret)
       .order('created_at', { ascending: true })
+    if (error) {
+      const fallback = await supabase
+        .from('messages')
+        .select('*')
+        .eq('event_id', event.id)
+        .eq('is_secret', isSecret)
+        .order('created_at', { ascending: true })
+      if (fallback.error || !fallback.data) {
+        console.error('[Messages] fetch messages error:', error, fallback.error)
+        return
+      }
+      setMessages(await enrichMessagesWithProfiles(fallback.data))
+      return
+    }
     if (!data) return
 
-    setMessages(data.map(message => ({ ...message, profile: message.profiles ?? null })))
+    setMessages(await enrichMessagesWithProfiles(data))
   }
 
   async function fetchEventConversations() {
@@ -659,14 +929,18 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (!allIds.length) return []
 
     const [{ data: eventsData }, { data: msgs }] = await Promise.all([
-      supabase.from('events').select('id, name, emoji, type, date').in('id', allIds),
-      supabase.from('messages').select('id, event_id, content, created_at, user_id').in('event_id', allIds).order('created_at', { ascending: false }).limit(500),
+      supabase.from('events').select('id, name, emoji, type, date, birthday_person_user_id').in('id', allIds),
+      supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500),
     ])
 
     const lastByEvent = {}
+    const generalLastByEvent = {}
+    const secretLastByEvent = {}
     const unreadByEvent = {}
     ;(msgs ?? []).forEach(message => {
       if (!lastByEvent[message.event_id]) lastByEvent[message.event_id] = message
+      if (message.is_secret && !secretLastByEvent[message.event_id]) secretLastByEvent[message.event_id] = message
+      if (!message.is_secret && !generalLastByEvent[message.event_id]) generalLastByEvent[message.event_id] = message
       const seenAt = readSeen(`last_seen_event_${message.event_id}`)
       if (message.user_id !== userId && new Date(message.created_at).getTime() > seenAt) {
         unreadByEvent[message.event_id] = (unreadByEvent[message.event_id] || 0) + 1
@@ -683,8 +957,12 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         title: ev.name || 'Événement',
         emoji: ev.emoji || typeEmoji[ev.type] || '🎉',
         lastMessage: lastByEvent[ev.id],
+        generalMessage: generalLastByEvent[ev.id] || null,
+        secretMessage: secretLastByEvent[ev.id] || null,
         lastAt: lastByEvent[ev.id]?.created_at,
         unreadCount: unreadByEvent[ev.id] || 0,
+        generalUnreadCount: 0,
+        secretUnreadCount: 0,
       }))
   }
 
@@ -811,14 +1089,14 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (!friendsLoading) setShowNewMessage(true)
   }
 
-  async function handleConversationTap(conv) {
+  async function handleConversationTap(conv, secretChannel = false) {
     if (conv.kind === 'event') {
       writeSeen(`last_seen_event_${conv.eventId}`)
       const unreadIds = notifications
         .filter(n => n.type === 'message_received' && !n.read && n.data?.event_id === conv.eventId)
         .map(n => n.id)
       for (const id of unreadIds) markAsRead?.(id)
-      onEventOpen?.(conv.event)
+      onEventOpen?.({ ...conv.event, initialIsSecret: secretChannel })
       return
     }
     writeSeen(`last_seen_dm_${conv.conversationId}`)
@@ -839,16 +1117,18 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       content,
       created_at: new Date().toISOString(),
       profile: null,
+      is_secret: isSecret,
       isOptimistic: true,
     }
     setInput('')
     setMessages(prev => [...prev, optimistic])
-    const { error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content })
+    const { error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content, is_secret: isSecret })
     if (error) {
       setMessages(prev => prev.filter(message => message.id !== optimistic.id))
       console.log('Erreur Supabase:', JSON.stringify(error))
       return
     }
+    if (isSecret) return
     const { error: notifErr } = await supabase.rpc('notify_message_recipients', {
       p_event_id:  event.id,
       p_sender_id: userId,
@@ -885,7 +1165,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <IconButton label="Rechercher"><Search size={17} strokeWidth={2.2} color={BLACK} /></IconButton>
-              <IconButton label="Composer" gradient onClick={openNewMessage}><PenLine size={16} strokeWidth={2.2} color={WHITE} /></IconButton>
+              <IconButton label="Composer" gradient onClick={openNewMessage}><Plus size={22} strokeWidth={2} color={WHITE} /></IconButton>
             </div>
           </div>
         </div>
@@ -966,7 +1246,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
 
           <section style={{ padding: '12px 16px 0' }}>
             {listLoading ? (
-              <div style={{ background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+              <div>
                 <SkeletonRow />
                 <SkeletonRow />
                 <SkeletonRow isLast />
@@ -974,21 +1254,27 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
             ) : visibleConversations.length === 0 ? (
               <EmptyState activeTab={activeTab} onNewMessage={openNewMessage} />
             ) : (
-              <div style={{ background: WHITE, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+              <div>
                 {visibleConversations.map((conv, index) => (
-                  <ConversationRow
-                    key={conv.id}
-                    conversation={{
-                      ...conv,
-                      unreadCount:
-                        conv.kind === 'direct'
-                          ? (unreadByConversation.get(conv.conversationId) ?? 0)
-                          : conv.unreadCount,
-                    }}
-                    isLast={index === visibleConversations.length - 1}
-                    onClick={() => handleConversationTap(conv)}
-                    onDelete={() => hideConversation(conv)}
-                  />
+                  conv.kind === 'event' ? (
+                    <EventConversationCard
+                      key={conv.id}
+                      conversation={conv}
+                      currentUserId={userId}
+                      onOpenChannel={secretChannel => handleConversationTap(conv, secretChannel)}
+                    />
+                  ) : (
+                    <ConversationRow
+                      key={conv.id}
+                      conversation={{
+                        ...conv,
+                        unreadCount: unreadByConversation.get(conv.conversationId) ?? 0,
+                      }}
+                      isLast={index === visibleConversations.length - 1}
+                      onClick={() => handleConversationTap(conv)}
+                      onDelete={() => hideConversation(conv)}
+                    />
+                  )
                 ))}
               </div>
             )}
@@ -1015,11 +1301,101 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
             <span style={{ fontSize: 16 }}>Retour</span>
           </div>
         )}
-        <div style={{ flex: 1, textAlign: onBack ? 'center' : 'left', fontSize: 18, fontWeight: 700, color: BLACK }}>{event?.name ?? 'Messages'}</div>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: onBack ? 'center' : 'flex-start', gap: 8 }}>
+          <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 18, fontWeight: 700, color: BLACK }}>
+            {event?.name ?? 'Messages'}
+          </div>
+          {isSecret && (
+            <span style={{
+              flexShrink: 0,
+              borderRadius: 12,
+              background: '#EEEDFE',
+              color: '#534AB7',
+              padding: '4px 8px',
+              fontSize: 12,
+              fontWeight: 800,
+              lineHeight: 1,
+            }}>
+              🔒 Secret
+            </span>
+          )}
+        </div>
         {onBack && <div style={{ width: 68 }} />}
       </div>
 
+      {console.log('event:', event?.birthday_person_user_id, 'user:', user?.id)}
+      {canUseSecretChannel && (
+        <div style={{ padding: '10px 16px 0', background: PAGE_BG, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, padding: 3, borderRadius: 18, background: WHITE, boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
+            <button
+              type="button"
+              onClick={() => setIsSecret(false)}
+              style={{
+                flex: 1,
+                minHeight: 36,
+                border: 'none',
+                borderRadius: 15,
+                background: !isSecret ? BG : 'transparent',
+                color: BLACK,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                fontSize: 13,
+                fontWeight: 800,
+                fontFamily: FONT,
+                cursor: 'pointer',
+              }}
+            >
+              <MessageCircle size={16} strokeWidth={2} color={BLACK} />
+              Général
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSecret(true)}
+              style={{
+                flex: 1,
+                minHeight: 36,
+                border: 'none',
+                borderLeft: isSecret ? '3px solid #7F77DD' : '3px solid transparent',
+                borderRadius: 15,
+                background: isSecret ? '#EEEDFE' : 'transparent',
+                color: isSecret ? '#534AB7' : GRAY1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                fontSize: 13,
+                fontWeight: 800,
+                fontFamily: FONT,
+                cursor: 'pointer',
+              }}
+            >
+              <Lock size={16} strokeWidth={2.2} color={isSecret ? '#534AB7' : GRAY1} />
+              Secret
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {isSecret && (
+          <div style={{
+            background: '#EEEDFE',
+            color: '#534AB7',
+            borderRadius: 16,
+            padding: '11px 13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 13,
+            fontWeight: 800,
+            marginBottom: 8,
+          }}>
+            <Lock size={16} strokeWidth={2.2} color="#534AB7" />
+            <span>{birthdayPersonFirstName} ne peut pas voir ces messages</span>
+          </div>
+        )}
         {messages.length === 0 ? (
           <div style={{ textAlign: 'center', color: GRAY1, fontSize: 14, marginTop: 40 }}>
             Aucun message pour l'instant

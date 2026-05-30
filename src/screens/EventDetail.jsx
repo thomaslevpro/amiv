@@ -111,10 +111,15 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     setTimeout(() => setToast(null), 2500)
   }
 
+  const eventForMessages = {
+    ...event,
+    birthday_person_user_id: eventOverrides.birthday_person_user_id ?? birthdayPersonId ?? event?.birthday_person_user_id ?? null,
+  }
+
   function renderChatEntry() {
     return (
       <div
-        onClick={() => onChat?.(event)}
+        onClick={() => onChat?.(eventForMessages)}
         style={{
           flex: '0 0 96px', background: '#fff', borderRadius: 16, padding: '12px 10px',
           boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex',
@@ -1198,7 +1203,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         {/* ── BOTTOM ACTIONS ── */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
           <div
-            onClick={() => onMessagesClick?.(event)}
+            onClick={() => onMessagesClick?.(eventForMessages)}
             style={{
               flex: 1, background: '#fff', border: '1.5px solid #E5E5EA',
               borderRadius: 14, padding: '14px', textAlign: 'center',
