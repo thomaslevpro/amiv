@@ -167,10 +167,6 @@ export default function CollectiveCardContributorView({ event, currentUserId }: 
 
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1C1C1E', margin: 0 }}>
-        Mur des souvenirs de {birthdayFirstName}
-      </h2>
-
       <div style={{ background: GRADIENT, borderRadius: 14, padding: '14px 16px', color: '#fff', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         <div style={{ fontSize: 20, lineHeight: 1 }}>🔒</div>
         <div>

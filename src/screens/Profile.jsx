@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import {
   AlertCircle,
   Bell,
-  Calendar,
+  CalendarCheck2,
+  Cake,
   ChevronRight,
   FileText,
-  Gift,
   Key,
   Copy,
   LogOut,
@@ -13,9 +13,8 @@ import {
   MessageCircle,
   Pencil,
   QrCode,
-  Share2,
-  Star,
   UserCheck,
+  Users,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -44,19 +43,14 @@ const CARD_SHADOW = '0 1px 8px rgba(0,0,0,0.07)'
 async function fetchProfile(user) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('name, first_name, email, avatar_url, created_at, birthday, username')
+    .select('name, first_name, email, avatar_url, created_at, birthday, username, share_token, notif_birthdays, notif_invitations, notif_messages')
     .eq('id', user.id)
     .maybeSingle()
 
   if (error) throw error
 
-  const { data: tokenData } = await supabase
-    .from('profiles')
-    .select('share_token')
-    .eq('id', user.id)
-    .maybeSingle()
-
   return {
+    id: user.id,
     name: data?.name ?? null,
     first_name: data?.first_name ?? null,
     email: data?.email ?? user.email ?? null,
@@ -64,7 +58,10 @@ async function fetchProfile(user) {
     created_at: data?.created_at ?? user.created_at ?? null,
     birthday: data?.birthday ?? null,
     username: data?.username ?? null,
-    share_token: tokenData?.share_token ?? user.id,
+    share_token: data?.share_token ?? user.id,
+    notif_birthdays: data?.notif_birthdays ?? true,
+    notif_invitations: data?.notif_invitations ?? true,
+    notif_messages: data?.notif_messages ?? false,
   }
 }
 
@@ -218,6 +215,11 @@ export default function Profile({ session, onCalendarClick }) {
 
         setProfile(profileData)
         setStats(statsData)
+        setNotifs({
+          notif_birthdays: profileData.notif_birthdays,
+          notif_invitations: profileData.notif_invitations,
+          notif_messages: profileData.notif_messages,
+        })
       } catch (err) {
         if (!cancelled) setError(err.message ?? 'Impossible de charger le profil.')
       } finally {
@@ -230,7 +232,17 @@ export default function Profile({ session, onCalendarClick }) {
     return () => { cancelled = true }
   }, [])
 
-  const toggle = key => setNotifs(n => ({ ...n, [key]: !n[key] }))
+  const toggle = key => {
+    setNotifs(n => {
+      const newValue = !n[key]
+      supabase
+        .from('profiles')
+        .update({ [key]: newValue })
+        .eq('id', profile?.id)
+        .then(({ error }) => { if (error) console.error('notif update failed', error) })
+      return { ...n, [key]: newValue }
+    })
+  }
 
   const showToast = message => {
     setToastMsg(message)
@@ -257,14 +269,6 @@ export default function Profile({ session, onCalendarClick }) {
     }
   }
 
-  const goToCalendar = () => {
-    if (onCalendarClick) {
-      onCalendarClick()
-      return
-    }
-    navigate('/calendar')
-  }
-
   const Toggle = ({ on, onToggle }) => (
     <div onClick={onToggle} style={{
       width: 51, height: 31, borderRadius: 20, position: 'relative', flexShrink: 0, cursor: 'pointer',
@@ -285,16 +289,15 @@ export default function Profile({ session, onCalendarClick }) {
   const displayName = getDisplayName(profile)
   const publicProfileLink = profile?.username ? `https://amiv.app/u/${profile.username}` : null
   const statsItems = [
-    { label: 'Événements', value: stats.eventsCount, icon: '🎉' },
-    { label: 'Amis', value: stats.friendsCount, icon: '👥' },
-    { label: 'Anniversaires', value: stats.birthdaysCount, icon: '🎂' },
+    { label: 'Événements', value: stats.eventsCount, iconName: 'calendar-event', iconBg: 'rgba(83,74,183,0.10)', iconColor: '#534AB7' },
+    { label: 'Amis', value: stats.friendsCount, iconName: 'users', iconBg: 'rgba(15,110,86,0.10)', iconColor: '#0F6E56' },
+    { label: 'Anniversaires', value: stats.birthdaysCount, iconName: 'cake', iconBg: 'rgba(153,53,86,0.10)', iconColor: '#993556' },
   ]
-  const shortcutItems = [
-    { label: 'Mon lien', icon: <Share2 size={18} strokeWidth={1.8} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', onClick: copyInviteLink },
-    { label: 'Calendrier', icon: <Calendar size={18} strokeWidth={1.8} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', onClick: goToCalendar },
-    { label: 'Cadeaux', icon: <Gift size={18} strokeWidth={1.8} color="#34C759" />, bg: 'rgba(52,199,89,0.10)', onClick: undefined },
-    { label: 'Souhaits', icon: <Star size={18} strokeWidth={1.8} color="#f5a623" />, bg: 'rgba(245,166,35,0.12)', onClick: undefined },
-  ]
+  const STAT_ICONS = {
+    'calendar-event': <CalendarCheck2 size={18} strokeWidth={1.8} />,
+    'users': <Users size={18} strokeWidth={1.8} />,
+    'cake': <Cake size={18} strokeWidth={1.8} />,
+  }
   const notificationRows = [
     { key: 'notif_birthdays', icon: <Bell size={18} strokeWidth={1.7} color="#f5a623" />, bg: 'rgba(245,166,35,0.12)', label: 'Rappels anniversaires', desc: '7 jours avant' },
     { key: 'notif_invitations', icon: <Mail size={18} strokeWidth={1.7} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', label: 'Nouvelles invitations', desc: 'Activé' },
@@ -335,11 +338,35 @@ export default function Profile({ session, onCalendarClick }) {
         </div>
 
         <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 18 }}>
-          {statsItems.map(({ label, value, icon }) => (
-            <div key={label} style={{ background: COLORS.card, borderRadius: 16, padding: '14px 8px', textAlign: 'center', boxShadow: CARD_SHADOW }}>
-              <div style={{ fontSize: 20, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: COLORS.text, lineHeight: 1.2, marginTop: 2 }}>{loading || error || value === null ? '—' : value}</div>
-              <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 2 }}>{label}</div>
+          {statsItems.map(({ label, value, iconName, iconBg, iconColor }) => (
+            <div key={label} style={{
+              background: COLORS.card,
+              borderRadius: 16,
+              padding: '14px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              boxShadow: CARD_SHADOW,
+            }}>
+              <div style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: iconBg,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: iconColor,
+              }}>
+                {STAT_ICONS[iconName]}
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: COLORS.text, lineHeight: 1 }}>
+                  {loading || error || value === null ? '—' : value}
+                </div>
+                <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 2, lineHeight: 1.2 }}>{label}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -383,19 +410,6 @@ export default function Profile({ session, onCalendarClick }) {
             </div>
           </div>
 
-          <div style={{ marginBottom: 18 }}>
-            <SectionTitle>Raccourcis</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              {shortcutItems.map(item => (
-                <button key={item.label} type="button" onClick={item.onClick} style={{ border: 'none', background: COLORS.card, borderRadius: 16, padding: '12px 6px', textAlign: 'center', boxShadow: CARD_SHADOW, cursor: item.onClick ? 'pointer' : 'default', fontFamily: 'inherit' }}>
-                  <IconBubble background={item.bg} size={38} radius="50%">
-                    {item.icon}
-                  </IconBubble>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: COLORS.text, marginTop: 7, lineHeight: 1.1 }}>{item.label}</div>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <div style={{ marginBottom: 18 }}>
             <SectionTitle>Mon lien Amiv</SectionTitle>
