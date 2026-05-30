@@ -11,7 +11,7 @@ import EventCard from '../components/EventCard'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
-const PAGE_BG = '#faf9fb'
+const PAGE_BG = 'linear-gradient(180deg, #fdf6ff 0%, #fff8f2 50%, #fafafa 100%)'
 
 function toYMD(date) {
   return date.toISOString().split('T')[0]
@@ -262,7 +262,15 @@ function WeekStrip({ weekOffset, setWeekOffset, selectedDate, setSelectedDate, c
   const monthLabel = monday.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 
   return (
-    <div style={{ padding: '8px 16px 4px', background: '#fff' }}>
+    <div style={{
+      padding: '10px 16px 6px',
+      background: 'rgba(255,255,255,0.85)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      borderRadius: 18,
+      marginBottom: 12,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+    }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <button onClick={() => setWeekOffset(w => w - 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: '#F2F2F7', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M6 1L1 6l5 5" stroke="#1C1C1E" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -281,13 +289,29 @@ function WeekStrip({ weekOffset, setWeekOffset, selectedDate, setSelectedDate, c
           const isSelected = dateStr === selectedDate
           const types = dotMap[dateStr] ?? new Set()
           return (
-            <div key={i} onClick={() => setSelectedDate(isSelected ? null : dateStr)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'pointer', paddingBottom: 4 }}>
-              <span style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500 }}>{DAY_LETTERS[i]}</span>
+            <div
+              key={i}
+              onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                width: '100%',
+                gap: 4,
+                paddingBottom: 6,
+                paddingTop: 4,
+                cursor: 'pointer',
+                borderRadius: 14,
+                transition: 'background 0.15s ease',
+              }}
+            >
+              <span style={{ fontSize: 10, color: isSelected ? '#e055aa' : '#9A9AA2', fontWeight: 600 }}>{DAY_LETTERS[i]}</span>
               <div style={{
-                width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, fontWeight: isSelected || isToday ? 600 : 400,
+                width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 15, fontWeight: isSelected ? 700 : isToday ? 600 : 400,
                 color: isSelected ? '#fff' : '#1C1C1E',
-                background: isSelected ? 'linear-gradient(135deg, #e055aa, #f5a623)' : isToday ? '#F2F2F7' : 'transparent',
+                background: isSelected ? GRADIENT : 'transparent',
+                boxShadow: isSelected ? '0 4px 12px rgba(224,85,170,0.35)' : 'none',
                 border: isToday && !isSelected ? '1.5px solid #1C1C1E' : '1.5px solid transparent',
               }}>
                 {d.getDate()}
@@ -422,6 +446,24 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
 
   useEffect(() => { fetchUpcomingCalendarDots() }, [fetchUpcomingCalendarDots])
   useEffect(() => { fetchEvents() }, [fetchEvents])
+
+  useEffect(() => {
+    if (document.getElementById('amiv-calendar-anim')) return
+    const style = document.createElement('style')
+    style.id = 'amiv-calendar-anim'
+    style.textContent = `
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    `
+    document.head.appendChild(style)
+  }, [])
 
   useEffect(() => {
     if (!selectedDate) return
@@ -599,29 +641,56 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     return (
       <section style={{ marginBottom: 18 }}>
         <div style={{
-          color: '#8E8E93',
-          fontSize: 11,
-          fontWeight: 900,
-          letterSpacing: '0.08em',
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: '0.10em',
           textTransform: 'uppercase',
-          margin: '4px 2px 10px',
+          color: '#B0B0BA',
+          margin: '16px 4px 10px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
         }}>
-          {label}
+          <span>{label}</span>
+          <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.06)', borderRadius: 1 }} />
         </div>
         {sectionItems.length === 0 ? (
           <SectionPlaceholder label={label} />
         ) : (
-          sectionItems.map(item => (
-            <EventCard
+          sectionItems.map((item, index) => (
+            <div
               key={item.id}
-              item={item}
-              currentUser={currentUser}
-              onOpen={openEvent}
-              onManage={manageEvent}
-              onChat={openChat}
-              onShare={shareEvent}
-              onRsvp={handleRsvp}
-            />
+              style={{
+                borderRadius: 22,
+                overflow: 'hidden',
+                marginBottom: 14,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                transition: 'transform 0.22s ease, box-shadow 0.22s ease',
+                animationName: 'fadeInUp',
+                animationDuration: '0.4s',
+                animationFillMode: 'both',
+                animationTimingFunction: 'ease',
+                animationDelay: `${index * 0.08}s`,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.12)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)'
+              }}
+            >
+              <EventCard
+                item={item}
+                currentUser={currentUser}
+                onOpen={openEvent}
+                onManage={manageEvent}
+                onChat={openChat}
+                onShare={shareEvent}
+                onRsvp={handleRsvp}
+              />
+            </div>
           ))
         )}
       </section>
@@ -661,10 +730,18 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
 
           <button
             onClick={() => onCreateClick?.()}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'scale(1.015)'
+              e.currentTarget.style.boxShadow = '0 18px 38px rgba(224,85,170,0.34)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'scale(1)'
+              e.currentTarget.style.boxShadow = '0 14px 32px rgba(224,85,170,0.28)'
+            }}
             style={{
               width: '100%',
-              minHeight: 72,
-              borderRadius: 18,
+              minHeight: 68,
+              borderRadius: 20,
               background: GRADIENT,
               color: '#fff',
               padding: '13px 14px',
@@ -672,8 +749,9 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
               gridTemplateColumns: '38px 1fr 22px',
               alignItems: 'center',
               gap: 12,
-              boxShadow: '0 12px 26px rgba(224,85,170,0.22)',
+              boxShadow: '0 14px 32px rgba(224,85,170,0.28)',
               textAlign: 'left',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
             }}
           >
             <span style={{
@@ -727,9 +805,11 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
             <div style={{ display: 'grid', gap: 12 }}>
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
-                  height: 180,
-                  borderRadius: 18,
-                  background: 'linear-gradient(90deg, rgba(255,255,255,0.56), rgba(255,255,255,0.92), rgba(255,255,255,0.56))',
+                  height: 200,
+                  borderRadius: 22,
+                  background: 'linear-gradient(90deg, #f0f0f5 25%, #fafafa 50%, #f0f0f5 75%)',
+                  backgroundSize: '200% 100%',
+                  animation: 'shimmer 1.4s ease infinite',
                   boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
                 }} />
               ))}

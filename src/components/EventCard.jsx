@@ -1,10 +1,10 @@
+import { useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 const AMIV_GRADIENT = 'linear-gradient(160deg, #e055aa, #f5a623)'
 const AMIV_GRADIENT_135 = 'linear-gradient(135deg, #e055aa, #f5a623)'
-const AMIV_GRADIENT_90 = 'linear-gradient(90deg, #e055aa, #f5a623)'
 
 function getCoverUrl(coverImage) {
   if (!coverImage) return null
@@ -74,62 +74,47 @@ function getTotalCount(stats, event) {
   return yes + maybe + no
 }
 
-function FooterButton({ icon: Icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation()
-        onClick?.()
-      }}
-      style={{
-        minWidth: 0,
-        padding: '9px 0',
-        borderRadius: 12,
-        background: 'var(--gray3)',
-        border: '0.5px solid var(--color-border-tertiary, rgba(0,0,0,0.08))',
-        color: 'var(--black)',
-        fontSize: 12,
-        fontWeight: 800,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 5,
-      }}
-    >
-      <Icon size={15} strokeWidth={2.2} />
-      {label}
-    </button>
-  )
-}
-
 function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
+  const [hovering, setHovering] = useState(false)
   const coverUrl = getCoverUrl(event.cover_image)
   const yesCount = getYesCount(stats, event)
-  const maybeCount = getMaybeCount(stats, event)
-  const totalCount = getTotalCount(stats, event)
-  const progress = totalCount > 0 ? Math.min(100, Math.max(0, Math.round((yesCount / totalCount) * 100))) : 0
   const title = titleCase(event.name, 'Événement')
   const details = `${dateParts.longDate} · ${dateParts.time}${event.location ? ` · ${event.location}` : ''}`
+  const avatarGradients = [
+    'linear-gradient(135deg,#e055aa,#f5a623)',
+    'linear-gradient(135deg,#f5a623,#e055aa)',
+    'linear-gradient(135deg,#c044aa,#e8821a)',
+  ]
 
   return (
     <article
       onClick={openEvent}
+      onMouseEnter={e => {
+        setHovering(true)
+        e.currentTarget.style.transform = 'translateY(-3px)'
+        e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.13)'
+      }}
+      onMouseLeave={e => {
+        setHovering(false)
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,0.07)'
+      }}
       style={{
-        borderRadius: 20,
+        borderRadius: 24,
         overflow: 'hidden',
-        background: 'var(--color-background-primary, var(--white))',
-        border: '0.5px solid rgba(0,0,0,0.08)',
-        boxShadow: 'var(--shadow-sm)',
-        marginBottom: 12,
+        background: '#fff',
+        border: 'none',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+        marginBottom: 16,
         cursor: 'pointer',
+        transition: 'transform 0.22s ease, box-shadow 0.22s ease',
       }}
     >
       <div style={{
-        height: 160,
+        height: 200,
         position: 'relative',
         overflow: 'hidden',
-        background: coverUrl ? '#1a0a12' : 'linear-gradient(135deg, #1a0a12, #3d1230)',
+        background: coverUrl ? '#1a0a12' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
       }}>
         {coverUrl && (
           <img
@@ -141,32 +126,33 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              opacity: 0.45,
+              opacity: 1,
+              transform: hovering ? 'scale(1.04)' : 'scale(1)',
+              transition: 'transform 0.5s ease',
             }}
           />
         )}
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 55%)',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)',
         }} />
 
         <div style={{
           position: 'absolute',
           top: 12,
           left: 12,
-          padding: '8px 12px',
-          borderRadius: 14,
-          background: 'rgba(255,255,255,0.15)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          border: '0.5px solid rgba(255,255,255,0.25)',
-          color: 'var(--white)',
+          padding: '7px 13px',
+          borderRadius: 16,
+          background: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: 'none',
           textAlign: 'center',
           minWidth: 54,
         }}>
-          <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 0.95 }}>{dateParts.day}</div>
-          <div style={{ marginTop: 4, fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.85)' }}>{dateParts.month}</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#1C1C1E', lineHeight: 1 }}>{dateParts.day}</div>
+          <div style={{ marginTop: 3, fontSize: 11, fontWeight: 700, color: '#8E8E93' }}>{dateParts.month}</div>
         </div>
 
         {dateParts.badge && (
@@ -175,12 +161,13 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
             top: 12,
             right: 12,
             borderRadius: 20,
-            padding: '5px 12px',
+            padding: '5px 13px',
             background: AMIV_GRADIENT_135,
-            color: 'var(--white)',
+            color: '#fff',
             fontSize: 12,
             fontWeight: 800,
             lineHeight: 1.2,
+            boxShadow: '0 3px 10px rgba(224,85,170,0.4)',
           }}>
             {dateParts.badge}
           </div>
@@ -188,10 +175,12 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
 
         <div style={{ position: 'absolute', left: 14, right: 14, bottom: 12, minWidth: 0 }}>
           <div style={{
-            color: 'var(--white)',
-            fontSize: 18,
+            color: '#fff',
+            fontSize: 20,
             fontWeight: 800,
+            letterSpacing: -0.3,
             lineHeight: 1.15,
+            textShadow: '0 1px 6px rgba(0,0,0,0.25)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -199,10 +188,10 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
             {title}
           </div>
           <div style={{
-            marginTop: 5,
-            color: 'rgba(255,255,255,0.75)',
-            fontSize: 12,
-            fontWeight: 650,
+            marginTop: 4,
+            color: 'rgba(255,255,255,0.82)',
+            fontSize: 13,
+            fontWeight: 500,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -212,38 +201,51 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
         </div>
       </div>
 
-      <div style={{ padding: '10px 14px 12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{
-            width: 26,
-            height: 26,
-            borderRadius: 13,
-            background: AMIV_GRADIENT,
-            color: 'var(--white)',
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: 8,
-            fontWeight: 900,
-            flexShrink: 0,
-          }}>
-            AM
+      <div style={{ padding: '12px 16px 14px', background: '#fff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            {avatarGradients.map((background, i) => (
+              <div
+                key={background}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background,
+                  border: '2px solid #fff',
+                  marginLeft: i === 0 ? 0 : -8,
+                  flexShrink: 0,
+                }}
+              />
+            ))}
           </div>
-          <div style={{ color: 'var(--gray1)', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-            {yesCount} oui · {maybeCount} att.
+          <div style={{ color: '#3D3D3D', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', minWidth: 0 }}>
+            {yesCount} participants
           </div>
-        </div>
-
-        <div style={{ height: 3, borderRadius: 2, background: 'var(--gray3)', overflow: 'hidden', margin: '8px 0' }}>
-          <div style={{
-            width: `${progress}%`,
-            height: '100%',
-            borderRadius: 2,
-            background: AMIV_GRADIENT_90,
-          }} />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
-          <FooterButton icon={MessageCircle} label="Chat" onClick={openChat} />
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              openChat()
+            }}
+            style={{
+              marginLeft: 'auto',
+              color: '#e055aa',
+              fontWeight: 700,
+              fontSize: 13,
+              background: 'none',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: 0,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <MessageCircle size={15} strokeWidth={2.2} />
+            Chat
+          </button>
         </div>
       </div>
     </article>
