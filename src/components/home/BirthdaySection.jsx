@@ -423,6 +423,27 @@ export default function BirthdaySection({ user, onToast, onMessage }) {
     fetchBirthdays()
   }
 
+  function handleHeroReminderSaved(updatedBirthday) {
+    setBirthdays(current => current.map(item =>
+      item.id === updatedBirthday.id
+        ? {
+            ...item,
+            reminder_enabled: updatedBirthday.reminder_enabled,
+            reminder_days: updatedBirthday.reminder_days,
+          }
+        : item
+    ))
+    setSelectedBirthday(current =>
+      current?.id === updatedBirthday.id
+        ? {
+            ...current,
+            reminder_enabled: updatedBirthday.reminder_enabled,
+            reminder_days: updatedBirthday.reminder_days,
+          }
+        : current
+    )
+  }
+
   useEffect(() => {
     fetchBirthdays()
   }, [user?.id])
@@ -442,7 +463,13 @@ export default function BirthdaySection({ user, onToast, onMessage }) {
 
   return (
     <>
-      {!loading && <HeroBirthdayCard birthday={heroBirthday} onMessage={onMessage} />}
+      {!loading && (
+        <HeroBirthdayCard
+          birthday={heroBirthday}
+          onReminderSaved={handleHeroReminderSaved}
+          onToast={onToast}
+        />
+      )}
 
       <section style={{ background: '#faf9fb', padding: '2px 0 18px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
         <style>{`

@@ -6,6 +6,11 @@ import { getFriends } from '../lib/friendships'
 const types = [<><Cake size={13} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Anniversaire</>, '🥂 Soirée', '🍽️ Repas', '🎉 Autre']
 const typeValues = ['Anniversaire', 'Soirée', 'Repas', 'Autre']
 const visibilities = ['Privé 🔒', 'Sur invitation', 'Public 🌍']
+const emojiTypeMap = {
+  '🍽️': 'Repas',
+  '🥂': 'Soirée',
+  '🎬': 'Soirée',
+}
 
 const fieldStyle = {
   width: '100%', border: 'none', outline: 'none', fontSize: 15,
@@ -35,7 +40,8 @@ function birthdayFriendInitial(friend) {
 export default function Create({ onBack, session, initialData = null }) {
   const userId = session?.user?.id
 
-  const [type, setType] = useState(0)
+  const initialType = typeValues.indexOf(initialData?.type ?? emojiTypeMap[initialData?.emoji] ?? 'Autre')
+  const [type, setType] = useState(initialType >= 0 ? initialType : 3)
   const [vis, setVis] = useState(1)
   const [form, setForm] = useState({ name: initialData?.title ?? '', date: '', location: '', desc: '' })
   const [birthdayPersonId, setBirthdayPersonId] = useState(initialData?.birthday_person_user_id ?? null)

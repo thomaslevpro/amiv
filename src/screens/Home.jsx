@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Check, Plus, X } from 'lucide-react'
 import NotificationBell from '../components/NotificationBell'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
-import TrendingNow from '../components/TrendingNow'
+import TrendingSection from '../components/TrendingSection'
 import BirthdaySection from '../components/home/BirthdaySection'
 import { useFriendships } from '../hooks/useFriendships'
 import { supabase } from '../lib/supabase'
@@ -99,6 +99,23 @@ function formatCompactEventDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
+function formatInvitationRelativeDate(dateStr) {
+  if (!dateStr) return 'Date à définir'
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return 'Date à définir'
+  const target = new Date(d)
+  target.setHours(0, 0, 0, 0)
+  const current = new Date()
+  current.setHours(0, 0, 0, 0)
+  const days = Math.round((target - current) / (1000 * 60 * 60 * 24))
+  const absDays = Math.abs(days)
+  if (days === 0) return "Aujourd'hui"
+  if (days === 1) return 'Demain'
+  if (days === -1) return 'Hier'
+  if (days > 0) return `Dans ${days} jours`
+  return `Il y a ${absDays} jours`
+}
+
 function getEventDaysLeft(dateStr) {
   const d = new Date(dateStr)
   if (Number.isNaN(d.getTime())) return null
@@ -126,9 +143,9 @@ function MiniEventStatusChip({ item }) {
   const isOrganizer = item.role === 'organise'
   const normalized = normalizeStatus(item.myStatus)
   const chip = isOrganizer
-    ? { label: "👑 J'organise", bg: 'rgba(224,85,170,0.10)', color: '#c0308a' }
+    ? { label: "J'organise", bg: 'rgba(255,255,255,0.92)', color: '#d4840a' }
     : normalized === 'yes'
-      ? { label: "✓ J'y serai", bg: 'rgba(52,199,89,0.10)', color: '#1a8f3a' }
+      ? { label: "✓ J'y serai", bg: 'rgba(255,255,255,0.92)', color: '#d4840a' }
       : { label: 'En attente', bg: '#F2F2F7', color: '#8E8E93' }
 
   return (
@@ -155,44 +172,44 @@ function MyEventMiniCard({ item, onClick }) {
   const hasCover = !!coverUrl
   const dateStr = formatCompactEventDate(item.date)
   const stats = item.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
-  const confirmedProfiles = item.memberProfiles?.slice(0, 2) ?? []
-  const confirmedNames = confirmedProfiles
-    .map(profile => profile.first_name || profile.name?.split(' ')[0])
-    .filter(Boolean)
-  const confirmedText = confirmedNames.length === 1
-    ? `${confirmedNames[0]} a confirmé`
-    : confirmedNames.length >= 2
-      ? `${confirmedNames[0]} et ${confirmedNames[1]} ont confirmé`
-      : null
 
   return (
     <div
       onClick={() => onClick?.(item)}
       style={{
         width: 160,
+        height: 160,
         flexShrink: 0,
-        background: '#fff',
+        position: 'relative',
+        background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
         borderRadius: 18,
         overflow: 'hidden',
         cursor: 'pointer',
+        boxShadow: '0 2px 10px rgba(18,31,46,0.08)',
       }}
     >
-      <div style={{ height: 100, position: 'relative', background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)', overflow: 'hidden' }}>
-        {hasCover ? (
-          <img src={coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : null}
-        <div style={{ position: 'absolute', left: 10, right: 10, bottom: 8, textShadow: '0 1px 4px rgba(0,0,0,0.18)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.name || 'Événement'}
-          </div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {dateStr}{item.location ? ` · ${item.location}` : ''}
-          </div>
-        </div>
+      {hasCover ? (
+        <img src={coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      ) : null}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.04) 38%, rgba(0,0,0,0.68) 100%)',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{
+        position: 'absolute',
+        left: 10,
+        right: 10,
+        top: 10,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 8,
+      }}>
+        <MiniEventStatusChip item={item} />
         <div style={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
           borderRadius: 8,
           background: 'rgba(255,255,255,0.92)',
           color: '#d4840a',
@@ -200,30 +217,31 @@ function MyEventMiniCard({ item, onClick }) {
           fontWeight: 700,
           padding: '3px 8px',
           lineHeight: 1.15,
+          flexShrink: 0,
         }}>
           {daysLeft === null ? 'J-?' : `J-${Math.max(daysLeft, 0)}`}
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 10 }}>
-        <MiniEventStatusChip item={item} />
-        <span style={{ color: '#aaa', fontSize: 10, lineHeight: 1, whiteSpace: 'nowrap' }}>
-          {stats.yes} oui
-        </span>
-      </div>
-      {confirmedText && (
-        <div style={{
-          fontSize: 10,
-          color: '#8E8E93',
-          padding: '0 10px 8px',
-          lineHeight: 1.3,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {confirmedText}
+      <div style={{
+        position: 'absolute',
+        left: 10,
+        right: 10,
+        bottom: 10,
+        textShadow: '0 1px 4px rgba(0,0,0,0.28)',
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {item.name || 'Événement'}
         </div>
-      )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
+          <span style={{ minWidth: 0, fontSize: 10, color: 'rgba(255,255,255,0.86)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {dateStr}{item.location ? ` · ${item.location}` : ''}
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.86)', fontSize: 10, lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {stats.yes} oui
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -275,7 +293,17 @@ function MyEventsSection({ events, onSeeAll, onEventClick, onCreateClick }) {
         }
       `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 18px' }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#1C1C1E', letterSpacing: -0.3 }}>Mes événements</div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span style={{
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '0.09em',
+            textTransform: 'uppercase',
+            color: 'var(--gray1)',
+          }}>
+            MES ÉVÉNEMENTS
+          </span>
+        </div>
         <button
           onClick={onSeeAll}
           style={{
@@ -574,40 +602,104 @@ export default function Home({
 
         {invitations.length > 0 && (
           <>
-            <SectionHeader title="Invitations en attente" badge={invitations.length} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '0 2px' }}>
+              <span style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: '0.09em',
+                textTransform: 'uppercase',
+                color: 'var(--gray1)',
+              }}>
+                INVITATIONS EN ATTENTE
+              </span>
+              <span style={{
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                background: 'rgba(224,85,170,0.16)',
+                color: '#d82e86',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: 12,
+                fontWeight: 800,
+              }}>
+                {invitations.length}
+              </span>
+            </div>
             {invitations.map(inv => {
               const ev = inv.events ?? {}
-              const dateStr = ev.date
-                ? new Date(ev.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-                : ''
+              const relativeDate = formatInvitationRelativeDate(ev.date)
               return (
                 <div key={inv.id} style={{
-                  background: '#fff', borderRadius: 16, padding: '14px',
-                  marginBottom: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
+                  background: '#fff',
+                  borderRadius: 20,
+                  padding: '18px 16px',
+                  marginBottom: 14,
+                  boxShadow: '0 2px 12px rgba(18,31,46,0.12)',
+                  border: '1px solid rgba(18,31,46,0.06)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
                 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', marginBottom: 2 }}>{ev.name ?? 'Événement'}</div>
-                  <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 10 }}>
-                    {dateStr}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 16,
+                      fontWeight: 800,
+                      color: '#121827',
+                      lineHeight: 1.1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {ev.name ?? 'Événement'}
+                    </div>
+                    <div style={{
+                      fontSize: 12,
+                      color: '#5f6f86',
+                      marginTop: 5,
+                      fontWeight: 600,
+                      lineHeight: 1.15,
+                    }}>
+                      {relativeDate}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
+
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <button
+                      type="button"
                       onClick={() => handleAcceptInvitation(inv.id, inv.event_id)}
+                      aria-label="Accepter l'invitation"
                       style={{
-                        flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
-                        background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                        color: '#fff', fontSize: 13, fontWeight: 700,
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: 'linear-gradient(135deg, #f2368d 0%, #ff8b3d 100%)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        flexShrink: 0,
                       }}
                     >
-                      J'y serai ✓
+                      <Check size={23} color="#fff" strokeWidth={2.4} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDeclineInvitation(inv.id, inv.event_id)}
+                      aria-label="Refuser l'invitation"
                       style={{
-                        flex: 1, padding: '9px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
-                        background: '#E5E5EA', color: '#3A3A3C', fontSize: 13, fontWeight: 600,
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: '#eef2f7',
+                        display: 'grid',
+                        placeItems: 'center',
+                        flexShrink: 0,
                       }}
                     >
-                      Décliner ✗
+                      <X size={23} color="#536174" strokeWidth={2.3} />
                     </button>
                   </div>
                 </div>
@@ -639,12 +731,7 @@ export default function Home({
           onCreateClick={onCreateClick}
         />
 
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#1C1C1E', marginBottom: 12 }}>
-            Trending now
-          </div>
-          <TrendingNow onCardClick={onTrendingClick} />
-        </div>
+        <TrendingSection onCreateEvent={onTrendingClick} />
 
         <InviteCard onShare={handleShare} />
 
