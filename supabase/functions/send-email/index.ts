@@ -60,22 +60,20 @@ function normalizeEventType(payload: AuthEmailPayload) {
   return rawType?.toLowerCase().replace(/[\s_-]+/g, '')
 }
 
-function buildAuthUrl(payload: AuthEmailPayload, email: string, eventType: string) {
-  const emailData = payload.email_data ?? {}
-  const redirectTo = emailData.redirect_to ?? payload.redirect_url ?? payload.redirect_to
+function buildAuthUrl(payload: AuthEmailPayload) {
+  const email_data = payload.email_data
 
-  // Toujours utiliser SUPABASE_URL (sans /auth/v1) pour construire l'URL de verify
-  const baseUrl = (SUPABASE_URL ?? '').replace(/\/auth\/v1\/?$/, '')
-  const token_hash = emailData.token_hash ?? emailData.token ?? payload.token_hash ?? payload.token
+  if (!SUPABASE_URL || !email_data?.token_hash) return null
 
-  if (!token_hash) return null
+  const verifyUrl = new URL(`${SUPABASE_URL}/auth/v1/verify`)
 
-  const url = new URL('/auth/v1/verify', baseUrl)
-  url.searchParams.set('token_hash', token_hash)
-  url.searchParams.set('type', eventType === 'recovery' ? 'recovery' : eventType === 'magiclink' ? 'magiclink' : 'signup')
-  if (redirectTo) url.searchParams.set('redirect_to', redirectTo)
+  verifyUrl.searchParams.set('type', 'signup')
+  verifyUrl.searchParams.set('token_hash', email_data.token_hash)
+  verifyUrl.searchParams.set('redirect_to', 'https://amiv.app/auth/callback')
 
-  return url.toString()
+  const confirmationUrl = verifyUrl.toString()
+
+  return confirmationUrl
 }
 
 function escapeHtml(value: string) {
@@ -88,7 +86,7 @@ function escapeHtml(value: string) {
 
 function getEmailContent(eventType: string, authUrl: string): EmailContent | null {
   if (['signup', 'signupconfirmation', 'confirmation', 'confirm'].includes(eventType)) {
-    const safeAuthUrl = escapeHtml(authUrl)
+    const confirmationUrl = escapeHtml(authUrl)
 
     return {
       subject: 'Confirme ton inscription sur Amiv',
@@ -99,9 +97,9 @@ function getEmailContent(eventType: string, authUrl: string): EmailContent | nul
             <div style="font-size:48px;line-height:1;margin-bottom:20px;">🎉</div>
             <h1 style="margin:0 0 14px;color:#1C1C1E;font-size:22px;font-weight:700;line-height:1.25;">Confirme ton adresse email</h1>
             <p style="margin:0;color:#8E8E93;font-size:15px;line-height:1.6;">Clique sur le bouton ci-dessous pour activer ton compte et commencer à organiser des événements inoubliables.</p>
-            <a href="${safeAuthUrl}" style="display:inline-block;margin:24px 0;padding:14px 32px;border-radius:12px;background:linear-gradient(135deg,#e055aa,#f5a623);color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Confirmer mon email →</a>
+            <a href="${confirmationUrl}" style="display:inline-block;margin:24px 0;padding:14px 32px;border-radius:12px;background:linear-gradient(135deg,#e055aa,#f5a623);color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Confirmer mon email</a>
             <p style="margin:0 0 8px;color:#8E8E93;font-size:12px;line-height:1.5;">Si le bouton ne fonctionne pas, copie ce lien dans ton navigateur :</p>
-            <p style="margin:0;color:#8E8E93;font-size:12px;line-height:1.5;word-break:break-all;">${safeAuthUrl}</p>
+            <p style="margin:0;color:#8E8E93;font-size:12px;line-height:1.5;word-break:break-all;">${confirmationUrl}</p>
             <div style="margin-top:32px;color:#AEAEB2;font-size:12px;text-align:center;">© 2025 Amiv · amiv.app</div>
           </div>
         </div>
@@ -157,7 +155,7 @@ Deno.serve(async (req) => {
   if (!email) return json({ error: 'Missing email' }, 400)
   if (!eventType) return json({ error: 'Missing event type' }, 400)
 
-  const authUrl = buildAuthUrl(payload, email, eventType)
+  const authUrl = buildAuthUrl(payload)
   if (!authUrl) return json({ error: 'Missing token' }, 400)
   console.log('VERIFY_URL:', authUrl)
 
