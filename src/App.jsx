@@ -6,9 +6,9 @@ import { useUnreadCounts } from './hooks/useUnreadCounts'
 import BottomNav from './components/BottomNav'
 import CreateActionSheet from './components/CreateActionSheet'
 import AddAmivModal from './components/AddAmivModal'
-import Onboarding from './screens/Onboarding'
 import OnboardingFlow from './pages/Onboarding'
 import Auth from './screens/Auth'
+import AuthCallback from './screens/AuthCallback'
 import Home from './screens/Home'
 import Calendar from './screens/Calendar'
 import Messages from './screens/Messages'
@@ -35,6 +35,7 @@ export default function App() {
         <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
         <Route path="/events/:id" element={<EventPage />} />
         <Route path="/u/:username" element={<PublicUserProfile />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>
@@ -44,10 +45,8 @@ export default function App() {
 function MainApp() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
-  const authPath = window.location.pathname === '/login' || window.location.pathname === '/register'
 
-  const [hasOnboarded, setHasOnboarded] = useState(authPath)
-  const [authInitLogin, setAuthInitLogin] = useState(window.location.pathname === '/login')
+  const authInitLogin = window.location.pathname === '/login'
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(null)
@@ -72,7 +71,6 @@ function MainApp() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      if (session) setHasOnboarded(true)
       setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -131,7 +129,6 @@ function MainApp() {
     </div>
   )
 
-  if (!hasOnboarded) return <Onboarding onFinish={(loginMode) => { setAuthInitLogin(loginMode); setHasOnboarded(true) }} />
   if (!session) return <Auth initialIsLogin={authInitLogin} />
   if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => { setOnboardingCompleted(true); setHasUsername(true) }} />
   if (!hasUsername) return <UsernamePrompt session={session} onComplete={() => setHasUsername(true)} />

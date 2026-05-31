@@ -18,7 +18,13 @@ export default function Auth({ initialIsLogin = false }) {
         if (error) throw error
         // App.jsx détecte SIGNED_IN via son onAuthStateChange — rien à faire ici
       } else {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
         if (error) throw error
         setSuccess(true)
       }

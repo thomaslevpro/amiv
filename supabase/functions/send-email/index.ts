@@ -83,14 +83,33 @@ function buildAuthUrl(payload: AuthEmailPayload, email: string, eventType: strin
   return url.toString()
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 function getEmailContent(eventType: string, authUrl: string): EmailContent | null {
   if (['signup', 'signupconfirmation', 'confirmation', 'confirm'].includes(eventType)) {
+    const safeAuthUrl = escapeHtml(authUrl)
+
     return {
       subject: 'Confirme ton inscription sur Amiv',
       html: `
-        <p>Bienvenue sur Amiv.</p>
-        <p>Confirme ton adresse email pour finaliser ton inscription.</p>
-        <p><a href="${authUrl}">Confirmer mon email</a></p>
+        <div style="margin:0;padding:32px 16px;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
+          <div style="max-width:480px;margin:0 auto;padding:40px;background:#fff;border-radius:20px;box-shadow:0 2px 16px rgba(0,0,0,0.08);text-align:center;">
+            <div style="font-size:32px;font-weight:800;line-height:1;background:linear-gradient(135deg,#e055aa,#f5a623);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;margin-bottom:28px;">Amiv</div>
+            <div style="font-size:48px;line-height:1;margin-bottom:20px;">🎉</div>
+            <h1 style="margin:0 0 14px;color:#1C1C1E;font-size:22px;font-weight:700;line-height:1.25;">Confirme ton adresse email</h1>
+            <p style="margin:0;color:#8E8E93;font-size:15px;line-height:1.6;">Clique sur le bouton ci-dessous pour activer ton compte et commencer à organiser des événements inoubliables.</p>
+            <a href="${safeAuthUrl}" style="display:inline-block;margin:24px 0;padding:14px 32px;border-radius:12px;background:linear-gradient(135deg,#e055aa,#f5a623);color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Confirmer mon email →</a>
+            <p style="margin:0 0 8px;color:#8E8E93;font-size:12px;line-height:1.5;">Si le bouton ne fonctionne pas, copie ce lien dans ton navigateur :</p>
+            <p style="margin:0;color:#8E8E93;font-size:12px;line-height:1.5;word-break:break-all;">${safeAuthUrl}</p>
+            <div style="margin-top:32px;color:#AEAEB2;font-size:12px;text-align:center;">© 2025 Amiv · amiv.app</div>
+          </div>
+        </div>
       `,
       text: `Bienvenue sur Amiv.\n\nConfirme ton adresse email pour finaliser ton inscription :\n${authUrl}`,
     }
