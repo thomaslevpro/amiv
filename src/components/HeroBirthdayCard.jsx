@@ -134,43 +134,22 @@ function ReminderSheet({ birthday, onClose, onSaved, onToast }) {
           gap: 12,
           boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
         }}>
+          <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>🎂</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E' }}>
-              {enabled ? 'Rappel activé' : 'Rappel désactivé'}
-            </div>
-            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>
-              Notification avant l'anniversaire
-            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E' }}>Rappel le jour J</div>
+            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Envoyé automatiquement à 8h</div>
           </div>
-          <button
-            type="button"
-            onClick={() => setEnabled(current => !current)}
-            aria-pressed={enabled}
-            aria-label="Activer ou désactiver le rappel"
-            style={{
-              width: 50,
-              height: 30,
-              borderRadius: 15,
-              border: 'none',
-              cursor: 'pointer',
-              background: enabled ? 'linear-gradient(90deg, #e055aa, #f5a623)' : '#E5E5EA',
-              transition: 'background 0.22s',
-              position: 'relative',
-              flexShrink: 0,
-            }}
-          >
-            <span style={{
-              position: 'absolute',
-              top: 3,
-              left: enabled ? 23 : 3,
-              width: 24,
-              height: 24,
-              borderRadius: '50%',
-              background: '#fff',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.22)',
-              transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
-            }} />
-          </button>
+          <span style={{
+            background: 'rgba(245,166,35,0.12)',
+            color: '#f5a623',
+            fontSize: 11,
+            fontWeight: 700,
+            borderRadius: 8,
+            padding: '4px 10px',
+            flexShrink: 0,
+          }}>
+            Actif
+          </span>
         </div>
 
         <div style={{
