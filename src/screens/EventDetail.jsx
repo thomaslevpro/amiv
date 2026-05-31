@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon, MessageCircle, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { isOrganizer, getOrganizers, addCoOrganizer } from '../lib/organizers'
 import CardView from '../components/card/CardView'
 import PlusOneRequest from '../components/PlusOneRequest'
 import PlusOneReviewList from '../components/PlusOneReviewList'
@@ -85,6 +86,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const [userId, setUserId] = useState(null)
   const [userEmail, setUserEmail] = useState(null)
   const [currentUserName, setCurrentUserName] = useState('')
+  const [canManage, setCanManage] = useState(false)
   const [loading, setLoading] = useState(false)
   const [guestRsvps, setGuestRsvps] = useState([])
   const [toast, setToast] = useState(null)
@@ -114,6 +116,11 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const [eventGuests, setEventGuests] = useState([])
   const [isInvitedGuest, setIsInvitedGuest] = useState(false)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
+  const [organizers, setOrganizers] = useState([])
+  const [showCoOrgModal, setShowCoOrgModal] = useState(false)
+  const [coOrgEmail, setCoOrgEmail] = useState('')
+  const [coOrgSubmitting, setCoOrgSubmitting] = useState(false)
+  const [coOrgError, setCoOrgError] = useState('')
 
   const navigate = useNavigate()
 
@@ -222,8 +229,10 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     setRsvpStats({ confirmed: 0, pending: 0, declined: 0 })
     setMyRsvp(null)
     setCurrentUserName('')
+    setCanManage(false)
     setParticipants([])
     setOrganizerName(null)
+    setOrganizers([])
     setEventGuests([])
     setIsInvitedGuest(false)
     setFriends([])
@@ -236,7 +245,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       setUserId(user.id)
       setUserEmail(user.email)
 
-      const isOrg = user.id === event.user_id
+      const userCanManage = await isOrganizer(event.id)
+      if (!cancelled) setCanManage(userCanManage)
 
       const [rsvpRes, optRes, guestRes, allRsvpsRes, eventInfoRes] = await Promise.all([
         supabase
@@ -246,7 +256,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
-        isOrg
+        userCanManage
           ? supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true })
           : Promise.resolve({ data: [] }),
         supabase.from('rsvps').select('user_id, status').eq('event_id', event.id),
@@ -256,22 +266,23 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       if (cancelled) return
       setBirthdayPersonId(eventInfoRes.data?.birthday_person_user_id ?? event?.birthday_person_user_id ?? null)
 
+      const { data: orgsData } = await supabase
+        .from('event_organizers')
+        .select('role, profile:user_id (id, first_name, name, avatar_url)')
+        .eq('event_id', event.id)
+      if (!cancelled) setOrganizers(orgsData || [])
+
       const { data: isGuestResult } = await supabase.rpc(
         'is_invited_to_event',
         { p_event_id: event.id, p_user_id: user.id }
       );
       setIsInvitedGuest(!!isGuestResult);
 
-      console.log('DEBUG event.user_id:', event?.user_id);
-      console.log('DEBUG user.id:', user?.id);
-      console.log('DEBUG isOrganizer:', isOrganizer);
-      console.log('DEBUG isInvitedGuest:', isInvitedGuest);
-
       setRsvpStatus(rsvpRes.data?.status ?? null)
       setMyRsvp(rsvpRes.data ?? null)
 
       const guestsData = guestRes.data ?? []
-      if (isOrg) setGuestRsvps(guestsData)
+      if (userCanManage) setGuestRsvps(guestsData)
 
       const rsvpsData = allRsvpsRes.data ?? []
 
@@ -298,7 +309,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         if (!cancelled) setOrganizerName(orgProfile?.name || orgProfile?.first_name || 'Organisateur')
       }
 
-      if (!isOrg) {
+      if (!userCanManage) {
         const { data: inviteeGuests } = await supabase.rpc('get_event_guests', { p_event_id: event.id })
         if (!cancelled && inviteeGuests) setEventGuests(inviteeGuests)
       }
@@ -588,7 +599,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
   async function handleHeroCoverChange(e) {
     const file = e.target.files?.[0]
-    if (!file || !event?.id || userId !== event.user_id) return
+    if (!file || !event?.id || !canManage) return
 
     const ext = file.name.split('.').pop()
     const filePath = `${event.id}/cover_${Date.now()}.${ext}`
@@ -698,7 +709,6 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
   if (!event) return null
 
-  const isOrganizer = userId !== null && userId === event.user_id
   const displayName = eventOverrides.name ?? event.name
   const displayDate = eventOverrides.date ?? event.date
   const displayDescription = eventOverrides.description ?? event.description
@@ -711,11 +721,6 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const heroDate = isPollActive ? null : formatDateHero(displayDate)
   const countdown = isPollActive ? null : countdownDays(displayDate)
   const maxVoteCount = isPollActive ? Math.max(0, ...dateOptions.map(o => allVoteCounts[o.id] || 0)) : 0
-
-  const infoRows = [
-    { icon: MapPin, label: 'Lieu', value: displayLocation || 'Lieu non précisé' },
-    { icon: User, label: 'Organisé par', value: organizerName || 'Organisateur' },
-  ]
 
   const rawCoverImage = eventOverrides.cover_image !== undefined ? eventOverrides.cover_image : event.cover_image
   const coverUrl = rawCoverImage
@@ -776,7 +781,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
             <ChevronLeft size={14} strokeWidth={1.5} color="white" />
             Retour
           </div>
-          {isOrganizer && (
+          {canManage && (
             <div
               onClick={handleEditOpen}
               style={{
@@ -791,7 +796,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           )}
         </div>
 
-        {isOrganizer && (
+        {canManage && (
           <>
             <button
               type="button"
@@ -871,7 +876,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
 
         {/* ── STATS ROW ── */}
-        {isOrganizer ? (
+        {canManage ? (
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             {[
               { count: rsvpStats.confirmed, label: 'Confirmés' },
@@ -887,7 +892,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         ) : null}
 
         {/* ── ORGANIZER SPACE ENTRY ── */}
-        {isOrganizer && (
+        {canManage && (
           <div style={{ marginBottom: 14 }}>
             <div
               onClick={() => navigate(`/events/${event.id}/organizer-space`)}
@@ -922,7 +927,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         {renderChatBanner()}
 
         {/* ── SECRET SPACE ENTRY ── */}
-        {!isOrganizer && isInvitedGuest && (
+        {!canManage && isInvitedGuest && (
           <div style={{ marginBottom: 14 }}>
             <div
               onClick={() => navigate(`/events/${event.id}/secret-space`)}
@@ -1082,44 +1087,65 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
         {/* ── INFO CARD ── */}
         <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 }}>
-          {infoRows.map((row, i) => (
-            <div
-              key={row.label}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '8px 0',
-                borderBottom: i === 0 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-              }}
-            >
-              <div style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                background: '#F2F2F7',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <row.icon size={17} strokeWidth={1.8} color="#8E8E93" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500 }}>{row.label}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', marginTop: 1 }}>
-                  {row.value}
-                </div>
+          {/* Lieu */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F2F2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <MapPin size={17} strokeWidth={1.8} color="#8E8E93" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500 }}>Lieu</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', marginTop: 1 }}>{displayLocation || 'Lieu non précisé'}</div>
+            </div>
+          </div>
+
+          {/* Organisateurs */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '8px 0' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F2F2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+              <User size={17} strokeWidth={1.8} color="#8E8E93" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 6 }}>Organisé par</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                {organizers.map(({ role, profile }) => {
+                  const name = profile?.first_name || profile?.name || 'Organisateur'
+                  const isOwner = role === 'owner'
+                  return (
+                    <div key={profile?.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt={name} style={{ width: 26, height: 26, borderRadius: 13, objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: 26, height: 26, borderRadius: 13, background: '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{name}</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: isOwner ? '#fff' : '#8E8E93', background: isOwner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', padding: '1px 7px', borderRadius: 20, display: 'inline-block', marginTop: 2 }}>
+                          {isOwner ? 'Organisateur' : 'Co-organisateur'}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                {canManage && organizers.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={() => { setCoOrgError(''); setShowCoOrgModal(true) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'linear-gradient(135deg,#e055aa,#f5a623)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    + Ajouter
+                  </button>
+                )}
               </div>
             </div>
-          ))}
+          </div>
         </div>
 
         {/* ── DESCRIPTION ── */}
-        {(displayDescription || isOrganizer) && (
+        {(displayDescription || canManage) && (
           <div
-            onClick={!displayDescription && isOrganizer ? handleEditOpen : undefined}
-            style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', cursor: !displayDescription && isOrganizer ? 'pointer' : 'default' }}
+            onClick={!displayDescription && canManage ? handleEditOpen : undefined}
+            style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', cursor: !displayDescription && canManage ? 'pointer' : 'default' }}
           >
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>Description</div>
             {displayDescription ? (
@@ -1131,7 +1157,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── GUESTS LIST (invitee view) ── */}
-        {!isOrganizer && eventGuests.length > 0 && (
+        {!canManage && eventGuests.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
               Invités ({eventGuests.length})
@@ -1178,7 +1204,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── DATE POLL: organizer results ── */}
-        {isPollActive && isOrganizer && (
+        {isPollActive && canManage && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
               Résultats du sondage 📊
@@ -1219,7 +1245,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── DATE POLL: invitee voting ── */}
-        {isPollActive && !isOrganizer && (
+        {isPollActive && !canManage && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>
               Sondage de dates <Calendar size={14} strokeWidth={1.5} />
@@ -1251,7 +1277,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── GUEST RSVPs VIA LINK (organizer only) ── */}
-        {isOrganizer && guestRsvps.length > 0 && (
+        {canManage && guestRsvps.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
               Via lien public 🔗
@@ -1271,7 +1297,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── PARTICIPANTS LIST ── */}
-        {isOrganizer && participants.length > 0 && (
+        {canManage && participants.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E' }}>Participants</div>
@@ -1302,18 +1328,18 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           </div>
         )}
 
-        {isOrganizer && (
-          <PlusOneReviewList eventId={event.id} isOrganizer={isOrganizer} />
+        {canManage && (
+          <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />
         )}
 
-        {userId && isOrganizer && (
+        {userId && canManage && (
           <div style={{ marginBottom: 14 }}>
             <CardView eventId={event.id} currentUserId={userId} />
           </div>
         )}
 
         {/* ── INVITE FRIENDS (organizer only) ── */}
-        {isOrganizer && (
+        {canManage && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
               Inviter des amis
@@ -1382,7 +1408,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── BOTTOM ACTIONS ── */}
-        {isOrganizer && (
+        {canManage && (
           <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
             <div
               onClick={() => setShowDeleteModal(true)}
@@ -1398,7 +1424,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
 
         {/* ── RSVP BUTTONS (guests only) ── */}
-        {!isOrganizer && (
+        {!canManage && (
           <>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1E', margin: '6px 0 10px' }}>
               Votre réponse
@@ -1490,6 +1516,49 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           whiteSpace: 'nowrap',
         }}>
           {toast}
+        </div>
+      )}
+
+      {showCoOrgModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 16px 20px' }}>
+          <div style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 20, padding: '18px 16px 16px', boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#1C1C1E' }}>Ajouter un co-organisateur</div>
+              <button type="button" onClick={() => setShowCoOrgModal(false)} style={{ width: 34, height: 34, borderRadius: 17, border: 'none', background: '#F2F2F7', color: '#8E8E93', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 18 }}>×</button>
+            </div>
+            <input
+              type="email"
+              value={coOrgEmail}
+              onChange={e => setCoOrgEmail(e.target.value)}
+              placeholder="email@exemple.com"
+              autoFocus
+              style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 12, padding: '12px 13px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box', marginBottom: 8 }}
+            />
+            {coOrgError && <div style={{ fontSize: 12, color: '#FF3B30', fontWeight: 600, marginBottom: 10 }}>{coOrgError}</div>}
+            <button
+              type="button"
+              disabled={coOrgSubmitting || !coOrgEmail.trim()}
+              onClick={async () => {
+                setCoOrgSubmitting(true)
+                setCoOrgError('')
+                try {
+                  await addCoOrganizer(event.id, coOrgEmail.trim().toLowerCase())
+                  const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, avatar_url)').eq('event_id', event.id)
+                  setOrganizers(orgsData || [])
+                  setCoOrgEmail('')
+                  setShowCoOrgModal(false)
+                  showToast('Co-organisateur ajouté ✓')
+                } catch (err) {
+                  setCoOrgError(err.message || 'Utilisateur introuvable')
+                } finally {
+                  setCoOrgSubmitting(false)
+                }
+              }}
+              style={{ width: '100%', border: 'none', borderRadius: 14, padding: '13px', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 15, fontWeight: 800, cursor: coOrgSubmitting ? 'default' : 'pointer', opacity: coOrgSubmitting || !coOrgEmail.trim() ? 0.6 : 1 }}
+            >
+              {coOrgSubmitting ? 'Ajout…' : 'Confirmer'}
+            </button>
+          </div>
         </div>
       )}
 

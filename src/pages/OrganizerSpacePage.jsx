@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { isOrganizer } from '../lib/organizers'
+import CoOrganizers from '../components/CoOrganizers'
 import InviteFriendsSheet from '../components/InviteFriendsSheet'
 
 const GRAD = 'linear-gradient(135deg, #e055aa, #f5a623)'
@@ -433,6 +435,7 @@ export default function OrganizerSpacePage() {
   const [activeTab, setActiveTab] = useState('checklist')
   const [event, setEvent] = useState(null)
   const [currentUserId, setCurrentUserId] = useState(null)
+  const [isOwner, setIsOwner] = useState(false)
   const [items, setItems] = useState([])
   const [expenses, setExpenses] = useState([])
   const [invitations, setInvitations] = useState([])
@@ -477,11 +480,18 @@ export default function OrganizerSpacePage() {
       .eq('event_id', eventId)
       .order('created_at', { ascending: true })
 
-    const [eventRes, itemsRes, expensesRes, invitationsRes] = await Promise.all([eventQuery, itemsQuery, expensesQuery, invitationsQuery])
-    if (eventRes.error || !eventRes.data || eventRes.data.user_id !== user.id) {
+    const [eventRes, itemsRes, expensesRes, invitationsRes, userCanManage] = await Promise.all([
+      eventQuery,
+      itemsQuery,
+      expensesQuery,
+      invitationsQuery,
+      isOrganizer(eventId),
+    ])
+    if (eventRes.error || !eventRes.data || !userCanManage) {
       navigate('/')
       return
     }
+    setIsOwner(eventRes.data.user_id === user.id)
 
     const inviteRows = invitationsRes.data || []
     const taskRows = itemsRes.data || []
@@ -795,6 +805,7 @@ export default function OrganizerSpacePage() {
 
         {activeTab === 'guests' && (
           <main className="org-panel">
+            <CoOrganizers eventId={eventId} isOwner={isOwner} />
             {pendingForReminder.length > 0 && (
               <section className="org-alert fade-up">
                 <span>⏰</span>
