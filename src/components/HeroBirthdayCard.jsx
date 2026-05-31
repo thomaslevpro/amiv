@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Cake, X } from 'lucide-react'
+import { Cake, Link2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const REMINDER_OPTIONS = [1, 3, 7, 14, 30]
@@ -27,6 +27,28 @@ function normalizeReminderDays(value) {
     return REMINDER_OPTIONS.includes(day) ? [day] : [7]
   }
   return [7]
+}
+
+function getLinkedProfile(birthday) {
+  return birthday?.linked_profile ?? birthday?.profiles ?? null
+}
+
+function getBirthdayName(birthday) {
+  const linkedProfile = getLinkedProfile(birthday)
+  if (birthday?.linked_profile_id && linkedProfile) {
+    return linkedProfile.first_name || linkedProfile.name || birthday.name || 'Amiv'
+  }
+  return birthday?.name || 'Amiv'
+}
+
+function getInitials(name) {
+  return (name || '?')
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 }
 
 function ReminderSheet({ birthday, onClose, onSaved, onToast }) {
@@ -239,7 +261,10 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
     )
   }
 
-  const { name, birthdate, days } = birthday
+  const { birthdate, days } = birthday
+  const linkedProfile = getLinkedProfile(birthday)
+  const isLinked = Boolean(birthday.linked_profile_id)
+  const displayName = getBirthdayName(birthday)
   const birthdayDate = new Date(birthdate)
   const age = new Date().getFullYear() - birthdayDate.getFullYear()
   const birthdayLabel = birthdayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
@@ -306,7 +331,51 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
               <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.8, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Cake size={20} strokeWidth={1.5} /> Prochain anniversaire
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{name}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {isLinked && (
+                  <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
+                    <div style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      overflow: 'hidden',
+                      color: '#fff',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      boxShadow: '0 2px 8px rgba(18,31,46,0.14)',
+                    }}>
+                      {linkedProfile?.avatar_url ? (
+                        <img src={linkedProfile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        getInitials(displayName)
+                      )}
+                    </div>
+                    <div
+                      aria-label="Profil lié"
+                      title="Profil lié"
+                      style={{
+                        position: 'absolute',
+                        right: -1,
+                        bottom: -1,
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                        border: '1.5px solid #fff',
+                        display: 'grid',
+                        placeItems: 'center',
+                        boxShadow: '0 1px 4px rgba(18,31,46,0.18)',
+                      }}
+                    >
+                      <Link2 size={8.5} color="#fff" strokeWidth={2.4} />
+                    </div>
+                  </div>
+                )}
+                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{displayName}</div>
+              </div>
               <div style={{ fontSize: 13, opacity: 0.85, marginTop: 5 }}>
                 {birthdayLabel} · {age} ans
               </div>

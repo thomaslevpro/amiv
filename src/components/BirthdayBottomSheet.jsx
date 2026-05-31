@@ -311,20 +311,30 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%',
-              background: '#FBBF9A',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28, flexShrink: 0,
-              boxShadow: '0 2px 10px rgba(224,85,170,0.18)',
-            }}>
-              🎂
-            </div>
+            {linkedProfileId ? (
+              <FriendAvatar profile={linkedProfile} size={64} />
+            ) : (
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: '#FBBF9A',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 28, flexShrink: 0,
+                boxShadow: '0 2px 10px rgba(224,85,170,0.18)',
+              }}>
+                🎂
+              </div>
+            )}
 
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', lineHeight: 1.2 }}>
-                {birthday.name}
+                {linkedProfileId ? getProfileName(linkedProfile) : birthday.name}
               </div>
+              {linkedProfileId && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, color: '#8E8E93', fontSize: 11, fontWeight: 600 }}>
+                  <Link2 size={11} strokeWidth={2} />
+                  <span>lié</span>
+                </div>
+              )}
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 marginTop: 10,
@@ -394,232 +404,208 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
           padding: '14px 16px',
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: '50%',
-            background: 'rgba(224,85,170,0.10)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>🎂</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E' }}>Rappel le jour J</div>
+            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Envoyé automatiquement à 8h</div>
+          </div>
+          <span style={{
+            background: 'rgba(245,166,35,0.12)',
+            color: '#f5a623',
+            fontSize: 11,
+            fontWeight: 700,
+            borderRadius: 8,
+            padding: '4px 10px',
             flexShrink: 0,
           }}>
-            <Bell size={18} strokeWidth={1.6} color="#e055aa" />
-          </div>
-
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E' }}>
-              {reminder ? 'Rappel activé' : 'Rappel désactivé'}
-            </div>
-            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 1 }}>
-              {reminderDays.length
-                ? `J-${reminderDays.join(', J-')} · notification push`
-                : 'Aucun rappel configuré'}
-            </div>
-          </div>
-
-          <div
-            onClick={handleToggleReminder}
-            style={{
-              width: 50, height: 30, borderRadius: 15, cursor: 'pointer',
-              background: reminder
-                ? 'linear-gradient(90deg, #e055aa, #f5a623)'
-                : '#E5E5EA',
-              transition: 'background 0.22s',
-              position: 'relative', flexShrink: 0,
-            }}
-          >
-            <div style={{
-              position: 'absolute', top: 3,
-              left: reminder ? 23 : 3,
-              width: 24, height: 24, borderRadius: '50%',
-              background: '#fff',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.22)',
-              transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
-            }} />
-          </div>
+            Actif
+          </span>
         </div>
 
         {/* ── 3b. REMINDER DELAY ── */}
-        {reminder && (
-          <div style={{
-            margin: '8px 16px 0',
-            background: '#fff',
-            borderRadius: 14,
-            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-            padding: '12px 14px',
-          }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700, color: '#8E8E93',
-              letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10,
-            }}>
-              Rappeler moi
-            </div>
-            <div style={{
-              display: 'flex', gap: 8,
-              overflowX: 'auto',
-              scrollbarWidth: 'none',
-              WebkitOverflowScrolling: 'touch',
-            }}>
-              {REMINDER_OPTIONS.map(opt => {
-                const active = reminderDays.includes(opt)
-                return (
-                  <button
-                    key={opt}
-                    onClick={() => handleReminderDays(opt)}
-                    style={{
-                      flexShrink: 0,
-                      padding: '7px 16px',
-                      borderRadius: 20,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      background: active
-                        ? 'linear-gradient(90deg, #e055aa, #f5a623)'
-                        : '#F2F2F7',
-                      color: active ? '#fff' : '#8E8E93',
-                      transition: 'background 0.18s, color 0.18s',
-                    }}
-                  >
-                    J-{opt}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── 3c. LINKED FRIEND ── */}
         <div style={{
           margin: '8px 16px 0',
           background: '#fff',
           borderRadius: 14,
           boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-          padding: '14px',
+          padding: '14px 16px',
         }}>
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
+            fontSize: 11, fontWeight: 700, color: '#8E8E93',
+            letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 10,
           }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-                Lier à un ami
-              </div>
-              <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 3 }}>
-                {linkedProfileId ? 'Profil connecté associé' : 'Associe ce rappel à un ami Amiv'}
-              </div>
-            </div>
-            {!linkedProfileId && (
-              <button
-                type="button"
-                onClick={openFriendPicker}
-                style={{
-                  border: 'none',
-                  borderRadius: 18,
-                  padding: '8px 12px',
-                  background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  fontWeight: 800,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <Link2 size={14} strokeWidth={2} />
-                Lier à un ami
-              </button>
-            )}
+            JOURS DE RAPPEL
           </div>
+          <div style={{
+            display: 'flex', gap: 8,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
+          }}>
+            {REMINDER_OPTIONS.map(opt => {
+              const active = reminderDays.includes(opt)
+              return (
+                <button
+                  key={opt}
+                  onClick={() => handleReminderDays(opt)}
+                  style={{
+                    flexShrink: 0,
+                    padding: '7px 16px',
+                    borderRadius: 20,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    background: active
+                      ? 'linear-gradient(90deg, #e055aa, #f5a623)'
+                      : '#F2F2F7',
+                    color: active ? '#fff' : '#8E8E93',
+                    transition: 'background 0.18s, color 0.18s',
+                  }}
+                >
+                  J-{opt}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-          {linkedProfileId && (
+        {/* ── 3c. LINKED FRIEND ── */}
+        {!linkedProfileId && (
+          <div style={{
+            margin: '8px 16px 0',
+            background: '#fff',
+            borderRadius: 14,
+            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+            padding: '14px',
+          }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
-              marginTop: 12,
-              padding: '10px 11px',
-              borderRadius: 12,
-              background: '#F8F8FA',
+              justifyContent: 'space-between',
+              gap: 12,
             }}>
-              <FriendAvatar profile={linkedProfile || { first_name: birthday.name }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {getProfileName(linkedProfile || { first_name: birthday.name })}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                  Lier à un ami
+                </div>
+                <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 3 }}>
+                  {linkedProfileId ? 'Profil connecté associé' : 'Associe ce rappel à un ami Amiv'}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={unlinkFriend}
-                disabled={linkingId === 'unlink'}
-                aria-label="Délier cet ami"
-                style={{
-                  minWidth: 78,
-                  height: 34,
-                  border: 'none',
-                  borderRadius: 17,
-                  background: '#fff',
-                  color: '#FF3B30',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 4,
-                  cursor: linkingId === 'unlink' ? 'default' : 'pointer',
-                  opacity: linkingId === 'unlink' ? 0.55 : 1,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-                  fontSize: 12,
-                  fontWeight: 800,
-                }}
-              >
-                <X size={17} strokeWidth={2.2} />
-                Délier
-              </button>
-            </div>
-          )}
-
-          {friendPickerOpen && !linkedProfileId && (
-            <div style={{
-              marginTop: 12,
-              borderRadius: 12,
-              border: '1px solid #F2F2F7',
-              overflow: 'hidden',
-            }}>
-              {friendsLoading ? (
-                <div style={{ padding: 13, color: '#8E8E93', fontSize: 13 }}>Chargement...</div>
-              ) : friends.length === 0 ? (
-                <div style={{ padding: 13, color: '#8E8E93', fontSize: 13 }}>Aucun ami connecté pour le moment</div>
-              ) : (
-                friends.map((friend, index) => (
-                  <button
-                    key={friend.id}
-                    type="button"
-                    onClick={() => linkFriend(friend)}
-                    disabled={linkingId === friend.id}
-                    style={{
-                      width: '100%',
-                      border: 'none',
-                      borderBottom: index < friends.length - 1 ? '1px solid #F2F2F7' : 'none',
-                      background: '#fff',
-                      padding: '10px 11px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      cursor: linkingId === friend.id ? 'default' : 'pointer',
-                      opacity: linkingId === friend.id ? 0.6 : 1,
-                      textAlign: 'left',
-                    }}
-                  >
-                    <FriendAvatar profile={friend} />
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {getProfileName(friend)}
-                    </span>
-                  </button>
-                ))
+              {!linkedProfileId && (
+                <button
+                  type="button"
+                  onClick={openFriendPicker}
+                  style={{
+                    border: 'none',
+                    borderRadius: 18,
+                    padding: '8px 12px',
+                    background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Link2 size={14} strokeWidth={2} />
+                  Lier à un ami
+                </button>
               )}
             </div>
-          )}
-        </div>
+
+            {linkedProfileId && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginTop: 12,
+                padding: '10px 11px',
+                borderRadius: 12,
+                background: '#F8F8FA',
+              }}>
+                <FriendAvatar profile={linkedProfile || { first_name: birthday.name }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {getProfileName(linkedProfile || { first_name: birthday.name })}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={unlinkFriend}
+                  disabled={linkingId === 'unlink'}
+                  aria-label="Délier cet ami"
+                  style={{
+                    minWidth: 78,
+                    height: 34,
+                    border: 'none',
+                    borderRadius: 17,
+                    background: '#fff',
+                    color: '#FF3B30',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    cursor: linkingId === 'unlink' ? 'default' : 'pointer',
+                    opacity: linkingId === 'unlink' ? 0.55 : 1,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  <X size={17} strokeWidth={2.2} />
+                  Délier
+                </button>
+              </div>
+            )}
+
+            {friendPickerOpen && !linkedProfileId && (
+              <div style={{
+                marginTop: 12,
+                borderRadius: 12,
+                border: '1px solid #F2F2F7',
+                overflow: 'hidden',
+              }}>
+                {friendsLoading ? (
+                  <div style={{ padding: 13, color: '#8E8E93', fontSize: 13 }}>Chargement...</div>
+                ) : friends.length === 0 ? (
+                  <div style={{ padding: 13, color: '#8E8E93', fontSize: 13 }}>Aucun ami connecté pour le moment</div>
+                ) : (
+                  friends.map((friend, index) => (
+                    <button
+                      key={friend.id}
+                      type="button"
+                      onClick={() => linkFriend(friend)}
+                      disabled={linkingId === friend.id}
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        borderBottom: index < friends.length - 1 ? '1px solid #F2F2F7' : 'none',
+                        background: '#fff',
+                        padding: '10px 11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        cursor: linkingId === friend.id ? 'default' : 'pointer',
+                        opacity: linkingId === friend.id ? 0.6 : 1,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <FriendAvatar profile={friend} />
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {getProfileName(friend)}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── 4. ACTION ROW ── */}
         {!confirmDelete ? (

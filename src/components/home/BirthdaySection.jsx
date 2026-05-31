@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, User, X } from 'lucide-react'
+import { CalendarDays, Link2, User, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import AddAmivModal from '../AddAmivModal'
 import BirthdayBottomSheet from '../BirthdayBottomSheet'
@@ -63,6 +63,28 @@ function getFirstName(birthday) {
   return birthday.name?.trim() || getDisplayName(birthday).split(' ')[0] || 'Amiv'
 }
 
+function getBirthdayLinkedProfile(birthday) {
+  return birthday?.linked_profile ?? birthday?.profiles ?? null
+}
+
+function getBirthdayDisplayName(birthday) {
+  const linkedProfile = getBirthdayLinkedProfile(birthday)
+  if (birthday?.linked_profile_id && linkedProfile) {
+    return linkedProfile.first_name || linkedProfile.name || getFirstName(birthday)
+  }
+  return getFirstName(birthday)
+}
+
+function getInitials(name) {
+  return (name || '?')
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
 function formatBirthdateShort(birthdate) {
   const { month, day } = parseBirthdateParts(birthdate)
   if (!day || month < 0 || month >= MONTH_LABELS.length) return ''
@@ -87,14 +109,9 @@ function enrichBirthdays(rows, today) {
 }
 
 function BirthdayBubble({ birthday, onClick }) {
-  const firstName = getFirstName(birthday)
-  const linkedName = birthday.linked_profile?.first_name || birthday.linked_profile?.name || firstName
-  const linkedInitials = (linkedName || '?')
-    .split(' ')
-    .map(part => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+  const isLinked = Boolean(birthday.linked_profile_id)
+  const displayName = getBirthdayDisplayName(birthday)
+  const linkedInitials = getInitials(displayName)
   const birthdateLabel = formatBirthdateShort(birthday.birthdate)
   const progress = Math.max(8, Math.round((1 - birthday.daysUntil / 90) * 100))
   const dashOffset = RING_CIRCUMFERENCE * (1 - Math.min(progress, 100) / 100)
@@ -146,7 +163,7 @@ function BirthdayBubble({ birthday, onClick }) {
             width: 48,
             height: 48,
             borderRadius: '50%',
-            background: birthday.linked_profile_id ? 'linear-gradient(135deg,#e055aa,#f5a623)' : theme.fill,
+            background: isLinked ? 'linear-gradient(135deg,#e055aa,#f5a623)' : theme.fill,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -154,14 +171,35 @@ function BirthdayBubble({ birthday, onClick }) {
             color: '#fff',
           }}
         >
-          {birthday.linked_profile_id && birthday.avatar_url ? (
-            <img src={birthday.avatar_url} alt={linkedName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : birthday.linked_profile_id ? (
+          {isLinked && birthday.avatar_url ? (
+            <img src={birthday.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : isLinked ? (
             <span style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{linkedInitials}</span>
           ) : (
             <User size={26} strokeWidth={1.7} />
           )}
         </div>
+        {isLinked && (
+          <div
+            aria-label="Profil lié"
+            title="Profil lié"
+            style={{
+              position: 'absolute',
+              right: 3,
+              bottom: 5,
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+              border: '1.5px solid #fff',
+              display: 'grid',
+              placeItems: 'center',
+              boxShadow: '0 1px 4px rgba(18,31,46,0.18)',
+            }}
+          >
+            <Link2 size={8.5} color="#fff" strokeWidth={2.4} />
+          </div>
+        )}
       </div>
       <div
         style={{
@@ -176,7 +214,7 @@ function BirthdayBubble({ birthday, onClick }) {
           whiteSpace: 'nowrap',
         }}
       >
-        {firstName}
+        {displayName}
       </div>
       {birthdateLabel && (
         <div

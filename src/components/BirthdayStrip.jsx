@@ -1,10 +1,35 @@
 import { useState } from 'react'
-import { Cake } from 'lucide-react'
+import { Cake, Link2 } from 'lucide-react'
 import BirthdayBottomSheet from './BirthdayBottomSheet'
 import BirthdayEditModal from './BirthdayEditModal'
 
+function getLinkedProfile(birthday) {
+  return birthday?.linked_profile ?? birthday?.profiles ?? null
+}
+
+function getBirthdayName(birthday) {
+  const linkedProfile = getLinkedProfile(birthday)
+  if (birthday?.linked_profile_id && linkedProfile) {
+    return linkedProfile.first_name || linkedProfile.name || birthday.name || 'Amiv'
+  }
+  return birthday?.name || 'Amiv'
+}
+
+function getInitials(name) {
+  return (name || '?')
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
 function StripItem({ birthday, onAvatarTap }) {
-  const { id, name, days } = birthday
+  const { id, days } = birthday
+  const linkedProfile = getLinkedProfile(birthday)
+  const isLinked = Boolean(birthday.linked_profile_id)
+  const name = getBirthdayName(birthday)
   const ringCircumference = 127.2
   const offset = Math.max(0, Math.min(ringCircumference, ringCircumference * days / 30))
   const isUrgent = days <= 7
@@ -50,12 +75,42 @@ function StripItem({ birthday, onAvatarTap }) {
         </svg>
         <div style={{
           position: 'absolute', top: 5.25, left: 5.25, right: 5.25, bottom: 5.25,
-          background: '#FBBF9A', borderRadius: '50%',
+          background: isLinked ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#FBBF9A', borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 16.5,
+          overflow: 'hidden',
+          fontSize: 13,
+          fontWeight: 800,
+          color: '#fff',
         }}>
-          <Cake size={15} strokeWidth={1.5} />
+          {isLinked && linkedProfile?.avatar_url ? (
+            <img src={linkedProfile.avatar_url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : isLinked ? (
+            getInitials(name)
+          ) : (
+            <Cake size={15} strokeWidth={1.5} color="#1C1C1E" />
+          )}
         </div>
+        {isLinked && (
+          <div
+            aria-label="Profil lié"
+            title="Profil lié"
+            style={{
+              position: 'absolute',
+              right: 2,
+              bottom: 3,
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+              border: '1.5px solid #fff',
+              display: 'grid',
+              placeItems: 'center',
+              boxShadow: '0 1px 4px rgba(18,31,46,0.18)',
+            }}
+          >
+            <Link2 size={8.5} color="#fff" strokeWidth={2.4} />
+          </div>
+        )}
       </div>
 
       <div style={{
