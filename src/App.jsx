@@ -156,7 +156,8 @@ function MainApp() {
     (screen === 'invitation' && selectedEvent) ||
     (screen === 'eventDetail' && selectedEvent) ||
     (screen === 'messages' && selectedEvent) ||
-    !!directConv
+    !!directConv ||
+  !!conversationEvent
 
   const renderCurrentScreen = () => {
     if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
