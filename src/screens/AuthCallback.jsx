@@ -15,31 +15,50 @@ export default function AuthCallback() {
 
     const finishAuth = async () => {
       try {
-        const queryParams = new URLSearchParams(window.location.search)
+        // Supabase a déjà vérifié le token et redirige avec la session
+        // dans le hash (#access_token=...) ou en query (?code=...)
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-        const code = queryParams.get('code') ?? hashParams.get('code')
-        const urlError = queryParams.get('error_description')
-          ?? hashParams.get('error_description')
-          ?? queryParams.get('error')
-          ?? hashParams.get('error')
+        const queryParams = new URLSearchParams(window.location.search)
 
-        if (urlError) throw new Error(urlError)
+        const code = queryParams.get('code')
+        const accessToken = hashParams.get('access_token')
+        const errorDesc = queryParams.get('error_description') ?? hashParams.get('error_description')
+
+        if (errorDesc) throw new Error(errorDesc)
 
         if (code) {
+          // Flow PKCE
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) throw error
-        } else {
-          const { data, error } = await supabase.auth.getSession()
-          if (error) throw error
-          if (!data.session && !hashParams.get('access_token')) {
-            throw new Error('Missing auth token')
+        } else if (accessToken) {
+          // Flow implicite — la session est déjà dans le hash,
+          // le client Supabase la détecte automatiquement au chargement
+          // On attend juste que onAuthStateChange confirme
+          const { data } = await supabase.auth.getSession()
+          if (!data.session) {
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error('timeout')), 5000)
+              const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+                if (session) {
+                  clearTimeout(timeout)
+                  subscription.unsubscribe()
+                  resolve()
+                }
+              })
+            })
           }
+        } else {
+          // Pas de token dans l'URL — Supabase a peut-être déjà
+          // établi la session via le hash avant le montage du composant
+          const { data } = await supabase.auth.getSession()
+          if (!data.session) throw new Error('No session found')
         }
 
         if (!mounted) return
         setStatus('success')
         redirectTimer = window.setTimeout(() => navigate('/', { replace: true }), 3000)
-      } catch {
+      } catch (e) {
+        console.error('AuthCallback error:', e)
         if (mounted) setStatus('error')
       }
     }

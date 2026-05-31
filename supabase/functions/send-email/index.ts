@@ -62,23 +62,18 @@ function normalizeEventType(payload: AuthEmailPayload) {
 
 function buildAuthUrl(payload: AuthEmailPayload, email: string, eventType: string) {
   const emailData = payload.email_data ?? {}
-  const redirectUrl = payload.redirect_url ?? payload.redirect_to ?? emailData.redirect_url ?? emailData.redirect_to
-  const verifyBaseUrl = SUPABASE_URL ?? payload.site_url ?? emailData.site_url ?? 'https://amiv.app'
-  const token = payload.token_hash
-    ?? payload.hashed_token
-    ?? payload.token
-    ?? emailData.token_hash
-    ?? emailData.token_hash_new
-    ?? emailData.token
-    ?? emailData.token_new
+  const redirectTo = emailData.redirect_to ?? payload.redirect_url ?? payload.redirect_to
 
-  if (!token) return null
+  // Toujours utiliser SUPABASE_URL (sans /auth/v1) pour construire l'URL de verify
+  const baseUrl = (SUPABASE_URL ?? '').replace(/\/auth\/v1\/?$/, '')
+  const token_hash = emailData.token_hash ?? emailData.token ?? payload.token_hash ?? payload.token
 
-  const url = new URL('/auth/v1/verify', verifyBaseUrl)
-  url.searchParams.set('token_hash', token)
-  url.searchParams.set('email', email)
-  url.searchParams.set('type', eventType === 'recovery' ? 'recovery' : eventType === 'magiclink' ? 'magiclink' : 'email')
-  if (redirectUrl) url.searchParams.set('redirect_to', redirectUrl)
+  if (!token_hash) return null
+
+  const url = new URL('/auth/v1/verify', baseUrl)
+  url.searchParams.set('token_hash', token_hash)
+  url.searchParams.set('type', eventType === 'recovery' ? 'recovery' : eventType === 'magiclink' ? 'magiclink' : 'signup')
+  if (redirectTo) url.searchParams.set('redirect_to', redirectTo)
 
   return url.toString()
 }
@@ -151,6 +146,7 @@ Deno.serve(async (req) => {
 
   try {
     payload = await req.json()
+    console.log('PAYLOAD_DEBUG:', JSON.stringify(payload, null, 2))
   } catch {
     return json({ error: 'Invalid JSON' }, 400)
   }
@@ -163,6 +159,7 @@ Deno.serve(async (req) => {
 
   const authUrl = buildAuthUrl(payload, email, eventType)
   if (!authUrl) return json({ error: 'Missing token' }, 400)
+  console.log('VERIFY_URL:', authUrl)
 
   const content = getEmailContent(eventType, authUrl)
   if (!content) return json({ error: `Unsupported email type: ${eventType}` }, 400)
