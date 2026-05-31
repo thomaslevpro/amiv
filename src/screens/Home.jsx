@@ -434,7 +434,6 @@ export default function Home({
           .from('events')
           .select('id, name, date, location, user_id, cover_image, birthday_person_user_id')
           .eq('user_id', userId)
-          .gte('date', now)
           .order('date', { ascending: true })
           .limit(5),
         supabase

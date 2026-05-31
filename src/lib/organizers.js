@@ -25,6 +25,13 @@ export async function getOrganizers(eventId) {
   return data
 }
 
+export async function addCoOrganizerById(eventId, userId) {
+  const { error } = await supabase
+    .from('event_organizers')
+    .insert({ event_id: eventId, user_id: userId, role: 'co_organizer' })
+  if (error) throw error
+}
+
 export async function addCoOrganizer(eventId, email) {
   const { data: profile, error } = await supabase
     .from('profiles')

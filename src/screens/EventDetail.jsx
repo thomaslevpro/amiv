@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle, MapPin, Calendar, Cake, Image as ImageIcon, MessageCircle, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { isOrganizer, getOrganizers, addCoOrganizer } from '../lib/organizers'
+import { isOrganizer, getOrganizers, addCoOrganizerById } from '../lib/organizers'
 import CardView from '../components/card/CardView'
 import PlusOneRequest from '../components/PlusOneRequest'
 import PlusOneReviewList from '../components/PlusOneReviewList'
@@ -118,9 +118,10 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
   const [organizers, setOrganizers] = useState([])
   const [showCoOrgModal, setShowCoOrgModal] = useState(false)
-  const [coOrgEmail, setCoOrgEmail] = useState('')
   const [coOrgSubmitting, setCoOrgSubmitting] = useState(false)
   const [coOrgError, setCoOrgError] = useState('')
+  const [confirmedParticipants, setConfirmedParticipants] = useState([])
+  const [coOrgLoading, setCoOrgLoading] = useState(false)
 
   const navigate = useNavigate()
 
@@ -271,6 +272,17 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         .select('role, profile:user_id (id, first_name, name, avatar_url)')
         .eq('event_id', event.id)
       if (!cancelled) setOrganizers(orgsData || [])
+      const hasOwner = (orgsData || []).some(o => o.role === 'owner' && o.profile?.id === event.user_id)
+      if (!hasOwner && event.user_id) {
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('id, first_name, name, avatar_url')
+          .eq('id', event.user_id)
+          .maybeSingle()
+        if (ownerProfile && !cancelled) {
+          setOrganizers([{ role: 'owner', profile: ownerProfile }, ...(orgsData || [])])
+        }
+      }
 
       const { data: isGuestResult } = await supabase.rpc(
         'is_invited_to_event',
@@ -665,6 +677,24 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       setEventGuests(prev => prev.map(g => g.invitee_id === inviteeId ? { ...g, friend_request_sent: false } : g))
       showToast('Erreur lors de la demande')
     }
+  }
+
+  async function handleOpenCoOrgModal() {
+    setCoOrgError('')
+    setConfirmedParticipants([])
+    setShowCoOrgModal(true)
+    setCoOrgLoading(true)
+    const orgIds = new Set(organizers.map(o => o.profile?.id).filter(Boolean))
+    const { data: rsvpsData } = await supabase
+      .from('rsvps')
+      .select('user_id, profile:user_id (id, first_name, name, avatar_url)')
+      .eq('event_id', event.id)
+      .eq('status', 'going')
+    const participants = (rsvpsData || [])
+      .filter(r => r.profile && !orgIds.has(r.profile.id))
+      .map(r => r.profile)
+    setConfirmedParticipants(participants)
+    setCoOrgLoading(false)
   }
 
   function handleAddToCalendar() {
@@ -1106,7 +1136,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 6 }}>Organisé par</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                {organizers.map(({ role, profile }) => {
+                {[...organizers].sort((a, b) => (a.role === 'owner' ? -1 : 1)).map(({ role, profile }) => {
                   const name = profile?.first_name || profile?.name || 'Organisateur'
                   const isOwner = role === 'owner'
                   return (
@@ -1127,10 +1157,10 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
                     </div>
                   )
                 })}
-                {canManage && organizers.length < 4 && (
+                {event.user_id === userId && organizers.length < 4 && (
                   <button
                     type="button"
-                    onClick={() => { setCoOrgError(''); setShowCoOrgModal(true) }}
+                    onClick={handleOpenCoOrgModal}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'linear-gradient(135deg,#e055aa,#f5a623)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
                   >
                     + Ajouter
@@ -1526,38 +1556,52 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
               <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#1C1C1E' }}>Ajouter un co-organisateur</div>
               <button type="button" onClick={() => setShowCoOrgModal(false)} style={{ width: 34, height: 34, borderRadius: 17, border: 'none', background: '#F2F2F7', color: '#8E8E93', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 18 }}>×</button>
             </div>
-            <input
-              type="email"
-              value={coOrgEmail}
-              onChange={e => setCoOrgEmail(e.target.value)}
-              placeholder="email@exemple.com"
-              autoFocus
-              style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 12, padding: '12px 13px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box', marginBottom: 8 }}
-            />
             {coOrgError && <div style={{ fontSize: 12, color: '#FF3B30', fontWeight: 600, marginBottom: 10 }}>{coOrgError}</div>}
-            <button
-              type="button"
-              disabled={coOrgSubmitting || !coOrgEmail.trim()}
-              onClick={async () => {
-                setCoOrgSubmitting(true)
-                setCoOrgError('')
-                try {
-                  await addCoOrganizer(event.id, coOrgEmail.trim().toLowerCase())
-                  const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, avatar_url)').eq('event_id', event.id)
-                  setOrganizers(orgsData || [])
-                  setCoOrgEmail('')
-                  setShowCoOrgModal(false)
-                  showToast('Co-organisateur ajouté ✓')
-                } catch (err) {
-                  setCoOrgError(err.message || 'Utilisateur introuvable')
-                } finally {
-                  setCoOrgSubmitting(false)
-                }
-              }}
-              style={{ width: '100%', border: 'none', borderRadius: 14, padding: '13px', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 15, fontWeight: 800, cursor: coOrgSubmitting ? 'default' : 'pointer', opacity: coOrgSubmitting || !coOrgEmail.trim() ? 0.6 : 1 }}
-            >
-              {coOrgSubmitting ? 'Ajout…' : 'Confirmer'}
-            </button>
+            {coOrgLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#8E8E93', fontSize: 14 }}>Chargement…</div>
+            ) : confirmedParticipants.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', color: '#8E8E93', fontSize: 14 }}>Aucun participant confirmé disponible</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
+                {confirmedParticipants.map(participant => {
+                  const name = participant.first_name || participant.name || 'Invité'
+                  return (
+                    <div key={participant.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {participant.avatar_url ? (
+                        <img src={participant.avatar_url} alt={name} style={{ width: 38, height: 38, borderRadius: 19, objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 38, height: 38, borderRadius: 19, background: getAvatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>{name}</div>
+                      <button
+                        type="button"
+                        disabled={coOrgSubmitting}
+                        onClick={async () => {
+                          setCoOrgSubmitting(true)
+                          setCoOrgError('')
+                          try {
+                            await addCoOrganizerById(event.id, participant.id)
+                            const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, avatar_url)').eq('event_id', event.id)
+                            setOrganizers(orgsData || [])
+                            setConfirmedParticipants(prev => prev.filter(p => p.id !== participant.id))
+                            showToast('Co-organisateur ajouté ✓')
+                          } catch (err) {
+                            setCoOrgError(err.message || "Erreur lors de l'ajout")
+                          } finally {
+                            setCoOrgSubmitting(false)
+                          }
+                        }}
+                        style={{ padding: '7px 14px', borderRadius: 20, border: 'none', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: coOrgSubmitting ? 'default' : 'pointer', opacity: coOrgSubmitting ? 0.6 : 1, flexShrink: 0, whiteSpace: 'nowrap' }}
+                      >
+                        Ajouter
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
