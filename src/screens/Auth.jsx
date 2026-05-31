@@ -8,6 +8,8 @@ export default function Auth({ initialIsLogin = false }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendDone, setResendDone] = useState(false)
 
   const handle = async () => {
     setLoading(true)
@@ -34,11 +36,51 @@ export default function Auth({ initialIsLogin = false }) {
     setLoading(false)
   }
 
+  const handleResend = async () => {
+    setResendLoading(true)
+    setResendDone(false)
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      })
+      if (error) throw error
+      setResendDone(true)
+    } catch (e) {
+      setError(e.message)
+    }
+    setResendLoading(false)
+  }
+
   if (success) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: 32, textAlign: 'center' }}>
       <div style={{ fontSize: 52, marginBottom: 16 }}>📬</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>Vérifie tes emails !</div>
-      <div style={{ fontSize: 14, color: '#8E8E93' }}>Un lien de confirmation t'a été envoyé à <strong>{email}</strong></div>
+      <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 8 }}>Un lien de confirmation t'a été envoyé à <strong>{email}</strong></div>
+      <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: 32 }}>Pense à vérifier tes spams.</div>
+      {resendDone && (
+        <div style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 16 }}>
+          ✓ Email renvoyé !
+        </div>
+      )}
+      <div onClick={handleResend} style={{
+        background: 'transparent',
+        border: '1.5px solid #E5E5EA',
+        borderRadius: 12,
+        padding: 13,
+        fontSize: 14,
+        fontWeight: 600,
+        color: '#1C1C1E',
+        cursor: 'pointer',
+        width: '100%',
+        maxWidth: 340,
+      }}>
+        {resendLoading ? 'Envoi…' : resendDone ? 'Renvoyer à nouveau' : "Renvoyer l'email"}
+      </div>
+      <div onClick={() => { setSuccess(false); setEmail(''); setPassword('') }} style={{ fontSize: 13, color: '#8E8E93', marginTop: 14, cursor: 'pointer' }}>
+        Utiliser un autre email
+      </div>
     </div>
   )
 
