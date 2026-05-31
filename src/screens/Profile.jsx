@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
 import { supabase } from '../lib/supabase'
+import { deleteCalendarToken, getOrCreateCalendarToken } from '../lib/calendarSync'
 import EditProfileModal from '../components/profile/EditProfileModal'
 import ChangePasswordModal from '../components/profile/ChangePasswordModal'
 import AmivQrModal from '../components/profile/AmivQrModal'
@@ -194,6 +195,9 @@ export default function Profile({ session, onCalendarClick }) {
   const [showEditProfile, setShowEditProfile] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
+  const [calendarToken, setCalendarToken] = useState(null)
+  const [calendarLoading, setCalendarLoading] = useState(true)
+  const [calendarBusy, setCalendarBusy] = useState(false)
   const [toastMsg, setToastMsg] = useState(null)
 
   useEffect(() => {
@@ -207,14 +211,22 @@ export default function Profile({ session, onCalendarClick }) {
         if (userError) throw userError
         if (!user) throw new Error('Utilisateur non connecté.')
 
-        const [profileData, statsData] = await Promise.all([
+        const [profileData, statsData, calendarTokenData] = await Promise.all([
           fetchProfile(user),
           fetchStats(user),
+          supabase
+            .from('calendar_tokens')
+            .select('token')
+            .eq('user_id', user.id)
+            .maybeSingle(),
         ])
         if (cancelled) return
 
+        if (calendarTokenData.error) throw calendarTokenData.error
+
         setProfile(profileData)
         setStats(statsData)
+        setCalendarToken(calendarTokenData.data?.token ?? null)
         setNotifs({
           notif_birthdays: profileData.notif_birthdays,
           notif_invitations: profileData.notif_invitations,
@@ -223,7 +235,10 @@ export default function Profile({ session, onCalendarClick }) {
       } catch (err) {
         if (!cancelled) setError(err.message ?? 'Impossible de charger le profil.')
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setCalendarLoading(false)
+        }
       }
     }
 
@@ -266,6 +281,51 @@ export default function Profile({ session, onCalendarClick }) {
       showToast('Lien copié ✓')
     } catch {
       showToast('Impossible de copier le lien')
+    }
+  }
+
+  const calendarHttpsLink = calendarToken ? `https://amiv.app/api/calendar/${calendarToken}.ics` : null
+
+  const connectAppleCalendar = async () => {
+    if (!profile?.id || calendarBusy) return
+
+    setCalendarBusy(true)
+    try {
+      const token = await getOrCreateCalendarToken(profile.id)
+      setCalendarToken(token)
+      window.location.href = `webcal://amiv.app/api/calendar/${token}.ics`
+    } catch (err) {
+      console.error('calendar connect failed', err)
+      showToast('Impossible de connecter le calendrier')
+    } finally {
+      setCalendarBusy(false)
+    }
+  }
+
+  const copyCalendarLink = async () => {
+    if (!calendarHttpsLink) return
+
+    try {
+      await navigator.clipboard.writeText(calendarHttpsLink)
+      showToast('Lien calendrier copié ✓')
+    } catch {
+      showToast('Impossible de copier le lien')
+    }
+  }
+
+  const disconnectCalendar = async () => {
+    if (!profile?.id || calendarBusy) return
+
+    setCalendarBusy(true)
+    try {
+      await deleteCalendarToken(profile.id)
+      setCalendarToken(null)
+      showToast('Calendrier déconnecté')
+    } catch (err) {
+      console.error('calendar disconnect failed', err)
+      showToast('Impossible de déconnecter')
+    } finally {
+      setCalendarBusy(false)
     }
   }
 
@@ -431,6 +491,58 @@ export default function Profile({ session, onCalendarClick }) {
                 <QrCode size={17} strokeWidth={2.2} />
                 <span>Voir mon QR code</span>
               </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <SectionTitle>Calendrier</SectionTitle>
+            <div style={{ background: COLORS.card, borderRadius: 20, padding: 14, boxShadow: CARD_SHADOW }}>
+              {calendarToken ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(52,199,89,0.10)', borderRadius: 14, padding: '12px 13px', marginBottom: 12 }}>
+                    <IconBubble background="rgba(52,199,89,0.14)" size={38} radius={11}>
+                      <CalendarCheck2 size={18} strokeWidth={1.9} color="#248A3D" />
+                    </IconBubble>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: 26, borderRadius: 999, background: '#34C759', color: '#fff', padding: '0 10px', fontSize: 12, fontWeight: 800 }}>
+                        Calendrier connecté
+                      </div>
+                      <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 7, overflowWrap: 'anywhere' }}>
+                        {calendarHttpsLink.replace(/^https:\/\//, '')}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={copyCalendarLink}
+                      disabled={calendarBusy}
+                      style={{ minHeight: 44, border: 'none', borderRadius: 14, background: COLORS.page, color: COLORS.text, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 800, cursor: calendarBusy ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                    >
+                      <Copy size={16} strokeWidth={2} color="#e055aa" />
+                      <span>Copier le lien</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={disconnectCalendar}
+                      disabled={calendarBusy}
+                      style={{ minHeight: 44, border: 'none', borderRadius: 14, background: 'rgba(255,59,48,0.10)', color: COLORS.destructive, fontSize: 13, fontWeight: 800, cursor: calendarBusy ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Déconnecter
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={connectAppleCalendar}
+                  disabled={calendarLoading || calendarBusy || !profile?.id}
+                  style={{ width: '100%', minHeight: 46, border: 'none', borderRadius: 14, background: calendarLoading || !profile?.id ? '#E5E5EA' : COLORS.gradient, color: calendarLoading || !profile?.id ? COLORS.secondary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 800, cursor: calendarLoading || calendarBusy || !profile?.id ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                >
+                  <CalendarCheck2 size={17} strokeWidth={2.2} />
+                  <span>{calendarBusy ? 'Connexion...' : 'Connecter Apple Calendar'}</span>
+                </button>
+              )}
             </div>
           </div>
 
