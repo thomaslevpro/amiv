@@ -152,6 +152,12 @@ export default function Create({ onBack, session, initialData = null }) {
       }).select().single()
       if (error) throw error
 
+      await supabase.from('event_organizers').insert({
+        event_id: eventData.id,
+        user_id: user.id,
+        role: 'owner',
+      })
+
       if (usePoll) {
         const validDates = pollDates.filter(d => d.date)
         if (validDates.length > 0) {

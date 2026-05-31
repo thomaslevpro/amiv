@@ -1129,45 +1129,37 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           </div>
 
           {/* Organisateurs */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '8px 0' }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F2F2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-              <User size={17} strokeWidth={1.8} color="#8E8E93" />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 6 }}>Organisé par</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                {[...organizers].sort((a, b) => (a.role === 'owner' ? -1 : 1)).map(({ role, profile }) => {
-                  const name = profile?.first_name || profile?.name || 'Organisateur'
-                  const isOwner = role === 'owner'
-                  return (
-                    <div key={profile?.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt={name} style={{ width: 26, height: 26, borderRadius: 13, objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: 26, height: 26, borderRadius: 13, background: '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>
-                          {name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{name}</div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: isOwner ? '#fff' : '#8E8E93', background: isOwner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', padding: '1px 7px', borderRadius: 20, display: 'inline-block', marginTop: 2 }}>
-                          {isOwner ? 'Organisateur' : 'Co-organisateur'}
-                        </div>
-                      </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingTop: 10 }}>
+            {[...organizers].sort((a, b) => (a.role === 'owner' ? -1 : 1)).map(({ role, profile }) => {
+              const name = profile?.first_name || profile?.name || 'Organisateur'
+              const isOwner = role === 'owner'
+              return (
+                <div key={profile?.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt={name} style={{ width: 26, height: 26, borderRadius: 13, objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 26, height: 26, borderRadius: 13, background: '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>
+                      {name.charAt(0).toUpperCase()}
                     </div>
-                  )
-                })}
-                {event.user_id === userId && organizers.length < 4 && (
-                  <button
-                    type="button"
-                    onClick={handleOpenCoOrgModal}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'linear-gradient(135deg,#e055aa,#f5a623)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    + Ajouter
-                  </button>
-                )}
-              </div>
-            </div>
+                  )}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{name}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: isOwner ? '#fff' : '#8E8E93', background: isOwner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', padding: '1px 7px', borderRadius: 20, display: 'inline-block', marginTop: 2 }}>
+                      {isOwner ? 'Organisateur' : 'Co-organisateur'}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {event.user_id === userId && organizers.length < 4 && (
+              <button
+                type="button"
+                onClick={handleOpenCoOrgModal}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'linear-gradient(135deg,#e055aa,#f5a623)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                + Ajouter
+              </button>
+            )}
           </div>
         </div>
 
