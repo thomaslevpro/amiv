@@ -380,23 +380,59 @@ export default function Home({
 
   const fetchInvitations = async () => {
     if (!userId) return
-    const { data: rsvps, error: rsvpError } = await supabase
-      .from('rsvps')
-      .select('id, event_id')
-      .eq('user_id', userId)
-      .eq('status', 'invited')
-    if (rsvpError) { console.error('Erreur invitations (rsvps):', rsvpError); return }
-    if (!rsvps?.length) { setInvitations([]); return }
+    const { data: invitationRows, error: invitationError } = await supabase
+      .from('invitations')
+      .select('id, event_id, invited_user_id, status')
+      .eq('invited_user_id', userId)
+      .neq('status', 'declined')
+    if (invitationError) { console.error('Erreur invitations reçues :', invitationError); return }
+    if (!invitationRows?.length) { setInvitations([]); return }
 
-    const eventIds = rsvps.map(r => r.event_id)
+    const invitedEventIds = invitationRows.map(invitation => invitation.event_id).filter(Boolean)
+    if (!invitedEventIds.length) { setInvitations([]); return }
+
     const { data: eventsData, error: eventsError } = await supabase
       .from('events')
-      .select('id, name, date, birthday_person_user_id')
-      .in('id', eventIds)
+      .select('id, name, date, emoji, location, birthday_person_user_id, user_id')
+      .in('id', invitedEventIds)
     if (eventsError) { console.error('Erreur invitations (events):', eventsError); return }
 
+    const organizerIds = [...new Set((eventsData ?? []).map(event => event.user_id).filter(Boolean))]
+    let organizersById = {}
+    if (organizerIds.length > 0) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name')
+        .in('id', organizerIds)
+      if (profilesError) { console.error('Erreur organisateurs invitations :', profilesError); return }
+      organizersById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile.name]))
+    }
+
+    const { data: rsvps, error: rsvpError } = await supabase
+      .from('rsvps')
+      .select('event_id, status')
+      .eq('user_id', userId)
+      .in('event_id', invitedEventIds)
+    if (rsvpError) { console.error('Erreur invitations (rsvps):', rsvpError); return }
+
+    const rsvpsByEventId = Object.fromEntries((rsvps ?? []).map(rsvp => [rsvp.event_id, rsvp]))
     const eventsById = Object.fromEntries((eventsData ?? []).map(e => [e.id, e]))
-    setInvitations(rsvps.map(r => ({ ...r, events: eventsById[r.event_id] ?? null })))
+    const pendingInvitations = invitationRows
+      .map(invitation => {
+        const event = eventsById[invitation.event_id] ?? null
+        const rsvp = rsvpsByEventId[invitation.event_id] ?? null
+        const isPending = !rsvp || rsvp.status === 'pending' || rsvp.status === 'invited'
+        return {
+          ...invitation,
+          rsvp,
+          isPending,
+          organizerName: event?.user_id ? organizersById[event.user_id] ?? null : null,
+          events: event,
+        }
+      })
+      .filter(invitation => invitation.isPending)
+
+    setInvitations(pendingInvitations)
   }
 
   useEffect(() => {
@@ -503,23 +539,27 @@ export default function Home({
     return () => { cancelled = true }
   }, [userId])
 
-  async function handleAcceptInvitation(rsvpId, eventId) {
+  async function handleAcceptInvitation(invitationId, eventId) {
+    if (!userId) return
     const orParts = [`invited_user_id.eq.${userId}`]
     if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
     const { count } = await supabase
       .from('invitations')
-      .update({ status: 'going' }, { count: 'exact' })
+      .update({ status: 'accepted' }, { count: 'exact' })
       .eq('event_id', eventId)
       .or(orParts.join(','))
     if (count === 0) console.warn('RSVP update matched 0 rows — check invited_user_id or email match')
 
-    const { error } = await supabase.from('rsvps').update({ status: 'going' }).eq('id', rsvpId)
+    const { error } = await supabase
+      .from('rsvps')
+      .upsert({ event_id: eventId, user_id: userId, status: 'going' }, { onConflict: 'event_id,user_id' })
     if (!error) {
-      setInvitations(prev => prev.filter(i => i.id !== rsvpId))
+      setInvitations(prev => prev.filter(i => i.id !== invitationId))
     }
   }
 
-  async function handleDeclineInvitation(rsvpId, eventId) {
+  async function handleDeclineInvitation(invitationId, eventId) {
+    if (!userId) return
     const orParts = [`invited_user_id.eq.${userId}`]
     if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
     const { count } = await supabase
@@ -529,9 +569,11 @@ export default function Home({
       .or(orParts.join(','))
     if (count === 0) console.warn('RSVP update matched 0 rows — check invited_user_id or email match')
 
-    const { error } = await supabase.from('rsvps').update({ status: 'declined' }).eq('id', rsvpId)
+    const { error } = await supabase
+      .from('rsvps')
+      .upsert({ event_id: eventId, user_id: userId, status: 'declined' }, { onConflict: 'event_id,user_id' })
     if (!error) {
-      setInvitations(prev => prev.filter(i => i.id !== rsvpId))
+      setInvitations(prev => prev.filter(i => i.id !== invitationId))
     }
   }
 
@@ -558,6 +600,12 @@ export default function Home({
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden', position: 'relative' }}>
+      <style>{`
+        @keyframes pulse-border {
+          0%, 100% { box-shadow: 0 0 0 0px rgba(224,85,170,0.4), 0 0 0 0px rgba(245,166,35,0.2); }
+          50% { box-shadow: 0 0 0 6px rgba(224,85,170,0.15), 0 0 0 12px rgba(245,166,35,0.05); }
+        }
+      `}</style>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
 
@@ -629,6 +677,7 @@ export default function Home({
             {invitations.map(inv => {
               const ev = inv.events ?? {}
               const relativeDate = formatInvitationRelativeDate(ev.date)
+              const organizerName = inv.isPending ? inv.organizerName : null
               return (
                 <div key={inv.id} style={{
                   background: '#fff',
@@ -640,6 +689,7 @@ export default function Home({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
+                  animation: inv.isPending ? 'pulse-border 2s ease-in-out infinite' : 'none',
                 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
@@ -653,6 +703,20 @@ export default function Home({
                     }}>
                       {ev.name ?? 'Événement'}
                     </div>
+                    {organizerName && (
+                      <div style={{
+                        fontSize: 12,
+                        color: '#8E8E93',
+                        marginTop: 4,
+                        fontWeight: 500,
+                        lineHeight: 1.15,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        Organisé par {organizerName}
+                      </div>
+                    )}
                     <div style={{
                       fontSize: 12,
                       color: '#5f6f86',
