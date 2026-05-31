@@ -67,7 +67,7 @@ function buildAuthUrl(payload: AuthEmailPayload) {
 
   const verifyUrl = new URL(`${SUPABASE_URL}/auth/v1/verify`)
 
-  verifyUrl.searchParams.set('type', 'signup')
+  verifyUrl.searchParams.set('type', 'email')
   verifyUrl.searchParams.set('token_hash', email_data.token_hash)
   verifyUrl.searchParams.set('redirect_to', 'https://amiv.app/auth/callback')
 
