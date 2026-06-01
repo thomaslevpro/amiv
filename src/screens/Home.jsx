@@ -636,18 +636,6 @@ export default function Home({
           </div>
         </div>
 
-        <NotificationPanel
-          isOpen={showNotifications}
-          onClose={() => setShowNotifications(false)}
-          currentUser={session?.user}
-          onEventOpen={onNotifEventClick ?? onEventClick}
-          onMessagesOpen={onNotifMessageClick}
-          onCreateEvent={onCreateClick}
-          onNotificationsRead={onNotificationsRead}
-          onAcceptFriend={acceptRequest}
-          onDeclineFriend={declineRequest}
-        />
-
         {invitations.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '0 2px' }}>
@@ -800,6 +788,18 @@ export default function Home({
         <InviteCard onShare={handleShare} />
 
       </div>
+
+      <NotificationPanel
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        currentUser={session?.user}
+        onEventOpen={onNotifEventClick ?? onEventClick}
+        onMessagesOpen={onNotifMessageClick}
+        onCreateEvent={onCreateClick}
+        onNotificationsRead={onNotificationsRead}
+        onAcceptFriend={acceptRequest}
+        onDeclineFriend={declineRequest}
+      />
 
       {toast && (
         <div style={{

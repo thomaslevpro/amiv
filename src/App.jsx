@@ -61,9 +61,12 @@ function MainApp() {
   const [directConv, setDirectConv] = useState(null)
   const [createInitialData, setCreateInitialData] = useState(null)
   const [editProfileFocus, setEditProfileFocus] = useState(null)
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
+  const { notifications, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
+  const notificationUnreadCount = notifications.filter(
+    n => !n.read && n.type !== 'message_received'
+  ).length
   const pendingEventId = useRef(
     window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
   )
@@ -180,7 +183,7 @@ function MainApp() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={unreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
