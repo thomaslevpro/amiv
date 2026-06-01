@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import { acceptFriendRequest, declineFriendRequest, getPendingRequests, searchUsers, sendFriendRequest } from '../../lib/friendships'
+import { acceptFriendRequest, cancelFriendRequest, declineFriendRequest, getPendingRequests, searchUsers, sendFriendRequest } from '../../lib/friendships'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, GRAY2, WHITE } from './constants'
 import { Avatar } from './MessageUI'
 
@@ -123,6 +123,20 @@ export default function FriendSearchSheet({ onClose, currentUserId, onFriendAdde
     setSentIds(prev => new Set([...prev, profile.id]))
   }
 
+  async function cancelRequest(profile) {
+    if (!profile?.friendshipId || busyUserIds.has(profile.id)) return
+    setUserBusy(profile.id, true)
+    const { error } = await cancelFriendRequest(profile.friendshipId)
+    setUserBusy(profile.id, false)
+    if (error) return
+    setSentIds(prev => { const next = new Set(prev); next.delete(profile.id); return next })
+    setResults(prev => prev.map(p =>
+      p.id === profile.id
+        ? { ...p, status: undefined, friendshipId: undefined }
+        : p
+    ))
+  }
+
   return (
     <div
       onClick={onClose}
@@ -243,6 +257,7 @@ export default function FriendSearchSheet({ onClose, currentUserId, onFriendAdde
                   const name = displayName(profile)
                   const isSent = sentIds.has(profile.id)
                   const isBusy = busyUserIds.has(profile.id)
+                  const isPendingSent = profile.status === 'pending_sent' && !sentIds.has(profile.id)
                   return (
                     <div key={profile.id}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
@@ -253,11 +268,22 @@ export default function FriendSearchSheet({ onClose, currentUserId, onFriendAdde
                         </div>
                         <button
                           type="button"
-                          disabled={isSent || isBusy}
-                          onClick={() => addFriend(profile)}
-                          style={{ minWidth: 88, border: 'none', background: isSent ? BG : GRADIENT, color: isSent ? GRAY1 : WHITE, borderRadius: 12, padding: '10px 12px', fontSize: 13, fontWeight: 600, cursor: isSent || isBusy ? 'default' : 'pointer', fontFamily: FONT }}
+                          disabled={isBusy}
+                          onClick={() => isPendingSent ? cancelRequest(profile) : addFriend(profile)}
+                          style={{
+                            minWidth: 88,
+                            border: 'none',
+                            background: isPendingSent ? BG : isSent ? BG : GRADIENT,
+                            color: isPendingSent ? '#FF3B30' : isSent ? GRAY1 : WHITE,
+                            borderRadius: 12,
+                            padding: '10px 12px',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: (isSent || isBusy) ? 'default' : 'pointer',
+                            fontFamily: FONT,
+                          }}
                         >
-                          {isSent ? 'Envoyé ✓' : 'Ajouter'}
+                          {isPendingSent ? 'Annuler' : isSent ? 'Envoyé ✓' : 'Ajouter'}
                         </button>
                       </div>
                       {index !== results.length - 1 && <div style={{ marginLeft: 56, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}

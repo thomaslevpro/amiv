@@ -10,7 +10,7 @@ export async function searchUsers(query, currentUserId) {
 
   const friendshipsRes = await supabase
     .from('friendships')
-    .select('requester_id, addressee_id')
+    .select('requester_id, addressee_id, status, id')
     .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`)
     .in('status', ['pending', 'accepted'])
 
@@ -18,10 +18,19 @@ export async function searchUsers(query, currentUserId) {
 
   const excludedIds = [
     currentUserId,
-    ...(friendshipsRes.data ?? []).map(friendship =>
-      friendship.requester_id === currentUserId ? friendship.addressee_id : friendship.requester_id
-    ),
+    ...(friendshipsRes.data ?? [])
+      .filter(f => {
+        const iSent = f.requester_id === currentUserId
+        return f.status === 'accepted' || (f.status === 'pending' && !iSent)
+      })
+      .map(f => f.requester_id === currentUserId ? f.addressee_id : f.requester_id),
   ].filter(Boolean)
+
+  const pendingSentMap = Object.fromEntries(
+    (friendshipsRes.data ?? [])
+      .filter(f => f.status === 'pending' && f.requester_id === currentUserId)
+      .map(f => [f.addressee_id, { friendshipId: f.id, status: 'pending_sent' }])
+  )
 
   const safeSearch = search.replace(/[(),]/g, ' ')
   let profilesQuery = supabase
@@ -35,7 +44,16 @@ export async function searchUsers(query, currentUserId) {
     profilesQuery = profilesQuery.not('id', 'in', `(${excludedIds.join(',')})`)
   }
 
-  return profilesQuery
+  const { data, error } = await profilesQuery
+  if (error) return { data: null, error }
+
+  return {
+    data: (data ?? []).map(profile => ({
+      ...profile,
+      ...(pendingSentMap[profile.id] ?? {}),
+    })),
+    error: null,
+  }
 }
 
 export async function sendFriendRequest(requesterId, addresseeId, eventContextId = null) {
@@ -65,6 +83,15 @@ export async function acceptFriendRequest(friendshipId) {
 }
 
 export async function declineFriendRequest(friendshipId) {
+  return supabase
+    .from('friendships')
+    .update({ status: 'declined' })
+    .eq('id', friendshipId)
+    .select()
+    .single()
+}
+
+export async function cancelFriendRequest(friendshipId) {
   return supabase
     .from('friendships')
     .update({ status: 'declined' })

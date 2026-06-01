@@ -636,6 +636,13 @@ export default function Home({
           </div>
         </div>
 
+        {pendingRequests.length > 0 && (
+          <>
+            <SectionHeader title="Demandes d'amitié" badge={pendingRequests.length} />
+            <FriendRequests requests={pendingRequests} onAccept={acceptRequest} onDecline={declineRequest} />
+          </>
+        )}
+
         {invitations.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '0 2px' }}>
@@ -761,13 +768,6 @@ export default function Home({
         )}
 
         <BirthdaySection user={session?.user} onToast={showToast} onMessage={onMessagesClick} refreshTrigger={birthdayRefreshTrigger} />
-
-        {pendingRequests.length > 0 && (
-          <>
-            <SectionHeader title="Demandes d'amitié" badge={pendingRequests.length} />
-            <FriendRequests requests={pendingRequests} onAccept={acceptRequest} onDecline={declineRequest} />
-          </>
-        )}
 
         {suggestions.length > 0 && (
           <>
