@@ -12,6 +12,7 @@ export async function searchUsers(query, currentUserId) {
     .from('friendships')
     .select('requester_id, addressee_id')
     .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`)
+    .in('status', ['pending', 'accepted'])
 
   if (friendshipsRes.error) return { data: null, error: friendshipsRes.error }
 
