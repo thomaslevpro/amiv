@@ -31,30 +31,31 @@ export default function FriendRequests({ requests, onAccept, onDecline }) {
       <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
         {requests.map((req, i) => (
           <div key={req.friendship_id} style={{
-            padding: '14px 16px',
+            padding: '10px 16px',
             borderBottom: i < requests.length - 1 ? '1px solid #F2F2F7' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-              <Avatar url={req.requester_avatar} name={req.requester_name} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {req.requester_name}
-                </div>
-                {req.event_name && (
-                  <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    Via · {req.event_name}
-                  </div>
-                )}
+            <Avatar url={req.requester_avatar} name={req.requester_name} size={36} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {req.requester_name}
               </div>
+              {req.event_name && (
+                <div style={{ fontSize: 11, color: '#8E8E93', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Via · {req.event_name}
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               <button
                 onClick={() => onAccept?.(req.friendship_id)}
                 style={{
-                  flex: 1, padding: '10px 0',
+                  padding: '7px 14px',
                   background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                  color: '#fff', border: 'none', borderRadius: 12,
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  color: '#fff', border: 'none', borderRadius: 10,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
                 }}
               >
                 Accepter
@@ -62,9 +63,9 @@ export default function FriendRequests({ requests, onAccept, onDecline }) {
               <button
                 onClick={() => onDecline?.(req.friendship_id)}
                 style={{
-                  flex: 1, padding: '10px 0',
-                  background: '#F2F2F7', color: '#1C1C1E', border: 'none', borderRadius: 12,
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  padding: '7px 14px',
+                  background: '#F2F2F7', color: '#1C1C1E', border: 'none', borderRadius: 10,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
                 }}
               >
                 Refuser

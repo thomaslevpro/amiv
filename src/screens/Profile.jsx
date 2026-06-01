@@ -196,6 +196,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [calendarToken, setCalendarToken] = useState(null)
+  const [calendarPlatform, setCalendarPlatform] = useState(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarBusy, setCalendarBusy] = useState(false)
   const [toastMsg, setToastMsg] = useState(null)
@@ -216,7 +217,7 @@ export default function Profile({ session, onCalendarClick }) {
           fetchStats(user),
           supabase
             .from('calendar_tokens')
-            .select('token')
+            .select('token, platform')
             .eq('user_id', user.id)
             .maybeSingle(),
         ])
@@ -227,6 +228,7 @@ export default function Profile({ session, onCalendarClick }) {
         setProfile(profileData)
         setStats(statsData)
         setCalendarToken(calendarTokenData.data?.token ?? null)
+        setCalendarPlatform(calendarTokenData.data?.platform ?? null)
         setNotifs({
           notif_birthdays: profileData.notif_birthdays,
           notif_invitations: profileData.notif_invitations,
@@ -286,14 +288,20 @@ export default function Profile({ session, onCalendarClick }) {
 
   const calendarHttpsLink = calendarToken ? `https://amiv.app/api/calendar/${calendarToken}.ics` : null
 
-  const connectAppleCalendar = async () => {
+  const connectCalendar = async (platform) => {
     if (!profile?.id || calendarBusy) return
 
     setCalendarBusy(true)
     try {
-      const token = await getOrCreateCalendarToken(profile.id)
-      setCalendarToken(token)
-      window.location.href = `webcal://amiv.app/api/calendar/${token}.ics`
+      const data = await getOrCreateCalendarToken(profile.id, platform)
+      setCalendarToken(data.token)
+      setCalendarPlatform(platform)
+      if (platform === 'apple') {
+        window.location.href = `webcal://amiv.app/api/calendar/${data.token}.ics`
+      } else {
+        const encoded = encodeURIComponent(`https://amiv.app/api/calendar/${data.token}.ics`)
+        window.open(`https://calendar.google.com/calendar/r/settings/addbyurl?url=${encoded}`, '_blank')
+      }
     } catch (err) {
       console.error('calendar connect failed', err)
       showToast('Impossible de connecter le calendrier')
@@ -320,6 +328,7 @@ export default function Profile({ session, onCalendarClick }) {
     try {
       await deleteCalendarToken(profile.id)
       setCalendarToken(null)
+      setCalendarPlatform(null)
       showToast('Calendrier déconnecté')
     } catch (err) {
       console.error('calendar disconnect failed', err)
@@ -359,9 +368,9 @@ export default function Profile({ session, onCalendarClick }) {
     'cake': <Cake size={18} strokeWidth={1.8} />,
   }
   const notificationRows = [
-    { key: 'notif_birthdays', icon: <Bell size={18} strokeWidth={1.7} color="#f5a623" />, bg: 'rgba(245,166,35,0.12)', label: 'Rappels anniversaires', desc: '7 jours avant' },
-    { key: 'notif_invitations', icon: <Mail size={18} strokeWidth={1.7} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', label: 'Nouvelles invitations', desc: 'Activé' },
-    { key: 'notif_messages', icon: <MessageCircle size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: 'Messages', desc: 'Désactivé' },
+    { key: 'notif_birthdays', icon: <Bell size={18} strokeWidth={1.7} color="#f5a623" />, bg: 'rgba(245,166,35,0.12)', label: 'Rappels anniversaires' },
+    { key: 'notif_invitations', icon: <Mail size={18} strokeWidth={1.7} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', label: 'Nouvelles invitations' },
+    { key: 'notif_messages', icon: <MessageCircle size={18} strokeWidth={1.7} color="#8E8E93" />, bg: 'rgba(142,142,147,0.10)', label: 'Messages' },
   ]
   const accountRows = [
     { icon: <UserCheck size={18} strokeWidth={1.7} color="#7c5cbf" />, bg: 'rgba(124,92,191,0.10)', label: 'Informations personnelles', desc: 'Nom, prénom, date de naissance', onClick: openEditProfile },
@@ -499,49 +508,69 @@ export default function Profile({ session, onCalendarClick }) {
             <div style={{ background: COLORS.card, borderRadius: 20, padding: 14, boxShadow: CARD_SHADOW }}>
               {calendarToken ? (
                 <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(52,199,89,0.10)', borderRadius: 14, padding: '12px 13px', marginBottom: 12 }}>
-                    <IconBubble background="rgba(52,199,89,0.14)" size={38} radius={11}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(52,199,89,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <CalendarCheck2 size={18} strokeWidth={1.9} color="#248A3D" />
-                    </IconBubble>
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: 26, borderRadius: 999, background: '#34C759', color: '#fff', padding: '0 10px', fontSize: 12, fontWeight: 800 }}>
-                        Calendrier connecté
+                      <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text }}>
+                        {calendarPlatform === 'google' ? 'Google Calendar' : 'Apple Calendar'}
                       </div>
-                      <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 7, overflowWrap: 'anywhere' }}>
-                        {calendarHttpsLink.replace(/^https:\/\//, '')}
+                      <div style={{ fontSize: 11, color: '#248A3D', marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34C759', display: 'inline-block', flexShrink: 0 }} />
+                        Connecté · synchronisation active
                       </div>
                     </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <button
                       type="button"
                       onClick={copyCalendarLink}
                       disabled={calendarBusy}
-                      style={{ minHeight: 44, border: 'none', borderRadius: 14, background: COLORS.page, color: COLORS.text, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 800, cursor: calendarBusy ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                      style={{ padding: '7px 12px', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.12)', background: COLORS.card, color: COLORS.text, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, cursor: calendarBusy ? 'default' : 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
                     >
-                      <Copy size={16} strokeWidth={2} color="#e055aa" />
-                      <span>Copier le lien</span>
+                      <Copy size={13} strokeWidth={2} color="#e055aa" />
+                      Copier
+                    </button>
+                  </div>
+                  <div style={{ height: '0.5px', background: 'rgba(0,0,0,0.08)', margin: '12px 0' }} />
+                  <button
+                    type="button"
+                    onClick={disconnectCalendar}
+                    disabled={calendarBusy}
+                    style={{ width: '100%', minHeight: 40, border: 'none', borderRadius: 12, background: 'rgba(255,59,48,0.08)', color: COLORS.destructive, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, cursor: calendarBusy ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Déconnecter le calendrier
+                  </button>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '8px 4px 4px' }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                    <CalendarCheck2 size={24} strokeWidth={1.7} color={COLORS.secondary} />
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, marginBottom: 4 }}>Calendrier non connecté</div>
+                  <div style={{ fontSize: 12, color: COLORS.secondary, lineHeight: 1.5, marginBottom: 16 }}>
+                    Synchronise tes anniversaires et événements avec ton application calendrier.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => connectCalendar('apple')}
+                      disabled={calendarLoading || calendarBusy || !profile?.id}
+                      style={{ minHeight: 44, border: 'none', borderRadius: 12, background: calendarLoading || !profile?.id ? '#E5E5EA' : 'linear-gradient(135deg, #e055aa, #f5a623)', color: calendarLoading || !profile?.id ? COLORS.secondary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 13, fontWeight: 600, cursor: calendarLoading || calendarBusy || !profile?.id ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                    >
+                      <CalendarCheck2 size={15} strokeWidth={2.2} />
+                      Apple
                     </button>
                     <button
                       type="button"
-                      onClick={disconnectCalendar}
-                      disabled={calendarBusy}
-                      style={{ minHeight: 44, border: 'none', borderRadius: 14, background: 'rgba(255,59,48,0.10)', color: COLORS.destructive, fontSize: 13, fontWeight: 800, cursor: calendarBusy ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                      onClick={() => connectCalendar('google')}
+                      disabled={calendarLoading || calendarBusy || !profile?.id}
+                      style={{ minHeight: 44, border: 'none', borderRadius: 12, background: calendarLoading || !profile?.id ? '#E5E5EA' : '#4285F4', color: calendarLoading || !profile?.id ? COLORS.secondary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 13, fontWeight: 600, cursor: calendarLoading || calendarBusy || !profile?.id ? 'default' : 'pointer', fontFamily: 'inherit' }}
                     >
-                      Déconnecter
+                      <CalendarCheck2 size={15} strokeWidth={2.2} />
+                      Google
                     </button>
                   </div>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={connectAppleCalendar}
-                  disabled={calendarLoading || calendarBusy || !profile?.id}
-                  style={{ width: '100%', minHeight: 46, border: 'none', borderRadius: 14, background: calendarLoading || !profile?.id ? '#E5E5EA' : COLORS.gradient, color: calendarLoading || !profile?.id ? COLORS.secondary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 800, cursor: calendarLoading || calendarBusy || !profile?.id ? 'default' : 'pointer', fontFamily: 'inherit' }}
-                >
-                  <CalendarCheck2 size={17} strokeWidth={2.2} />
-                  <span>{calendarBusy ? 'Connexion...' : 'Connecter Apple Calendar'}</span>
-                </button>
+                </div>
               )}
             </div>
           </div>
@@ -554,7 +583,9 @@ export default function Profile({ session, onCalendarClick }) {
                   <IconBubble background={row.bg}>{row.icon}</IconBubble>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, color: COLORS.text, fontWeight: 600 }}>{row.label}</div>
-                    <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 2 }}>{row.desc}</div>
+                    <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 2 }}>
+                      {notifs[row.key] ? 'Activé' : 'Désactivé'}
+                    </div>
                   </div>
                   <Toggle on={notifs[row.key]} onToggle={() => toggle(row.key)} />
                 </div>

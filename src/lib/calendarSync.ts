@@ -1,26 +1,13 @@
 import { supabase } from './supabase'
 
-export async function getOrCreateCalendarToken(userId: string): Promise<string> {
-  const token = crypto.randomUUID()
+export async function getOrCreateCalendarToken(userId: string, platform = 'apple'): Promise<{ token: string; platform: string }> {
   const { data, error } = await supabase
     .from('calendar_tokens')
-    .upsert({ user_id: userId, token }, { onConflict: 'user_id', ignoreDuplicates: true })
-    .select('token')
-    .maybeSingle()
-
+    .upsert({ user_id: userId, platform }, { onConflict: 'user_id' })
+    .select('token, platform')
+    .single()
   if (error) throw error
-  if (data?.token) return data.token
-
-  const { data: existing, error: selectError } = await supabase
-    .from('calendar_tokens')
-    .select('token')
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (selectError) throw selectError
-  if (!existing?.token) throw new Error('Impossible de créer le lien calendrier.')
-
-  return existing.token
+  return data
 }
 
 export async function deleteCalendarToken(userId: string): Promise<void> {
