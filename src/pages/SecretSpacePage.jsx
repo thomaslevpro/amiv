@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ExternalLink, Gift, Image, Plus, Sparkles, Upload, Users, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import GuestLeaderBanner from '../components/GuestLeaderBanner'
+import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
+import { useGuestLeader } from '../hooks/useGuestLeader'
 
 const COLORS = {
   bg: '#F2F2F7',
@@ -224,6 +227,7 @@ export default function SecretSpacePage() {
   const [activeTab, setActiveTab] = useState('flashback')
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [toast, setToast] = useState(null)
 
   const [cardId, setCardId] = useState(null)
   const [memories, setMemories] = useState([])
@@ -251,6 +255,23 @@ export default function SecretSpacePage() {
   const birthdayFirstName = firstName(event?.birthdayProfile, 'Thomas')
   const contributorCount = contributors.filter(contributor => contributor.nb_memories > 0).length
   const guestCount = contributors.length
+  const {
+    pendingCandidates,
+    currentUserRole,
+    isGuestLeader,
+    hasPendingRequest,
+    isConfirmedGuest,
+    loading: guestLeaderLoading,
+    applyAsGuestLeader,
+    approveCandidate,
+    rejectCandidate,
+  } = useGuestLeader(eventId)
+  const canManageCagnotte = ['owner', 'co_organizer'].includes(currentUserRole) || isGuestLeader
+
+  const showToast = useCallback((message, isError = false) => {
+    setToast({ message, isError })
+    window.setTimeout(() => setToast(null), 2200)
+  }, [])
 
   const fetchFlashback = useCallback(async () => {
     if (!eventId) return
@@ -647,6 +668,22 @@ export default function SecretSpacePage() {
         </div>
 
         <section style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
+          <GuestLeaderBanner
+            currentUserRole={currentUserRole}
+            isConfirmedGuest={isConfirmedGuest}
+            isGuestLeader={isGuestLeader}
+            hasPendingRequest={hasPendingRequest}
+            applyAsGuestLeader={applyAsGuestLeader}
+            onToast={showToast}
+          />
+          <PendingCandidatesPanel
+            pendingCandidates={pendingCandidates}
+            currentUserRole={currentUserRole}
+            approveCandidate={approveCandidate}
+            rejectCandidate={rejectCandidate}
+            onToast={showToast}
+          />
+
           {activeTab === 'flashback' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
@@ -823,7 +860,9 @@ export default function SecretSpacePage() {
                   Accéder à la cagnotte <ExternalLink size={17} />
                 </a>
               </div>
-            ) : (
+            ) : guestLeaderLoading ? (
+              <EmptyCard>Chargement...</EmptyCard>
+            ) : canManageCagnotte ? (
               <form onSubmit={handleCagnotteSubmit} style={{ background: COLORS.card, borderRadius: 16, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 11 }}>
                 <Input label="Lien de la cagnotte" type="text" value={cagnotteUrl} onChange={event => setCagnotteUrl(event.target.value)} placeholder="https://..." />
                 <Input label="Objectif" type="number" min="0" step="0.01" value={cagnotteGoal} onChange={event => setCagnotteGoal(event.target.value)} placeholder="150" />
@@ -838,6 +877,8 @@ export default function SecretSpacePage() {
                   {cagnotteSaving ? 'Enregistrement...' : 'Créer la cagnotte'}
                 </PrimaryButton>
               </form>
+            ) : (
+              <EmptyCard>La cagnotte n'a pas encore été créée.</EmptyCard>
             )
           )}
 
@@ -934,6 +975,12 @@ export default function SecretSpacePage() {
             </PrimaryButton>
           </form>
         </Sheet>
+      )}
+
+      {toast?.message && (
+        <div style={{ position: 'fixed', left: '50%', bottom: 26, zIndex: 950, transform: 'translateX(-50%)', background: toast.isError ? COLORS.red : COLORS.text, color: '#fff', borderRadius: 14, padding: '11px 16px', fontSize: 13, fontWeight: 750, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', whiteSpace: 'nowrap' }}>
+          {toast.message}
+        </div>
       )}
     </div>
   )

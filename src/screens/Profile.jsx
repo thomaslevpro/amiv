@@ -8,11 +8,13 @@ import {
   FileText,
   Key,
   Copy,
+  Link2,
   LogOut,
   Mail,
   MessageCircle,
   Pencil,
   QrCode,
+  Share2,
   UserCheck,
   Users,
 } from 'lucide-react'
@@ -195,6 +197,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [showEditProfile, setShowEditProfile] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showShareMenu, setShowShareMenu] = useState(false)
   const [calendarToken, setCalendarToken] = useState(null)
   const [calendarPlatform, setCalendarPlatform] = useState(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
@@ -286,6 +289,37 @@ export default function Profile({ session, onCalendarClick }) {
     }
   }
 
+  const getShareLink = () => publicProfileLink ?? 'https://amiv.app'
+
+  const copyInviteLinkFromMenu = async () => {
+    await copyInviteLink()
+    setShowShareMenu(false)
+  }
+
+  const shareToWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(getShareLink())}`, '_blank')
+    setShowShareMenu(false)
+  }
+
+  const shareToInstagram = async () => {
+    try {
+      await navigator.clipboard.writeText(getShareLink())
+      showToast('Lien copié — colle-le dans ta story Instagram !')
+    } catch {
+      showToast('Impossible de copier le lien')
+    } finally {
+      setShowShareMenu(false)
+    }
+  }
+
+  const shareToMessenger = () => {
+    window.open(
+      `https://www.facebook.com/dialog/send?link=${encodeURIComponent(getShareLink())}&app_id=291494419107518&redirect_uri=${encodeURIComponent('https://amiv.app')}`,
+      '_blank'
+    )
+    setShowShareMenu(false)
+  }
+
   const calendarHttpsLink = calendarToken ? `https://amiv.app/api/calendar/${calendarToken}.ics` : null
 
   const connectCalendar = async (platform) => {
@@ -353,10 +387,31 @@ export default function Profile({ session, onCalendarClick }) {
     </div>
   )
 
+  const WhatsAppIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3.5a8.2 8.2 0 0 0-7 12.5l-1 3.7 3.8-1a8.2 8.2 0 1 0 4.2-15.2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8.7 8.7c.2-.5.4-.6.8-.6h.5c.2 0 .4.1.5.4l.8 1.9c.1.3 0 .5-.2.7l-.4.5c.8 1.3 1.8 2.3 3.2 3l.5-.6c.2-.2.5-.3.8-.1l1.8.9c.3.2.4.4.4.7v.4c0 .5-.4.9-.9 1-2.6.2-7.7-3-8.4-7.3-.1-.3 0-.6.1-.9Z" fill="currentColor" />
+    </svg>
+  )
+
+  const InstagramIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="5" width="14" height="14" rx="4" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="16.2" cy="7.8" r="1" fill="currentColor" />
+    </svg>
+  )
+
   const birthdayStats = getBirthdayStats(profile?.birthday)
   const memberSince = profile?.created_at ? dayjs(profile.created_at).format('MMMM YYYY') : '—'
   const displayName = getDisplayName(profile)
   const publicProfileLink = profile?.username ? `https://amiv.app/u/${profile.username}` : null
+  const shareMenuItems = [
+    { label: 'Copier le lien', icon: <Link2 size={18} strokeWidth={2} />, onClick: copyInviteLinkFromMenu },
+    { label: 'WhatsApp', icon: <WhatsAppIcon />, onClick: shareToWhatsApp },
+    { label: 'Instagram', icon: <InstagramIcon />, onClick: shareToInstagram },
+    { label: 'Messenger', icon: <MessageCircle size={18} strokeWidth={2} />, onClick: shareToMessenger },
+  ]
   const statsItems = [
     { label: 'Événements', value: stats.eventsCount, iconName: 'calendar-event', iconBg: 'rgba(83,74,183,0.10)', iconColor: '#534AB7' },
     { label: 'Amis', value: stats.friendsCount, iconName: 'users', iconBg: 'rgba(15,110,86,0.10)', iconColor: '#0F6E56' },
@@ -382,7 +437,107 @@ export default function Profile({ session, onCalendarClick }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: COLORS.page, overflow: 'hidden', fontFamily: FONT }}>
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
-        <div style={{ background: COLORS.heroGradient, padding: '52px 16px 0', textAlign: 'center', color: '#fff' }}>
+        <div style={{ background: COLORS.heroGradient, padding: '52px 16px 0', textAlign: 'center', color: '#fff', position: 'relative' }}>
+          {showShareMenu && (
+            <div
+              onClick={() => setShowShareMenu(false)}
+              style={{ position: 'absolute', inset: 0, zIndex: 9 }}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setShowShareMenu(open => !open)}
+            style={{
+              position: 'absolute',
+              top: 14,
+              left: 16,
+              zIndex: 11,
+              width: 38,
+              height: 38,
+              background: 'rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.35)',
+              borderRadius: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <Share2 size={18} strokeWidth={2} color="#fff" />
+          </button>
+          {showShareMenu && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 90,
+                left: 16,
+                zIndex: 10,
+                background: 'rgba(255,255,255,0.22)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.35)',
+                borderRadius: 16,
+                overflow: 'hidden',
+                minWidth: 200,
+                textAlign: 'left',
+              }}
+            >
+              {shareMenuItems.map((item, index) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={item.onClick}
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    borderBottom: index < shareMenuItems.length - 1 ? '0.5px solid rgba(255,255,255,0.18)' : 'none',
+                    background: 'transparent',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    textAlign: 'left',
+                  }}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={!publicProfileLink}
+            onClick={() => setShowQrModal(true)}
+            aria-label="Voir mon QR code"
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: 16,
+              zIndex: 11,
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background: 'rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: publicProfileLink ? 'pointer' : 'default',
+              opacity: publicProfileLink ? 1 : 0.5,
+            }}
+          >
+            <QrCode size={18} strokeWidth={2.2} color="#fff" />
+          </button>
           <div
             onClick={openEditProfile}
             style={{ width: 86, height: 86, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.5)', margin: '0 auto 12px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
@@ -479,29 +634,6 @@ export default function Profile({ session, onCalendarClick }) {
             </div>
           </div>
 
-
-          <div style={{ marginBottom: 18 }}>
-            <SectionTitle>Mon lien Amiv</SectionTitle>
-            <div style={{ background: COLORS.card, borderRadius: 20, padding: 14, boxShadow: CARD_SHADOW }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: COLORS.page, borderRadius: 14, padding: '12px 13px', marginBottom: 12 }}>
-                <div style={{ flex: 1, minWidth: 0, color: COLORS.text, fontSize: 14, fontWeight: 800, overflowWrap: 'anywhere' }}>
-                  {publicProfileLink ? publicProfileLink.replace(/^https:\/\//, '') : 'Choisis ton lien dans ton profil'}
-                </div>
-                <button type="button" onClick={copyInviteLink} aria-label="Copier le lien" style={{ width: 34, height: 34, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Copy size={16} strokeWidth={2} color="#e055aa" />
-                </button>
-              </div>
-              <button
-                type="button"
-                disabled={!publicProfileLink}
-                onClick={() => setShowQrModal(true)}
-                style={{ width: '100%', minHeight: 46, borderRadius: 14, background: publicProfileLink ? COLORS.gradient : '#E5E5EA', color: publicProfileLink ? '#fff' : COLORS.secondary, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, fontWeight: 800, cursor: publicProfileLink ? 'pointer' : 'default' }}
-              >
-                <QrCode size={17} strokeWidth={2.2} />
-                <span>Voir mon QR code</span>
-              </button>
-            </div>
-          </div>
 
           <div style={{ marginBottom: 18 }}>
             <SectionTitle>Calendrier</SectionTitle>

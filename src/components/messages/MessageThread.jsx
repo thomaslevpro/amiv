@@ -22,6 +22,7 @@ export default function MessageThread({
   input,
   setInput,
   send,
+  guestLeaderIds = new Set(),
 }) {
   const rsvpPill = myRsvpStatus === 'going'
     ? { label: 'Présent ✓', bg: 'rgba(52,199,89,0.22)', color: '#fff' }
@@ -111,9 +112,19 @@ export default function MessageThread({
             }
             const { message: msg, isMine, compactTop, showName, showAvatar } = row
             const senderName = profileDisplayName(msg.profile)
+            const showCoordinatorBadge = isSecret && guestLeaderIds.has(msg.profile?.id) && !isMine
             return (
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: compactTop ? 2 : 10 }}>
-                {!isMine && showName && <div style={{ fontSize: 11, fontWeight: 700, color: GRAY1, marginBottom: 3, paddingLeft: 36 }}>{senderName}</div>}
+                {!isMine && showName && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: GRAY1, marginBottom: 3, paddingLeft: 36, display: 'flex', alignItems: 'center' }}>
+                    {senderName}
+                    {showCoordinatorBadge && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#e055aa', background: 'rgba(224,85,170,0.10)', padding: '2px 7px', borderRadius: 20, marginLeft: 5 }}>
+                        ✦ Coordinateur
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7, maxWidth: '78%' }}>
                   {!isMine && (showAvatar ? <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} /> : <div style={{ width: 28, flexShrink: 0 }} />)}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>

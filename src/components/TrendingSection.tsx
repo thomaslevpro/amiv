@@ -1,4 +1,4 @@
-import { ArrowUpRight, ChevronRight } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 
 const trendingEvents = [
   {
@@ -82,7 +82,20 @@ export default function TrendingSection({ onCreateEvent }: TrendingSectionProps)
         </span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <style>{`[data-trending-section-scroll]::-webkit-scrollbar { display: none; }`}</style>
+      <div
+        data-trending-section-scroll
+        style={{
+          display: 'flex',
+          gap: 10,
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch',
+          padding: '0 16px',
+          margin: '0 -16px',
+        }}
+      >
         {trendingEvents.map(event => (
           <article
             key={event.id}
@@ -90,8 +103,10 @@ export default function TrendingSection({ onCreateEvent }: TrendingSectionProps)
             style={{
               position: 'relative',
               overflow: 'hidden',
+              width: 160,
+              height: 110,
+              flexShrink: 0,
               borderRadius: 16,
-              height: 180,
               cursor: 'pointer',
               background: 'var(--black)',
               boxShadow: 'var(--shadow-card)',
@@ -113,74 +128,48 @@ export default function TrendingSection({ onCreateEvent }: TrendingSectionProps)
               style={{
                 position: 'absolute',
                 inset: 0,
-                backgroundColor: event.overlayColor,
+                background: 'linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.75) 100%)',
               }}
             />
             <div
               style={{
                 position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: 0,
-                padding: 16,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-end',
-                gap: 14,
+                left: 10,
+                right: 10,
+                bottom: 9,
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <h3
                   style={{
                     color: '#fff',
-                    fontSize: 25,
-                    lineHeight: 1.05,
-                    fontWeight: 900,
-                    letterSpacing: 0,
+                    fontSize: 13,
+                    lineHeight: 1.15,
+                    fontWeight: 700,
                     margin: 0,
-                    textShadow: '0 2px 10px rgba(0,0,0,0.20)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textShadow: '0 1px 5px rgba(0,0,0,0.28)',
                   }}
                 >
                   {event.title}
                 </h3>
                 <p
                   style={{
-                    color: 'rgba(255,255,255,0.85)',
-                    fontSize: 13,
-                    lineHeight: 1.35,
+                    color: 'rgba(255,255,255,0.80)',
+                    fontSize: 11,
+                    lineHeight: 1.2,
                     fontWeight: 500,
-                    margin: '6px 0 0',
+                    margin: '2px 0 0',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {event.subtitle}
                 </p>
               </div>
-
-              <button
-                type="button"
-                onClick={e => {
-                  e.stopPropagation()
-                  handleCreate(event)
-                }}
-                style={{
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  borderRadius: 999,
-                  background: '#fff',
-                  color: 'var(--black)',
-                  padding: '10px 14px 10px 18px',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  boxShadow: '0 8px 18px rgba(0,0,0,0.18)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {event.cta}
-                <ChevronRight size={15} strokeWidth={2.5} />
-              </button>
             </div>
           </article>
         ))}

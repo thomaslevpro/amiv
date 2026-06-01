@@ -4,6 +4,7 @@ import MessageThread from '../components/messages/MessageThread'
 import { typeEmoji } from '../components/messages/constants'
 import { buildEventMessageRows, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
+import { useGuestLeader } from '../hooks/useGuestLeader'
 import { findOrCreateDirectConversation } from '../lib/conversations'
 import { getFriends } from '../lib/friendships'
 import { supabase } from '../lib/supabase'
@@ -21,6 +22,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const appOpenedAtRef = useRef(null)
   const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const { unreadByConversation, totalUnread: unreadTotal } = useUnreadCounts(userId)
+  const { guestLeaders } = useGuestLeader(event?.id)
+  const guestLeaderIds = useMemo(() => new Set(guestLeaders.map(guestLeader => guestLeader.user_id)), [guestLeaders])
   const canUseSecretChannel = !!event?.birthday_person_user_id && !!userId && userId !== event.birthday_person_user_id
   const birthdayPersonFirstName = event?.birthdayFirstName || event?.birthday_person?.first_name || event?.birthdayPerson?.first_name || birthdayPersonProfile?.first_name || (birthdayPersonProfile?.name ? firstName(birthdayPersonProfile.name) : null) || 'La personne fêtée'
 
@@ -243,5 +246,5 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   if (!event) return <ConversationList unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
-  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} />
+  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} />
 }
