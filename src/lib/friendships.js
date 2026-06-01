@@ -41,12 +41,16 @@ export async function searchUsers(query, currentUserId) {
 export async function sendFriendRequest(requesterId, addresseeId, eventContextId = null) {
   return supabase
     .from('friendships')
-    .insert({
-      requester_id: requesterId,
-      addressee_id: addresseeId,
-      event_context_id: eventContextId,
-      status: 'pending',
-    })
+    .upsert(
+      {
+        requester_id: requesterId,
+        addressee_id: addresseeId,
+        event_context_id: eventContextId,
+        status: 'pending',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'requester_id,addressee_id' }
+    )
     .select()
     .single()
 }
