@@ -188,6 +188,7 @@ export default function DispoCalendar({
   const [closeFriendIds, setCloseFriendIds] = useState([])
   const [friendAvailabilities, setFriendAvailabilities] = useState([])
   const [friendProfiles, setFriendProfiles] = useState([])
+  const [eventsMap, setEventsMap] = useState(new Map())
   const todayKey = toDateKey(new Date())
   const toggleCard = id => setOpenId(prev => (prev === id ? null : id))
 
@@ -260,6 +261,65 @@ export default function DispoCalendar({
     }
 
     fetchCloseFriends()
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchEvents() {
+      if (!userId) {
+        setEventsMap(new Map())
+        return
+      }
+
+      try {
+        const [organizedRes, rsvpRes] = await Promise.all([
+          supabase
+            .from('events')
+            .select('id, name, emoji, date, type')
+            .eq('user_id', userId)
+            .not('date', 'is', null),
+          supabase
+            .from('rsvps')
+            .select('events!inner(id, name, emoji, date, type, user_id)')
+            .eq('user_id', userId)
+            .eq('status', 'confirmed')
+            .not('events.date', 'is', null)
+            .neq('events.user_id', userId),
+        ])
+
+        if (organizedRes.error) throw organizedRes.error
+        if (rsvpRes.error) throw rsvpRes.error
+
+        const nextEventsMap = new Map()
+        const addEvent = (event, role) => {
+          if (!event?.date) return
+          const dateKey = toDateKey(new Date(event.date))
+          const events = nextEventsMap.get(dateKey) ?? []
+          events.push({
+            id: event.id,
+            name: event.name,
+            emoji: event.emoji,
+            role,
+          })
+          nextEventsMap.set(dateKey, events)
+        }
+
+        ;(organizedRes.data ?? []).forEach(event => addEvent(event, 'organizer'))
+        ;(rsvpRes.data ?? []).forEach(rsvp => addEvent(rsvp.events, 'participant'))
+
+        if (!cancelled) setEventsMap(nextEventsMap)
+      } catch (error) {
+        console.error('[DispoCalendar] fetchEvents error:', error)
+        if (!cancelled) setEventsMap(new Map())
+      }
+    }
+
+    fetchEvents()
 
     return () => {
       cancelled = true
@@ -369,6 +429,28 @@ export default function DispoCalendar({
       .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
   ), [myPosts])
 
+  const filteredMyAvailabilities = useMemo(() => (
+    selectedDate
+      ? myAvailabilities.filter(dispo => dispo.dateKey === selectedDate)
+      : myAvailabilities
+  ), [myAvailabilities, selectedDate])
+
+  const filteredFriendGroups = useMemo(() => (
+    selectedDate
+      ? friendGroups.filter(group => group.dateKey === selectedDate)
+      : friendGroups
+  ), [friendGroups, selectedDate])
+
+  const visibleEvents = useMemo(() => {
+    const entries = selectedDate
+      ? [[selectedDate, eventsMap.get(selectedDate) ?? []]]
+      : Array.from(eventsMap.entries()).filter(([dateKey]) => dateKey >= monthStartKey && dateKey <= monthEndKey)
+
+    return entries
+      .sort(([a], [b]) => a.localeCompare(b))
+      .flatMap(([dateKey, events]) => events.map(event => ({ ...event, dateKey })))
+  }, [eventsMap, monthEndKey, monthStartKey, selectedDate])
+
   const days = getMonthDays(currentMonth)
   const weekdays = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -376,6 +458,45 @@ export default function DispoCalendar({
     setSelectedDate(null)
     onMonthChange?.(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + amount, 1))
   }
+
+  const renderEventsSection = () => visibleEvents.length > 0 && (
+    <>
+      <div className="dispoCalendarListTitle">Mes événements</div>
+      {visibleEvents.map(event => (
+        <div
+          key={`${event.role}-${event.id}-${event.dateKey}`}
+          style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: '10px 12px',
+            border: '0.5px solid rgba(0,0,0,0.07)',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            marginTop: 8,
+          }}
+        >
+          <span style={{ fontSize: 18, flex: '0 0 auto' }}>{event.emoji || '•'}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {event.name}
+          </span>
+          <span
+            style={{
+              borderRadius: 999,
+              padding: '4px 9px',
+              fontSize: 11,
+              fontWeight: 800,
+              color: event.role === 'organizer' ? '#fff' : '#007AFF',
+              background: event.role === 'organizer' ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#EAF2FF',
+              flex: '0 0 auto',
+            }}
+          >
+            {event.role === 'organizer' ? 'Organisateur' : 'Participant'}
+          </span>
+        </div>
+      ))}
+    </>
+  )
 
   return (
     <div className="dispoCalendarRoot">
@@ -833,11 +954,11 @@ export default function DispoCalendar({
             const dateKey = toDateKey(day)
             const friendIds = Array.from((availabilityByDate.get(dateKey) ?? new Map()).keys())
             const hasDispo = friendIds.length > 0
-            const isPast = dateKey < todayKey
             const hasMeDispo = myDateKeys.has(dateKey)
+            const hasEvent = (eventsMap.get(dateKey) ?? []).length > 0
             const className = [
               'dispoCalendarDay',
-              !isPast ? 'clickable' : '',
+              'clickable',
               hasDispo ? 'hasDispo' : '',
               dateKey === bestDate ? 'best' : '',
               dateKey === todayKey ? 'today' : '',
@@ -849,18 +970,17 @@ export default function DispoCalendar({
                 key={dateKey}
                 className={className}
                 type="button"
-                disabled={isPast}
                 onClick={() => {
-                  if (hasDispo || hasMeDispo) setSelectedDate(dateKey)
-                  onDayClick?.(dateKey)
+                  setSelectedDate(prev => (prev === dateKey ? null : dateKey))
                 }}
               >
                 <span className="dispoCalendarDayNumber">
                   {day.getDate()}
-                  {(hasMeDispo || hasDispo) && (
+                  {(hasMeDispo || hasDispo || hasEvent) && (
                     <span className="dispoCalendarDots">
                       {hasMeDispo && <span className="dispoCalendarDot" style={{ background: '#007AFF' }} />}
                       {hasDispo && <span className="dispoCalendarDot" style={{ background: '#e055aa' }} />}
+                      {hasEvent && <span className="dispoCalendarDot" style={{ background: '#f5a623' }} />}
                     </span>
                   )}
                 </span>
@@ -878,6 +998,10 @@ export default function DispoCalendar({
             <span className="dispoCalendarDot" style={{ background: '#e055aa' }} />
             Amis proches
           </div>
+          <div className="dispoCalendarLegendItem">
+            <span className="dispoCalendarDot" style={{ background: '#f5a623' }} />
+            Événements
+          </div>
         </div>
       </div>
 
@@ -885,10 +1009,10 @@ export default function DispoCalendar({
         <>
           <div className="dispoCalendarMyHeader">
             <span className="dispoCalendarMyTitle">Mes dispos</span>
-            <span className="dispoCalendarMyCount">{myAvailabilities.length} cette semaine</span>
+            <span className="dispoCalendarMyCount">{filteredMyAvailabilities.length} cette semaine</span>
           </div>
-          {myAvailabilities.length > 0 ? (
-            myAvailabilities.map((dispo, index) => {
+          {filteredMyAvailabilities.length > 0 ? (
+            filteredMyAvailabilities.map((dispo, index) => {
               const open = openId === dispo.id
               const date = new Date(`${dispo.dateKey}T12:00:00`)
               const palette = index % 2 === 0
@@ -969,6 +1093,7 @@ export default function DispoCalendar({
           ) : (
             <div className="dispoCalendarEmpty">Aucune dispo pour le moment.</div>
           )}
+          {renderEventsSection()}
           <button
             type="button"
             className="dispoCalendarAddDispoButton"
@@ -979,36 +1104,39 @@ export default function DispoCalendar({
           </button>
         </>
       ) : (
-        friendGroups.length > 0 ? (
-          <>
-            <div className="dispoCalendarListTitle">Amis proches</div>
-            {friendGroups.map(group => (
-              <div key={group.dateKey} className="dispoCalendarListCard">
-                <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 4 }}>
-                  {shortDayLabel(group.dateKey)}
-                </div>
-                {group.friends.map(friend => {
-                  const colorIndex = friendColorById.get(friend.id) ?? 0
-                  return (
-                    <div key={`${group.dateKey}-${friend.id}`} className="dispoCalendarFriendRow">
-                      {avatar(friend.profile, colorIndex)}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {friend.profile?.first_name || displayName(friend.profile)}
-                        </div>
-                        <div className="dispoCalendarMoodChips">
-                          {friend.moods.map(moodKey => <MoodChip key={moodKey} moodKey={moodKey} />)}
+        <>
+          {filteredFriendGroups.length > 0 ? (
+            <>
+              <div className="dispoCalendarListTitle">Amis proches</div>
+              {filteredFriendGroups.map(group => (
+                <div key={group.dateKey} className="dispoCalendarListCard">
+                  <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 4 }}>
+                    {shortDayLabel(group.dateKey)}
+                  </div>
+                  {group.friends.map(friend => {
+                    const colorIndex = friendColorById.get(friend.id) ?? 0
+                    return (
+                      <div key={`${group.dateKey}-${friend.id}`} className="dispoCalendarFriendRow">
+                        {avatar(friend.profile, colorIndex)}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {friend.profile?.first_name || displayName(friend.profile)}
+                          </div>
+                          <div className="dispoCalendarMoodChips">
+                            {friend.moods.map(moodKey => <MoodChip key={moodKey} moodKey={moodKey} />)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
-          </>
-        ) : (
-          <div className="dispoCalendarEmpty">Aucun ami proche disponible ce mois-ci.</div>
-        )
+                    )
+                  })}
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="dispoCalendarEmpty">Aucun ami proche disponible ce mois-ci.</div>
+          )}
+          {renderEventsSection()}
+        </>
       )}
     </div>
   )

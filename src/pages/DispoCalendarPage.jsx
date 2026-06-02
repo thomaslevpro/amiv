@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, Clapperboard, Coffee, Footprints, Gamepad2, Utensils, Wine } from 'lucide-react'
+import { ChevronLeft, Clapperboard, Coffee, Footprints, Gamepad2, Plus, Utensils, Wine } from 'lucide-react'
 import DispoCalendar from '../components/home/DispoCalendar'
 import { useDispoCalendar } from '../hooks/useDispoCalendar'
 
@@ -127,34 +127,56 @@ export default function DispoCalendarPage({ userId, onBack }) {
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: 12,
           padding: '14px 16px 10px',
           flexShrink: 0,
         }}
       >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              border: 'none',
+              background: '#F2F2F7',
+              color: '#1C1C1E',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+            aria-label="Retour"
+          >
+            <ChevronLeft size={21} strokeWidth={2.4} />
+          </button>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, letterSpacing: 0 }}>
+            Dispos de mes amis
+          </h1>
+        </div>
         <button
           type="button"
-          onClick={onBack}
+          aria-label="Ajouter une dispo"
+          onClick={() => openCreateSheet()}
           style={{
             width: 34,
             height: 34,
             borderRadius: '50%',
+            background: 'linear-gradient(135deg, #e055aa, #f5a623)',
             border: 'none',
-            background: '#F2F2F7',
-            color: '#1C1C1E',
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
             flexShrink: 0,
           }}
-          aria-label="Retour"
         >
-          <ChevronLeft size={21} strokeWidth={2.4} />
+          <Plus size={17} strokeWidth={2.5} color="white" />
         </button>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, letterSpacing: 0 }}>
-          Dispos de mes amis
-        </h1>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 16px 100px' }}>
