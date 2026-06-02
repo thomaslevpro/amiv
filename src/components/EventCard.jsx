@@ -174,6 +174,26 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
         )}
 
         <div style={{ position: 'absolute', left: 14, right: 14, bottom: 12, minWidth: 0 }}>
+          {(event.isOrganizer || event.rsvpStatus === 'organizing') && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              background: 'rgba(255,255,255,0.18)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.35)',
+              borderRadius: 10,
+              padding: '3px 9px',
+              marginBottom: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#fff',
+              letterSpacing: 0.2,
+            }}>
+              ✦ Organisateur
+            </div>
+          )}
           <div style={{
             color: '#fff',
             fontSize: 20,
@@ -260,7 +280,14 @@ export default function EventCard({
   onChat,
 }) {
   const navigate = useNavigate()
-  const event = item?.event ?? eventProp ?? {}
+  const baseEvent = item?.event ?? eventProp ?? {}
+  const event = item?.event
+    ? {
+        ...baseEvent,
+        isOrganizer: baseEvent.isOrganizer ?? item.isOrganizer,
+        rsvpStatus: baseEvent.rsvpStatus ?? (item.isOrganizer ? 'organizing' : item.myStatus),
+      }
+    : baseEvent
   const stats = item?.stats ?? event.rsvpStats ?? {}
   const dateParts = getLocalDateParts(event.date)
 

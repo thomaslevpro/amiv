@@ -37,9 +37,9 @@ function MiniEventStatusChip({ item }) {
   const isOrganizer = item.role === 'organise'
   const normalized = normalizeStatus(item.myStatus)
   const chip = isOrganizer
-    ? { label: "J'organise", bg: 'rgba(255,255,255,0.92)', color: '#d4840a' }
+    ? { label: '✦ Organisateur', bg: 'rgba(255,255,255,0.18)', color: '#fff' }
     : normalized === 'yes'
-      ? { label: "✓ J'y serai", bg: 'rgba(255,255,255,0.92)', color: '#d4840a' }
+      ? { label: '✦ Invité', bg: 'rgba(255,255,255,0.18)', color: '#fff', glass: true }
       : { label: 'En attente', bg: '#F2F2F7', color: '#8E8E93' }
 
   return (
@@ -54,6 +54,11 @@ function MiniEventStatusChip({ item }) {
       fontWeight: 600,
       lineHeight: 1.15,
       whiteSpace: 'nowrap',
+      ...(chip.glass && {
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255,255,255,0.35)',
+      }),
     }}>
       {chip.label}
     </span>
@@ -105,8 +110,11 @@ function MyEventMiniCard({ item, onClick }) {
         <MiniEventStatusChip item={item} />
         <div style={{
           borderRadius: 8,
-          background: 'rgba(255,255,255,0.92)',
-          color: '#d4840a',
+          background: 'rgba(0,0,0,0.38)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255,255,255,0.18)',
+          color: '#fff',
           fontSize: 10,
           fontWeight: 700,
           padding: '3px 8px',
