@@ -1,350 +1,18 @@
-import { useState, useEffect } from 'react'
-import { Check, Plus, X } from 'lucide-react'
+import { useState } from 'react'
 import NotificationBell from '../components/NotificationBell'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
 import TrendingSection from '../components/TrendingSection'
 import BirthdaySection from '../components/home/BirthdaySection'
+import AvailabilityCard from '../components/home/AvailabilityCard'
+import InvitationsSection from '../components/home/InvitationsSection'
+import InviteCard from '../components/home/InviteCard'
+import MyEventsSection from '../components/home/MyEventsSection'
+import SectionHeader from '../components/home/SectionHeader'
+import { useAvailability } from '../hooks/useAvailability'
 import { useFriendships } from '../hooks/useFriendships'
-import { supabase } from '../lib/supabase'
-
-function getCoverUrl(coverImage) {
-  if (!coverImage) return null
-  if (coverImage.startsWith('http')) return coverImage
-  return supabase.storage.from('event-covers').getPublicUrl(coverImage).data.publicUrl
-}
-
-const EVENT_GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
-
-function SectionHeader({ title, badge, link, onLink }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 2px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93' }}>
-          {title}
-        </span>
-        {badge && (
-          <span style={{ padding: '2px 8px', borderRadius: 10, background: 'rgba(224,85,170,0.12)', color: '#e055aa', fontSize: 11, fontWeight: 700 }}>
-            {badge}
-          </span>
-        )}
-      </div>
-      {link && (
-        <span onClick={onLink} style={{ fontSize: 12, fontWeight: 600, color: '#007AFF', cursor: 'pointer' }}>
-          {link}
-        </span>
-      )}
-    </div>
-  )
-}
-
-function InviteCard({ onShare }) {
-  return (
-    <div
-      onClick={onShare}
-      style={{
-        background: '#fff',
-        borderRadius: 16,
-        padding: '16px 18px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
-        marginBottom: 12,
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
-          {['#e055aa', '#f5a623', '#4D96FF', '#6BCB77'].map(color => (
-            <span key={color} style={{ width: 5, height: 5, borderRadius: '50%', background: color }} />
-          ))}
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E', marginBottom: 3 }}>
-          Offrez Amiv à vos proches
-        </div>
-        <div style={{ fontSize: 12, color: '#6B6B6D', lineHeight: 1.4 }}>
-          Parce que les bons moments méritent d'être partagés
-        </div>
-      </div>
-      <button
-        onClick={e => { e.stopPropagation(); onShare() }}
-        style={{
-          flexShrink: 0,
-          padding: '10px 14px',
-          borderRadius: 14,
-          background: 'linear-gradient(135deg, #e055aa, #f5a623)',
-          fontSize: 12,
-          fontWeight: 700,
-          color: '#fff',
-          textAlign: 'center',
-          whiteSpace: 'normal',
-          width: 80,
-          border: 'none',
-          cursor: 'pointer',
-          lineHeight: 1.15,
-        }}
-      >
-        Envoyer<br />le lien
-      </button>
-    </div>
-  )
-}
-
-function formatCompactEventDate(dateStr) {
-  if (!dateStr) return 'Date à définir'
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return 'Date à définir'
-  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-}
-
-function formatInvitationRelativeDate(dateStr) {
-  if (!dateStr) return 'Date à définir'
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return 'Date à définir'
-  const target = new Date(d)
-  target.setHours(0, 0, 0, 0)
-  const current = new Date()
-  current.setHours(0, 0, 0, 0)
-  const days = Math.round((target - current) / (1000 * 60 * 60 * 24))
-  const absDays = Math.abs(days)
-  if (days === 0) return "Aujourd'hui"
-  if (days === 1) return 'Demain'
-  if (days === -1) return 'Hier'
-  if (days > 0) return `Dans ${days} jours`
-  return `Il y a ${absDays} jours`
-}
-
-function getEventDaysLeft(dateStr) {
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return null
-  return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24))
-}
-
-function normalizeStatus(status) {
-  if (status === 'going' || status === 'yes' || status === 'accepted' || status === 'confirmed') return 'yes'
-  if (status === 'maybe' || status === 'invited' || status === 'pending') return 'maybe'
-  if (status === 'declined' || status === 'no' || status === 'not_going') return 'no'
-  return status || null
-}
-
-function countStatuses(rows = []) {
-  return rows.reduce((acc, row) => {
-    const status = normalizeStatus(row.status || row.response)
-    if (status === 'yes') acc.yes += 1
-    else if (status === 'no') acc.no += 1
-    else acc.maybe += 1
-    return acc
-  }, { yes: 0, no: 0, maybe: 0 })
-}
-
-function MiniEventStatusChip({ item }) {
-  const isOrganizer = item.role === 'organise'
-  const normalized = normalizeStatus(item.myStatus)
-  const chip = isOrganizer
-    ? { label: "J'organise", bg: 'rgba(255,255,255,0.92)', color: '#d4840a' }
-    : normalized === 'yes'
-      ? { label: "✓ J'y serai", bg: 'rgba(255,255,255,0.92)', color: '#d4840a' }
-      : { label: 'En attente', bg: '#F2F2F7', color: '#8E8E93' }
-
-  return (
-    <span style={{
-      padding: '3px 8px',
-      borderRadius: 20,
-      display: 'inline-flex',
-      alignItems: 'center',
-      background: chip.bg,
-      color: chip.color,
-      fontSize: 10,
-      fontWeight: 600,
-      lineHeight: 1.15,
-      whiteSpace: 'nowrap',
-    }}>
-      {chip.label}
-    </span>
-  )
-}
-
-function MyEventMiniCard({ item, onClick }) {
-  const daysLeft = getEventDaysLeft(item.date)
-  const coverUrl = getCoverUrl(item.cover_image)
-  const hasCover = !!coverUrl
-  const dateStr = formatCompactEventDate(item.date)
-  const stats = item.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
-
-  return (
-    <div
-      onClick={() => onClick?.(item)}
-      style={{
-        width: 160,
-        height: 160,
-        flexShrink: 0,
-        position: 'relative',
-        background: hasCover ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
-        borderRadius: 18,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        boxShadow: '0 2px 10px rgba(18,31,46,0.08)',
-      }}
-    >
-      {hasCover ? (
-        <img src={coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-      ) : null}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.04) 38%, rgba(0,0,0,0.68) 100%)',
-        pointerEvents: 'none',
-      }} />
-
-      <div style={{
-        position: 'absolute',
-        left: 10,
-        right: 10,
-        top: 10,
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: 8,
-      }}>
-        <MiniEventStatusChip item={item} />
-        <div style={{
-          borderRadius: 8,
-          background: 'rgba(255,255,255,0.92)',
-          color: '#d4840a',
-          fontSize: 10,
-          fontWeight: 700,
-          padding: '3px 8px',
-          lineHeight: 1.15,
-          flexShrink: 0,
-        }}>
-          {daysLeft === null ? 'J-?' : `J-${Math.max(daysLeft, 0)}`}
-        </div>
-      </div>
-
-      <div style={{
-        position: 'absolute',
-        left: 10,
-        right: 10,
-        bottom: 10,
-        textShadow: '0 1px 4px rgba(0,0,0,0.28)',
-      }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {item.name || 'Événement'}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
-          <span style={{ minWidth: 0, fontSize: 10, color: 'rgba(255,255,255,0.86)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {dateStr}{item.location ? ` · ${item.location}` : ''}
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.86)', fontSize: 10, lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {stats.yes} oui
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function CreateEventMiniCard({ onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: 160,
-        flexShrink: 0,
-        minHeight: 160,
-        border: '1.5px dashed #e0d8ea',
-        background: 'transparent',
-        borderRadius: 18,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 9,
-        padding: 12,
-        cursor: 'pointer',
-      }}
-    >
-      <span style={{
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        display: 'grid',
-        placeItems: 'center',
-        background: EVENT_GRADIENT,
-      }}>
-        <Plus size={20} color="#fff" strokeWidth={2.6} />
-      </span>
-      <span style={{ fontSize: 11, fontWeight: 600, color: '#c0b0cc', textAlign: 'center' }}>
-        Créer un événement
-      </span>
-    </button>
-  )
-}
-
-function MyEventsSection({ events, onSeeAll, onEventClick, onCreateClick }) {
-  return (
-    <div style={{ margin: '0 -16px 12px' }}>
-      <style>{`
-        .home-my-events-scroll::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '0 18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: '0.09em',
-            textTransform: 'uppercase',
-            color: 'var(--gray1)',
-          }}>
-            MES ÉVÉNEMENTS
-          </span>
-        </div>
-        <button
-          onClick={onSeeAll}
-          style={{
-            border: 'none',
-            background: 'transparent',
-            backgroundImage: EVENT_GRADIENT,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontSize: 13,
-            fontWeight: 600,
-            padding: 0,
-            cursor: 'pointer',
-          }}
-        >
-          Voir tout
-        </button>
-      </div>
-      <div
-        className="home-my-events-scroll"
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          gap: 12,
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          padding: '4px 20px 8px',
-        }}
-      >
-        {events.map(event => (
-          <MyEventMiniCard
-            key={event.id}
-            item={event}
-            onClick={onEventClick}
-          />
-        ))}
-        <CreateEventMiniCard onClick={onCreateClick} />
-      </div>
-    </div>
-  )
-}
+import { useHomeData } from '../hooks/useHomeData'
 
 export default function Home({
   onEventClick,
@@ -357,6 +25,9 @@ export default function Home({
   onAllEventsClick,
   onCalendarClick,
   onTrendingClick,
+  onCreateDispoClick,
+  onDispoDetailClick,
+  onCreateDispoConvertClick,
   session,
   birthdayRefreshTrigger = 0,
 }) {
@@ -366,230 +37,14 @@ export default function Home({
   const userId = session?.user?.id
   const userEmail = session?.user?.email
   const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
-
-  const [invitations, setInvitations] = useState([])
-  const [myEvents, setMyEvents] = useState([])
-  const [profileName, setProfileName] = useState('')
+  const { invitations, refetchInvitations, myEvents, profileName } = useHomeData(userId, userEmail)
+  const { feed: availabilityFeed, respond: respondAvailability, refetch: refetchAvailability } = useAvailability(userId)
   const [toast, setToast] = useState(null)
   const [showNotifications, setShowNotifications] = useState(false)
 
-  function showToast(message, isError = false) {
+  function showToast(message, isError = false, duration = 3000) {
     setToast({ message, isError })
-    setTimeout(() => setToast(null), 3000)
-  }
-
-  const fetchInvitations = async () => {
-    if (!userId) return
-    const { data: invitationRows, error: invitationError } = await supabase
-      .from('invitations')
-      .select('id, event_id, invited_user_id, status')
-      .eq('invited_user_id', userId)
-      .neq('status', 'declined')
-    if (invitationError) { console.error('Erreur invitations reçues :', invitationError); return }
-    if (!invitationRows?.length) { setInvitations([]); return }
-
-    const invitedEventIds = invitationRows.map(invitation => invitation.event_id).filter(Boolean)
-    if (!invitedEventIds.length) { setInvitations([]); return }
-
-    const { data: eventsData, error: eventsError } = await supabase
-      .from('events')
-      .select('id, name, date, emoji, location, birthday_person_user_id, user_id')
-      .in('id', invitedEventIds)
-    if (eventsError) { console.error('Erreur invitations (events):', eventsError); return }
-
-    const organizerIds = [...new Set((eventsData ?? []).map(event => event.user_id).filter(Boolean))]
-    let organizersById = {}
-    if (organizerIds.length > 0) {
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, name')
-        .in('id', organizerIds)
-      if (profilesError) { console.error('Erreur organisateurs invitations :', profilesError); return }
-      organizersById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile.name]))
-    }
-
-    const { data: rsvps, error: rsvpError } = await supabase
-      .from('rsvps')
-      .select('event_id, status')
-      .eq('user_id', userId)
-      .in('event_id', invitedEventIds)
-    if (rsvpError) { console.error('Erreur invitations (rsvps):', rsvpError); return }
-
-    const rsvpsByEventId = Object.fromEntries((rsvps ?? []).map(rsvp => [rsvp.event_id, rsvp]))
-    const eventsById = Object.fromEntries((eventsData ?? []).map(e => [e.id, e]))
-    const pendingInvitations = invitationRows
-      .map(invitation => {
-        const event = eventsById[invitation.event_id] ?? null
-        const rsvp = rsvpsByEventId[invitation.event_id] ?? null
-        const isPending = !rsvp || rsvp.status === 'pending' || rsvp.status === 'invited'
-        return {
-          ...invitation,
-          rsvp,
-          isPending,
-          organizerName: event?.user_id ? organizersById[event.user_id] ?? null : null,
-          events: event,
-        }
-      })
-      .filter(invitation => invitation.isPending)
-
-    setInvitations(pendingInvitations)
-  }
-
-  useEffect(() => {
-    fetchInvitations()
-  }, [userId])
-
-  useEffect(() => {
-    if (!userId) {
-      setProfileName('')
-      return
-    }
-
-    supabase
-      .from('profiles')
-      .select('first_name, name, email')
-      .eq('id', userId)
-      .maybeSingle()
-      .then(({ data }) => {
-        setProfileName(data?.first_name || data?.name || data?.email?.split('@')[0] || '')
-      })
-  }, [userId])
-
-  useEffect(() => {
-    if (!userId) {
-      setMyEvents([])
-      return
-    }
-
-    let cancelled = false
-
-    async function fetchMyEvents() {
-      const now = new Date().toISOString()
-      const [organizedRes, invitationsRes] = await Promise.all([
-        supabase
-          .from('events')
-          .select('id, name, date, location, user_id, cover_image, birthday_person_user_id')
-          .eq('user_id', userId)
-          .order('date', { ascending: true })
-          .limit(5),
-        supabase
-          .from('invitations')
-          .select('status, events(id, name, date, location, user_id, cover_image, birthday_person_user_id)')
-          .eq('invited_user_id', userId)
-          .neq('status', 'declined')
-      ])
-
-      if (cancelled) return
-
-      if (organizedRes.error) console.error('Erreur événements organisés :', organizedRes.error)
-      if (invitationsRes.error) console.error('Erreur invitations événements participés :', invitationsRes.error)
-
-      const guestEvents = (invitationsRes.data ?? [])
-        .filter(item => item.events)
-        .map(item => ({
-          ...item.events,
-          role: 'participe',
-        }))
-
-      const byId = new Map()
-      ;(organizedRes.data ?? []).filter(event => !event.date || new Date(event.date) >= new Date()).forEach(event => {
-        if (event?.id) byId.set(event.id, { ...event, role: 'organise' })
-      })
-      guestEvents.filter(event => !event.date || new Date(event.date) >= new Date(now)).forEach(event => {
-        if (event?.id && !byId.has(event.id)) byId.set(event.id, event)
-      })
-
-      const eventIds = [...byId.keys()]
-      let rsvpRows = []
-      let profilesById = {}
-      if (eventIds.length > 0) {
-        const { data: rsvps } = await supabase
-          .from('rsvps')
-          .select('event_id, user_id, status')
-          .in('event_id', eventIds)
-        rsvpRows = rsvps ?? []
-        const rsvpUserIds = [...new Set(rsvpRows.map(row => row.user_id).filter(Boolean))]
-        if (rsvpUserIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, name, first_name, avatar_url, email')
-            .in('id', rsvpUserIds)
-          profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
-        }
-      }
-
-      const merged = [...byId.values()]
-        .map(event => {
-          const eventRsvps = rsvpRows.filter(row => row.event_id === event.id)
-          const mine = eventRsvps.find(row => row.user_id === userId)
-          return {
-            ...event,
-            myStatus: event.role === 'organise' ? 'going' : (mine?.status || event.status),
-            rsvpStats: countStatuses(eventRsvps),
-            memberProfiles: eventRsvps.map(row => profilesById[row.user_id]).filter(Boolean),
-          }
-        })
-        .sort((a, b) => new Date(a.date || '9999-12-31') - new Date(b.date || '9999-12-31'))
-        .slice(0, 3)
-
-      setMyEvents(merged)
-    }
-
-    fetchMyEvents()
-    return () => { cancelled = true }
-  }, [userId])
-
-  async function handleAcceptInvitation(invitationId, eventId) {
-    if (!userId) return
-    const orParts = [`invited_user_id.eq.${userId}`]
-    if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
-    const { count } = await supabase
-      .from('invitations')
-      .update({ status: 'accepted' }, { count: 'exact' })
-      .eq('event_id', eventId)
-      .or(orParts.join(','))
-    if (count === 0) console.warn('RSVP update matched 0 rows — check invited_user_id or email match')
-
-    const { error } = await supabase
-      .from('rsvps')
-      .upsert({ event_id: eventId, user_id: userId, status: 'going' }, { onConflict: 'event_id,user_id' })
-    if (!error) {
-      setInvitations(prev => prev.filter(i => i.id !== invitationId))
-    }
-  }
-
-  async function handleDeclineInvitation(invitationId, eventId) {
-    if (!userId) return
-    const orParts = [`invited_user_id.eq.${userId}`]
-    if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
-    const { count } = await supabase
-      .from('invitations')
-      .update({ status: 'declined' }, { count: 'exact' })
-      .eq('event_id', eventId)
-      .or(orParts.join(','))
-    if (count === 0) console.warn('RSVP update matched 0 rows — check invited_user_id or email match')
-
-    const { error } = await supabase
-      .from('rsvps')
-      .upsert({ event_id: eventId, user_id: userId, status: 'declined' }, { onConflict: 'event_id,user_id' })
-    if (!error) {
-      setInvitations(prev => prev.filter(i => i.id !== invitationId))
-    }
-  }
-
-  async function handleShare() {
-    const shareData = {
-      title: 'Amiv',
-      text: 'Rejoins-moi sur Amiv pour ne plus jamais rater un anniversaire 🎂',
-      url: 'https://amiv.app',
-    }
-    if (navigator.share) {
-      navigator.share(shareData).catch(() => {})
-    } else {
-      try { await navigator.clipboard.writeText('https://amiv.app') } catch { /* ignore */ }
-      setToast({ message: 'Lien copié !', isError: false })
-      setTimeout(() => setToast(null), 2000)
-    }
+    setTimeout(() => setToast(null), duration)
   }
 
   const weekday = today.toLocaleDateString('fr-FR', { weekday: 'long' })
@@ -597,6 +52,16 @@ export default function Home({
   const dateStr = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dateRest}`
   const displayName = profileName || session?.user?.user_metadata?.first_name || session?.user?.user_metadata?.name || userEmail?.split('@')[0] || 'toi'
   const amivCount = myEvents.length
+
+  async function handleAvailabilityRespond(postId, status, moods) {
+    try {
+      await respondAvailability(postId, userId, status, moods)
+      await refetchAvailability()
+    } catch (err) {
+      console.error('[Home] availability response error:', err)
+      showToast("Impossible d'enregistrer ta réponse.", true)
+    }
+  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden', position: 'relative' }}>
@@ -608,8 +73,6 @@ export default function Home({
       `}</style>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
-
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, padding: '6px 2px 0', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, color: '#aaa', fontWeight: 500, marginBottom: 10 }}>
@@ -643,128 +106,31 @@ export default function Home({
           </>
         )}
 
-        {invitations.length > 0 && (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '0 2px' }}>
-              <span style={{
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: '0.09em',
-                textTransform: 'uppercase',
-                color: 'var(--gray1)',
-              }}>
-                INVITATIONS EN ATTENTE
-              </span>
-              <span style={{
-                width: 24,
-                height: 24,
-                borderRadius: '50%',
-                background: 'rgba(224,85,170,0.16)',
-                color: '#d82e86',
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: 12,
-                fontWeight: 800,
-              }}>
-                {invitations.length}
-              </span>
-            </div>
-            {invitations.map(inv => {
-              const ev = inv.events ?? {}
-              const relativeDate = formatInvitationRelativeDate(ev.date)
-              const organizerName = inv.isPending ? inv.organizerName : null
-              return (
-                <div key={inv.id} style={{
-                  background: '#fff',
-                  borderRadius: 20,
-                  padding: '18px 16px',
-                  marginBottom: 14,
-                  boxShadow: '0 2px 12px rgba(18,31,46,0.12)',
-                  border: '1px solid rgba(18,31,46,0.06)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  animation: inv.isPending ? 'pulse-border 2s ease-in-out infinite' : 'none',
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: '#121827',
-                      lineHeight: 1.1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {ev.name ?? 'Événement'}
-                    </div>
-                    {organizerName && (
-                      <div style={{
-                        fontSize: 12,
-                        color: '#8E8E93',
-                        marginTop: 4,
-                        fontWeight: 500,
-                        lineHeight: 1.15,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        Organisé par {organizerName}
-                      </div>
-                    )}
-                    <div style={{
-                      fontSize: 12,
-                      color: '#5f6f86',
-                      marginTop: 5,
-                      fontWeight: 600,
-                      lineHeight: 1.15,
-                    }}>
-                      {relativeDate}
-                    </div>
-                  </div>
+        <InvitationsSection invitations={invitations} userId={userId} userEmail={userEmail} onUpdate={refetchInvitations} />
 
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                    <button
-                      type="button"
-                      onClick={() => handleAcceptInvitation(inv.id, inv.event_id)}
-                      aria-label="Accepter l'invitation"
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 14,
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: 'linear-gradient(135deg, #f2368d 0%, #ff8b3d 100%)',
-                        display: 'grid',
-                        placeItems: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Check size={23} color="#fff" strokeWidth={2.4} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeclineInvitation(inv.id, inv.event_id)}
-                      aria-label="Refuser l'invitation"
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 14,
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: '#eef2f7',
-                        display: 'grid',
-                        placeItems: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <X size={23} color="#536174" strokeWidth={2.3} />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </>
+        <SectionHeader
+          title="Dispos 🟢"
+          badge={availabilityFeed.length > 0 ? availabilityFeed.length : null}
+          link="+ Publier"
+          onLink={() => onCreateDispoClick?.()}
+        />
+        {availabilityFeed.slice(0, 2).map(post => (
+          <AvailabilityCard
+            key={post.id}
+            post={post}
+            currentUserId={userId}
+            onRespond={handleAvailabilityRespond}
+            onConvert={onCreateDispoConvertClick}
+            onOpenDetail={onDispoDetailClick}
+          />
+        ))}
+        {availabilityFeed.length > 2 && (
+          <div
+            onClick={() => onDispoDetailClick?.(availabilityFeed[0].id)}
+            style={{ color: '#007AFF', fontSize: 13, fontWeight: 800, margin: '-2px 2px 18px', cursor: 'pointer' }}
+          >
+            Voir tout ({availabilityFeed.length})
+          </div>
         )}
 
         <BirthdaySection user={session?.user} onToast={showToast} onMessage={onMessagesClick} refreshTrigger={birthdayRefreshTrigger} />
@@ -784,9 +150,7 @@ export default function Home({
         />
 
         <TrendingSection onCreateEvent={onTrendingClick} />
-
-        <InviteCard onShare={handleShare} />
-
+        <InviteCard onToast={showToast} />
       </div>
 
       <NotificationPanel

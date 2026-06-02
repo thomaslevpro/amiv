@@ -13,6 +13,8 @@ import Home from './screens/Home'
 import Calendar from './screens/Calendar'
 import Messages from './screens/Messages'
 import Create from './screens/Create'
+import CreateDispoScreen from './screens/CreateDispoScreen'
+import DispoDetailScreen from './screens/DispoDetailScreen'
 import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
 import Profile from './screens/Profile'
@@ -54,6 +56,8 @@ function MainApp() {
   const [tab, setTab] = useState('home')
   const [screen, setScreen] = useState('home')
   const [showCreateSheet, setShowCreateSheet] = useState(false)
+  const [showCreateDispo, setShowCreateDispo] = useState(false)
+  const [dispoDetailId, setDispoDetailId] = useState(null)
   const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [birthdayRefreshTrigger, setBirthdayRefreshTrigger] = useState(0)
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -151,8 +155,21 @@ function MainApp() {
     const { data } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
     if (data) { setSelectedEvent(data); setScreen('messages') }
   }
+  const handleCreateFromDispo = (post) => {
+    setCreateInitialData({
+      title: post?.message ? post.message.slice(0, 48) : '',
+      desc: post?.message ?? '',
+      description: post?.message ?? '',
+      emoji: post?.moods?.includes('cafe') ? '☕' : post?.moods?.includes('diner') ? '🍽️' : post?.moods?.includes('cine') ? '🎬' : undefined,
+    })
+    setShowCreateDispo(false)
+    setDispoDetailId(null)
+    setScreen('create')
+  }
 
   const isDetailScreen =
+    showCreateDispo ||
+    !!dispoDetailId ||
     screen === 'create' ||
     screen === 'editProfile' ||
     screen === 'allEvents' ||
@@ -163,6 +180,20 @@ function MainApp() {
   !!conversationEvent
 
   const renderCurrentScreen = () => {
+    if (showCreateDispo) return (
+      <CreateDispoScreen
+        onBack={() => setShowCreateDispo(false)}
+        userId={session.user.id}
+      />
+    )
+    if (dispoDetailId) return (
+      <DispoDetailScreen
+        postId={dispoDetailId}
+        currentUserId={session.user.id}
+        onBack={() => setDispoDetailId(null)}
+        onCreateEvent={handleCreateFromDispo}
+      />
+    )
     if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
     if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} initialData={createInitialData} />
     if (screen === 'editProfile') return (
@@ -183,7 +214,7 @@ function MainApp() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} onCreateDispoClick={() => setShowCreateDispo(true)} onDispoDetailClick={(id) => setDispoDetailId(id)} onCreateDispoConvertClick={handleCreateFromDispo} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
