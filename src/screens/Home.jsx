@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Send } from 'lucide-react'
 import NotificationBell from '../components/NotificationBell'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
@@ -13,6 +14,15 @@ import SectionHeader from '../components/home/SectionHeader'
 import { useAvailability } from '../hooks/useAvailability'
 import { useFriendships } from '../hooks/useFriendships'
 import { useHomeData } from '../hooks/useHomeData'
+
+const dispoMoods = [
+  { key: 'diner', label: '🍽️ Dîner' },
+  { key: 'apero', label: '🍻 Apéro' },
+  { key: 'jeux', label: '🎲 Jeux' },
+  { key: 'cine', label: '🎬 Ciné' },
+  { key: 'cafe', label: '☕ Café' },
+  { key: 'balade', label: '🚶 Balade' },
+]
 
 export default function Home({
   onEventClick,
@@ -41,6 +51,8 @@ export default function Home({
   const { feed: availabilityFeed, respond: respondAvailability, refetch: refetchAvailability } = useAvailability(userId)
   const [toast, setToast] = useState(null)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [dispoComposerExpanded, setDispoComposerExpanded] = useState(false)
+  const [pendingDispoMoods, setPendingDispoMoods] = useState([])
 
   function showToast(message, isError = false, duration = 3000) {
     setToast({ message, isError })
@@ -63,12 +75,35 @@ export default function Home({
     }
   }
 
+  function togglePendingDispoMood(moodKey) {
+    setPendingDispoMoods(prev => (
+      prev.includes(moodKey)
+        ? prev.filter(key => key !== moodKey)
+        : [...prev, moodKey]
+    ))
+  }
+
+  function handleDispoComposerSubmit(event) {
+    event.stopPropagation()
+    if (pendingDispoMoods.length > 0) {
+      onCreateDispoClick?.(pendingDispoMoods)
+    } else {
+      onCreateDispoClick?.()
+    }
+    setDispoComposerExpanded(false)
+    setPendingDispoMoods([])
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden', position: 'relative' }}>
       <style>{`
         @keyframes pulse-border {
           0%, 100% { box-shadow: 0 0 0 0px rgba(224,85,170,0.4), 0 0 0 0px rgba(245,166,35,0.2); }
           50% { box-shadow: 0 0 0 6px rgba(224,85,170,0.15), 0 0 0 12px rgba(245,166,35,0.05); }
+        }
+        @keyframes pulse-dot {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.6); opacity: 0.5; }
         }
       `}</style>
 
@@ -111,9 +146,92 @@ export default function Home({
         <SectionHeader
           title="Dispos 🟢"
           badge={availabilityFeed.length > 0 ? availabilityFeed.length : null}
-          link="+ Publier"
-          onLink={() => onCreateDispoClick?.()}
         />
+        <div
+          onClick={() => setDispoComposerExpanded(true)}
+          style={{
+            background: '#fff',
+            borderRadius: 16,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+            marginBottom: 12,
+            padding: '12px 14px',
+            cursor: 'pointer',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ height: 28, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                flex: '0 0 8px',
+                background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                borderRadius: '50%',
+                animation: 'pulse-dot 1.4s ease-in-out infinite',
+              }}
+            />
+            <div style={{ fontSize: 14, color: '#AEAEB2', flex: 1 }}>
+              Tu es dispo ?…
+            </div>
+            <button
+              type="button"
+              onClick={handleDispoComposerSubmit}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                border: 'none',
+                background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pendingDispoMoods.length > 0 ? 1 : 0.3,
+                transition: 'opacity 0.18s ease',
+                cursor: 'pointer',
+                flex: '0 0 36px',
+              }}
+              aria-label="Publier une dispo"
+            >
+              <Send size={16} color="#fff" strokeWidth={2.5} />
+            </button>
+          </div>
+          <div
+            style={{
+              height: dispoComposerExpanded ? 44 : 0,
+              overflow: 'hidden',
+              transition: 'height 0.22s ease',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', overflowX: 'auto', paddingTop: 12 }}>
+              {dispoMoods.map(mood => {
+                const selected = pendingDispoMoods.includes(mood.key)
+                return (
+                  <button
+                    key={mood.key}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      togglePendingDispoMood(mood.key)
+                    }}
+                    style={{
+                      background: selected ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+                      borderRadius: 999,
+                      border: 'none',
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: selected ? '#fff' : '#3A3A3C',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {mood.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
         {availabilityFeed.slice(0, 2).map(post => (
           <AvailabilityCard
             key={post.id}

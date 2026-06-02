@@ -97,7 +97,9 @@ export default function ConversationRow({ conversation, isLast, onClick, onDelet
           style={{ width: '100%', border: 'none', background: WHITE, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', cursor: 'pointer', fontFamily: FONT, borderRadius: 20, minHeight: 82 }}
         >
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            {conversation.kind === 'event' ? <EventAvatar emoji={conversation.emoji} size={56} /> : <Avatar name={conversation.title} url={conversation.avatarUrl} size={56} />}
+            {conversation.kind === 'event'
+              ? <EventAvatar emoji={conversation.emoji} size={56} />
+              : <Avatar name={conversation.title} url={conversation.avatarUrl} size={56} isCloseFriend={conversation.isCloseFriend} />}
             {unread && (
               <div style={{ position: 'absolute', top: -4, right: -4, minWidth: 22, height: 22, padding: '0 6px', borderRadius: 11, background: GRADIENT, border: `2px solid ${WHITE}`, color: WHITE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, lineHeight: 1 }}>
                 {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}

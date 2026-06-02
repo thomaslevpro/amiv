@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { ChevronLeft, Send } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import DirectFriendProfileSheet from '../components/messages/DirectFriendProfileSheet'
+import { CloseFriendBadge } from '../components/messages/MessageUI'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
 const PAGE_BG = '#faf9fb'
@@ -24,6 +26,10 @@ function friendName(friend) {
 
 function friendAvatar(friend) {
   return friend?.friend_avatar || friend?.avatar_url || ''
+}
+
+function friendId(friend) {
+  return friend?.friend_id || friend?.id || friend?.user_id || null
 }
 
 function startOfDay(date) {
@@ -114,33 +120,33 @@ function aggregateReactions(reactions, currentUserId) {
   }, {})
 }
 
-function Avatar({ name, url, size = 28 }) {
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt={name}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }}
-      />
-    )
-  }
-
+function Avatar({ name, url, size = 28, isCloseFriend = false }) {
   return (
-    <div style={{
-      width: size,
-      height: size,
-      borderRadius: '50%',
-      background: GRADIENT,
-      color: WHITE,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: size >= 38 ? 14 : 11,
-      fontWeight: 700,
-      flexShrink: 0,
-    }}>
-      {getInitials(name)}
-    </div>
+    <span style={{ position: 'relative', width: size, height: size, display: 'block', flexShrink: 0 }}>
+      {url ? (
+        <img
+          src={url}
+          alt={name}
+          style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <span style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: GRADIENT,
+          color: WHITE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: size >= 38 ? 14 : 11,
+          fontWeight: 700,
+        }}>
+          {getInitials(name)}
+        </span>
+      )}
+      {isCloseFriend && <CloseFriendBadge size={Math.max(14, Math.round(size * 0.34))} />}
+    </span>
   )
 }
 
@@ -229,7 +235,7 @@ async function markAsRead(conversationId, userId) {
   }
 }
 
-export default function ConversationScreen({ conversationId, friend, onBack }) {
+export default function ConversationScreen({ conversationId, friend, onBack, onFriendChange }) {
   const [messages, setMessages] = useState([])
   const [reactions, setReactions] = useState([])
   const [otherLastReadAt, setOtherLastReadAt] = useState(null)
@@ -237,9 +243,12 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
   const [currentUserId, setCurrentUserId] = useState(null)
   const [activePicker, setActivePicker] = useState(null)
   const [isDark, setIsDark] = useState(false)
+  const [showFriendProfile, setShowFriendProfile] = useState(false)
+  const [isCloseFriend, setIsCloseFriend] = useState(friend?.is_close_friend === true || friend?.isCloseFriend === true)
   const bottomRef = useRef(null)
   const longPressRef = useRef(null)
   const messageIdsRef = useRef(new Set())
+  const otherUserId = friendId(friend)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -302,6 +311,57 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
       .maybeSingle()
       .then(({ data }) => setOtherLastReadAt(data?.last_read_at ?? null))
   }, [conversationId, currentUserId])
+
+  useEffect(() => {
+    setIsCloseFriend(friend?.is_close_friend === true || friend?.isCloseFriend === true)
+  }, [friend?.is_close_friend, friend?.isCloseFriend])
+
+  useEffect(() => {
+    if (!currentUserId || !otherUserId) return undefined
+    let cancelled = false
+
+    async function refreshFriendship() {
+      const { data } = await supabase
+        .from('friendships')
+        .select('id, is_close_friend')
+        .or(`and(requester_id.eq.${currentUserId},addressee_id.eq.${otherUserId}),and(addressee_id.eq.${currentUserId},requester_id.eq.${otherUserId})`)
+        .eq('status', 'accepted')
+        .maybeSingle()
+      if (!cancelled) setIsCloseFriend(data?.is_close_friend === true)
+    }
+
+    refreshFriendship()
+    const suffix = Math.random().toString(36).slice(2, 8)
+    const channel = supabase
+      .channel(`direct-friendship:${currentUserId}:${otherUserId}:${suffix}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, payload => {
+        const row = payload.new || payload.old
+        if (
+          (row?.requester_id === currentUserId && row?.addressee_id === otherUserId)
+          || (row?.addressee_id === currentUserId && row?.requester_id === otherUserId)
+        ) refreshFriendship()
+      })
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
+  }, [currentUserId, otherUserId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !otherUserId) return undefined
+    const handleCloseFriendUpdate = event => {
+      if (event.detail?.friendId === otherUserId) setIsCloseFriend(event.detail.isCloseFriend === true)
+    }
+    window.addEventListener('amiv:close-friend-updated', handleCloseFriendUpdate)
+    return () => window.removeEventListener('amiv:close-friend-updated', handleCloseFriendUpdate)
+  }, [otherUserId])
+
+  function handleCloseFriendChange(nextValue) {
+    setIsCloseFriend(nextValue)
+    onFriendChange?.({ ...friend, is_close_friend: nextValue, isCloseFriend: nextValue })
+  }
 
   const messageIds = useMemo(
     () => messages.filter(msg => !msg.isOptimistic).map(msg => msg.id),
@@ -493,7 +553,25 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
           <ChevronLeft size={27} strokeWidth={2.2} />
         </button>
 
-        <Avatar name={otherName} url={otherAvatar} size={38} />
+        <button
+          type="button"
+          aria-label={`Voir le profil de ${otherName}`}
+          onClick={() => setShowFriendProfile(true)}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            padding: 0,
+            margin: 0,
+            cursor: 'pointer',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Avatar name={otherName} url={otherAvatar} size={38} isCloseFriend={isCloseFriend} />
+        </button>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -541,7 +619,7 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
               >
                 {!isMine && (
                   showAvatar
-                    ? <Avatar name={otherName} url={otherAvatar} size={28} />
+                    ? <Avatar name={otherName} url={otherAvatar} size={28} isCloseFriend={isCloseFriend} />
                     : <div style={{ width: 28, flexShrink: 0 }} />
                 )}
                 <div
@@ -637,6 +715,14 @@ export default function ConversationScreen({ conversationId, friend, onBack }) {
           <Send size={16} color={WHITE} fill={WHITE} strokeWidth={2.2} />
         </button>
       </div>
+      {showFriendProfile && (
+        <DirectFriendProfileSheet
+          friend={friend}
+          currentUserId={currentUserId}
+          onCloseFriendChange={handleCloseFriendChange}
+          onClose={() => setShowFriendProfile(false)}
+        />
+      )}
     </div>
   )
 }

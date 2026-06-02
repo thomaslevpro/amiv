@@ -26,6 +26,7 @@ import { deleteCalendarToken, getOrCreateCalendarToken } from '../lib/calendarSy
 import EditProfileModal from '../components/profile/EditProfileModal'
 import ChangePasswordModal from '../components/profile/ChangePasswordModal'
 import AmivQrModal from '../components/profile/AmivQrModal'
+import FriendsListModal from '../components/profile/FriendsListModal'
 
 dayjs.locale('fr')
 
@@ -197,6 +198,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [showEditProfile, setShowEditProfile] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showFriendsList, setShowFriendsList] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [calendarToken, setCalendarToken] = useState(null)
   const [calendarPlatform, setCalendarPlatform] = useState(null)
@@ -563,15 +565,24 @@ export default function Profile({ session, onCalendarClick }) {
 
         <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 18 }}>
           {statsItems.map(({ label, value, iconName, iconBg, iconColor }) => (
-            <div key={label} style={{
-              background: COLORS.card,
-              borderRadius: 16,
-              padding: '14px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              boxShadow: CARD_SHADOW,
-            }}>
+            <div
+              key={label}
+              onClick={label === 'Amis' ? () => setShowFriendsList(true) : undefined}
+              style={{
+                background: COLORS.card,
+                borderRadius: 16,
+                padding: '14px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                boxShadow: CARD_SHADOW,
+                cursor: label === 'Amis' ? 'pointer' : 'default',
+                opacity: 1,
+                transition: label === 'Amis' ? 'opacity 0.15s' : undefined,
+              }}
+              onMouseEnter={label === 'Amis' ? e => { e.currentTarget.style.opacity = '0.85' } : undefined}
+              onMouseLeave={label === 'Amis' ? e => { e.currentTarget.style.opacity = '1' } : undefined}
+            >
               <div style={{
                 width: 36,
                 height: 36,
@@ -778,6 +789,11 @@ export default function Profile({ session, onCalendarClick }) {
         link={publicProfileLink}
         onClose={() => setShowQrModal(false)}
         onToast={showToast}
+      />
+      <FriendsListModal
+        isOpen={showFriendsList}
+        onClose={() => setShowFriendsList(false)}
+        currentUserId={profile?.id}
       />
     </div>
   )

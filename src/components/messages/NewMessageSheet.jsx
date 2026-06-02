@@ -78,7 +78,7 @@ export default function NewMessageSheet({ friends, loading, onClose, onSelectFri
                   fontFamily: FONT,
                 }}
               >
-                <Avatar name={friend.friend_name} url={friend.friend_avatar} />
+                <Avatar name={friend.friend_name} url={friend.friend_avatar} isCloseFriend={friend.is_close_friend} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 650, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {friend.friend_name || 'Ami'}

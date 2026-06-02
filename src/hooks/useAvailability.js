@@ -17,15 +17,19 @@ function responseCount(post) {
   return raw?.count ?? 0
 }
 
-async function getAcceptedFriendIds(userId) {
+async function getFriendData(userId) {
   const { data, error } = await supabase
     .from('friendships')
-    .select('requester_id, addressee_id')
+    .select('requester_id, addressee_id, is_close_friend')
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
     .eq('status', 'accepted')
 
   if (error) throw error
-  return (data ?? []).map(row => row.requester_id === userId ? row.addressee_id : row.requester_id)
+
+  return (data ?? []).map(row => ({
+    friendId: row.requester_id === userId ? row.addressee_id : row.requester_id,
+    isCloseFriend: row.is_close_friend,
+  }))
 }
 
 async function fetchGoingResponses(postIds) {
@@ -67,7 +71,9 @@ export function useAvailability(userId) {
 
     setLoading(true)
     try {
-      const friendIds = await getAcceptedFriendIds(userId)
+      const friendData = await getFriendData(userId)
+      const friendIds = friendData.map(f => f.friendId)
+      const closeFriendIds = friendData.filter(f => f.isCloseFriend).map(f => f.friendId)
       const visibleUserIds = [userId, ...friendIds]
 
       const { data, error } = await supabase
@@ -80,8 +86,15 @@ export function useAvailability(userId) {
       if (error) throw error
 
       const posts = data ?? []
-      const responsesByPost = await fetchGoingResponses(posts.map(post => post.id))
-      const enriched = posts.map(post => {
+      const visiblePosts = posts.filter(post => {
+        if (post.user_id === userId) return true
+        if (post.visibility === 'close_friends' || post.visibility === 'close') {
+          return closeFriendIds.includes(post.user_id)
+        }
+        return true
+      })
+      const responsesByPost = await fetchGoingResponses(visiblePosts.map(post => post.id))
+      const enriched = visiblePosts.map(post => {
         const goingResponses = responsesByPost[post.id] ?? []
         return {
           ...post,

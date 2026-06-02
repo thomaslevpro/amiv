@@ -14,6 +14,7 @@ import Calendar from './screens/Calendar'
 import Messages from './screens/Messages'
 import Create from './screens/Create'
 import CreateDispoScreen from './screens/CreateDispoScreen'
+import CloseFriendsScreen from './screens/CloseFriendsScreen'
 import DispoDetailScreen from './screens/DispoDetailScreen'
 import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
@@ -57,6 +58,7 @@ function MainApp() {
   const [screen, setScreen] = useState('home')
   const [showCreateSheet, setShowCreateSheet] = useState(false)
   const [showCreateDispo, setShowCreateDispo] = useState(false)
+  const [showCloseFriends, setShowCloseFriends] = useState(false)
   const [dispoDetailId, setDispoDetailId] = useState(null)
   const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [birthdayRefreshTrigger, setBirthdayRefreshTrigger] = useState(0)
@@ -168,6 +170,7 @@ function MainApp() {
   }
 
   const isDetailScreen =
+    showCloseFriends ||
     showCreateDispo ||
     !!dispoDetailId ||
     screen === 'create' ||
@@ -180,10 +183,17 @@ function MainApp() {
   !!conversationEvent
 
   const renderCurrentScreen = () => {
+    if (showCloseFriends) return (
+      <CloseFriendsScreen
+        onBack={() => setShowCloseFriends(false)}
+        userId={session?.user?.id}
+      />
+    )
     if (showCreateDispo) return (
       <CreateDispoScreen
         onBack={() => setShowCreateDispo(false)}
         userId={session.user.id}
+        onManageCloseFriends={() => setShowCloseFriends(true)}
       />
     )
     if (dispoDetailId) return (
@@ -218,7 +228,14 @@ function MainApp() {
       case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
-          return <ConversationScreen conversationId={directConv.conversationId} friend={directConv.friend} onBack={() => setDirectConv(null)} />
+          return (
+            <ConversationScreen
+              conversationId={directConv.conversationId}
+              friend={directConv.friend}
+              onBack={() => setDirectConv(null)}
+              onFriendChange={friend => setDirectConv(prev => prev ? { ...prev, friend } : prev)}
+            />
+          )
         }
         if (conversationEvent) {
           return <Messages event={conversationEvent} onBack={() => setConversationEvent(null)} notifications={notifications} markAsRead={markAsRead} />

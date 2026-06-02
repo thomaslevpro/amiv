@@ -17,6 +17,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [friends, setFriends] = useState([]), [friendsLoading, setFriendsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('all'), [showNewMessage, setShowNewMessage] = useState(false)
   const [hiddenConversations, setHiddenConversations] = useState({})
+  const [closeFriendIds, setCloseFriendIds] = useState(() => new Set())
   const [hiddenEventIds, setHiddenEventIds] = useState(() => (typeof window === 'undefined' ? new Set() : new Set(Object.keys(window.localStorage).filter(k => k.startsWith('hidden_event_')).map(k => k.slice('hidden_event_'.length)))))
   const bottomRef = useRef(null)
   const appOpenedAtRef = useRef(null)
@@ -88,6 +89,35 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   useEffect(() => { if (!event && userId) fetchAll() }, [event, userId, messageNotificationVersion])
 
   useEffect(() => {
+    if (!userId) return undefined
+    refreshCloseFriendIds()
+    const suffix = Math.random().toString(36).slice(2, 8)
+    const channel = supabase
+      .channel(`messages-friendships:${userId}:${suffix}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, payload => {
+        const row = payload.new || payload.old
+        if (row?.requester_id === userId || row?.addressee_id === userId) {
+          refreshCloseFriendIds()
+          if (!event) fetchAll()
+        }
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [event, userId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const handleCloseFriendUpdate = event => {
+      const { friendId, isCloseFriend } = event.detail ?? {}
+      if (!friendId) return
+      applyCloseFriendUpdate(friendId, isCloseFriend === true)
+    }
+    window.addEventListener('amiv:close-friend-updated', handleCloseFriendUpdate)
+    return () => window.removeEventListener('amiv:close-friend-updated', handleCloseFriendUpdate)
+  }, [])
+
+  useEffect(() => {
     if (event || !userId) return undefined
     const suffix = Math.random().toString(36).slice(2, 8)
     const channel = supabase.channel(`messages-list:${userId}:${suffix}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => fetchAll()).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, () => fetchAll()).subscribe()
@@ -99,6 +129,42 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     const friendRows = await getFriends(userId)
     const convRows = await fetchConversations(friendRows.data ?? [])
     setConversations(convRows); setFriends(friendRows.data ?? []); setListLoading(false); setFriendsLoading(false)
+    setCloseFriendIds(new Set((friendRows.data ?? []).filter(friend => friend.is_close_friend === true).map(friend => friend.friend_id)))
+  }
+
+  async function refreshCloseFriendIds() {
+    if (!userId) return
+    const { data } = await supabase
+      .from('friendships')
+      .select('requester_id, addressee_id, is_close_friend')
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
+      .eq('status', 'accepted')
+
+    setCloseFriendIds(new Set((data ?? [])
+      .filter(row => row.is_close_friend === true)
+      .map(row => row.requester_id === userId ? row.addressee_id : row.requester_id)
+      .filter(Boolean)))
+  }
+
+  function applyCloseFriendUpdate(friendId, isCloseFriend) {
+    setCloseFriendIds(prev => {
+      const next = new Set(prev)
+      if (isCloseFriend) next.add(friendId)
+      else next.delete(friendId)
+      return next
+    })
+    setFriends(prev => prev.map(friend => (
+      friend.friend_id === friendId ? { ...friend, is_close_friend: isCloseFriend } : friend
+    )))
+    setConversations(prev => prev.map(conv => (
+      conv.kind === 'direct' && conv.friend?.friend_id === friendId
+        ? {
+            ...conv,
+            isCloseFriend,
+            friend: { ...conv.friend, is_close_friend: isCloseFriend, isCloseFriend },
+          }
+        : conv
+    )))
   }
 
   async function fetchMessages() {
@@ -160,7 +226,20 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       const friend = friendById[otherUserId]
       const displayName = directProfileDisplayName(profile)
       const createdAt = participantByConv[conversationId]?.direct_conversations?.created_at
-      return { id: `dm-${conversationId}`, kind: 'direct', conversationId, friend: { friend_id: profile?.id || friend?.friend_id || otherUserId, friend_name: displayName, friend_avatar: profile?.avatar_url || friend?.friend_avatar || '' }, title: displayName, avatarUrl: profile?.avatar_url || friend?.friend_avatar || '', lastMessage: lastByConv[conversationId] || { content: 'Aucun message', created_at: createdAt }, lastAt: lastByConv[conversationId]?.created_at || createdAt, unreadCount: 0, isMuted: participantByConv[conversationId]?.is_muted === true }
+      const isCloseFriend = friend?.is_close_friend === true
+      return {
+        id: `dm-${conversationId}`,
+        kind: 'direct',
+        conversationId,
+        friend: { friend_id: profile?.id || friend?.friend_id || otherUserId, friend_name: displayName, friend_avatar: profile?.avatar_url || friend?.friend_avatar || '', is_close_friend: isCloseFriend, isCloseFriend },
+        title: displayName,
+        avatarUrl: profile?.avatar_url || friend?.friend_avatar || '',
+        lastMessage: lastByConv[conversationId] || { content: 'Aucun message', created_at: createdAt },
+        lastAt: lastByConv[conversationId]?.created_at || createdAt,
+        unreadCount: 0,
+        isMuted: participantByConv[conversationId]?.is_muted === true,
+        isCloseFriend,
+      }
     })
   }
 
@@ -246,5 +325,5 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   if (!event) return <ConversationList unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
-  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} />
+  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} />
 }

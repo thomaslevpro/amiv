@@ -2,24 +2,65 @@ import { MessageCircle } from 'lucide-react'
 import { BG, BLACK, CARD_SHADOW, FONT, GRADIENT, GRAY1, GRAY2, WHITE } from './constants'
 import { getAvatarColor, getInitials } from './utils'
 
-export function Avatar({ name, url, size = 50 }) {
-  if (url) return <img src={url} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+export function CloseFriendBadge({ size = 14 }) {
   return (
-    <div style={{
-      width: size,
-      height: size,
-      borderRadius: '50%',
-      background: getAvatarColor(name),
-      color: WHITE,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: size > 48 ? 16 : 15,
-      fontWeight: 700,
-      flexShrink: 0,
-    }}>
-      {getInitials(name)}
-    </div>
+    <span
+      aria-label="Ami proche"
+      style={{
+        position: 'absolute',
+        right: -2,
+        bottom: -2,
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: WHITE,
+        border: `1.5px solid ${WHITE}`,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.14)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+      }}
+    >
+      <span style={{
+        fontSize: Math.max(9, size - 4),
+        fontWeight: 900,
+        lineHeight: 1,
+        color: '#e055aa',
+        backgroundImage: GRADIENT,
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+      }}>
+        ★
+      </span>
+    </span>
+  )
+}
+
+export function Avatar({ name, url, size = 50, isCloseFriend = false }) {
+  return (
+    <span style={{ position: 'relative', width: size, height: size, flexShrink: 0, display: 'block' }}>
+      {url ? (
+        <img src={url} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+      ) : (
+        <span style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: getAvatarColor(name),
+          color: WHITE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: size > 48 ? 16 : 15,
+          fontWeight: 700,
+        }}>
+          {getInitials(name)}
+        </span>
+      )}
+      {isCloseFriend && <CloseFriendBadge size={Math.max(14, Math.round(size * 0.28))} />}
+    </span>
   )
 }
 

@@ -30,7 +30,7 @@ function weekendDates() {
   })
 }
 
-export default function CreateDispoScreen({ onBack, userId }) {
+export default function CreateDispoScreen({ onBack, userId, onManageCloseFriends }) {
   const textareaRef = useRef(null)
   const { createPost } = useAvailability(userId)
   const [message, setMessage] = useState('')
@@ -207,6 +207,14 @@ export default function CreateDispoScreen({ onBack, userId }) {
           )
         })}
       </div>
+      {visibility === 'close_friends' && (
+        <div
+          onClick={() => onManageCloseFriends?.()}
+          style={{ fontSize: 13, fontWeight: 700, color: '#e055aa', cursor: 'pointer', margin: '10px 2px 0' }}
+        >
+          Gérer mes amis proches →
+        </div>
+      )}
 
       <div style={{ background: 'rgba(255,59,48,0.08)', color: '#FF3B30', borderRadius: 16, padding: '12px 14px', fontSize: 13, fontWeight: 800, marginBottom: 18 }}>
         Expire automatiquement dimanche à 23h59

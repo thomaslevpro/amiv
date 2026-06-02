@@ -23,6 +23,7 @@ export default function MessageThread({
   setInput,
   send,
   guestLeaderIds = new Set(),
+  closeFriendIds = new Set(),
 }) {
   const rsvpPill = myRsvpStatus === 'going'
     ? { label: 'Présent ✓', bg: 'rgba(52,199,89,0.22)', color: '#fff' }
@@ -126,7 +127,7 @@ export default function MessageThread({
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7, maxWidth: '78%' }}>
-                  {!isMine && (showAvatar ? <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} /> : <div style={{ width: 28, flexShrink: 0 }} />)}
+                  {!isMine && (showAvatar ? <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} isCloseFriend={closeFriendIds.has(msg.profile?.id)} /> : <div style={{ width: 28, flexShrink: 0 }} />)}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
                     <div style={{ padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : BLACK, fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)' }}>
                       {msg.content}

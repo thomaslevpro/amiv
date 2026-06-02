@@ -95,7 +95,7 @@ export default function ConversationList({
                 >
                   <div style={{ padding: 2, borderRadius: '50%', background: hasFreshMessages ? GRADIENT : '#E5E5EA' }}>
                     <div style={{ padding: 2, borderRadius: '50%', background: BG }}>
-                      <Avatar name={friend.friend_name} url={friend.friend_avatar} size={48} />
+                      <Avatar name={friend.friend_name} url={friend.friend_avatar} size={48} isCloseFriend={friend.is_close_friend} />
                     </div>
                   </div>
                   <span style={{ maxWidth: 58, fontSize: 11, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

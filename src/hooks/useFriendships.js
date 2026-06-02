@@ -75,5 +75,23 @@ export function useFriendships(userId) {
     return { error }
   }
 
-  return { suggestions, friends, pendingRequests, loading, sendRequest, acceptRequest, declineRequest }
+  const toggleCloseFriend = async (friendshipId) => {
+    const { data: row, error: fetchError } = await supabase
+      .from('friendships')
+      .select('is_close_friend')
+      .eq('id', friendshipId)
+      .single()
+
+    if (fetchError) return { error: fetchError }
+
+    const { error } = await supabase
+      .from('friendships')
+      .update({ is_close_friend: !row.is_close_friend })
+      .eq('id', friendshipId)
+
+    if (!error) refresh()
+    return { error }
+  }
+
+  return { suggestions, friends, pendingRequests, loading, sendRequest, acceptRequest, declineRequest, toggleCloseFriend }
 }
