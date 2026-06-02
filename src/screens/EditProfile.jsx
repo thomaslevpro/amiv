@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, AtSign } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 export default function EditProfile({ onSave, onBack, isOnboarding = false, initialFocus = null }) {
@@ -10,6 +10,10 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
   const [existingAvatarUrl, setExistingAvatarUrl] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [username, setUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState(null)
+  const [usernameInitial, setUsernameInitial] = useState('')
+  const debounceRef = useRef(null)
   const fileInputRef = useRef(null)
   const birthdayInputRef = useRef(null)
 
@@ -17,11 +21,15 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('profiles').select('name, first_name, birthday, avatar_url').eq('id', user.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('name, first_name, birthday, avatar_url, username').eq('id', user.id).maybeSingle()
       if (data?.name) setName(data.name)
       else if (data?.first_name) setName(data.first_name)
       if (data?.birthday) setBirthday(data.birthday)
       if (data?.avatar_url) { setAvatarPreview(data.avatar_url); setExistingAvatarUrl(data.avatar_url) }
+      if (data?.username) {
+        setUsername(data.username)
+        setUsernameInitial(data.username)
+      }
     }
     load()
   }, [])
@@ -63,7 +71,12 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
         email: user.email,
         birthday: birthday || null,
         avatar_url: avatar_url ?? null,
+        username: username.trim() || null,
       })
+      if (upsertErr?.code === '23505') {
+        setError('Ce pseudo est déjà pris')
+        return
+      }
       if (upsertErr) throw upsertErr
 
       onSave()
@@ -72,6 +85,24 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
     } finally {
       setSaving(false)
     }
+  }
+
+  const checkUsername = (value) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!value) { setUsernameStatus(null); return }
+    if (value === usernameInitial) { setUsernameStatus('same'); return }
+    if (!/^[a-z0-9-]{3,30}$/.test(value)) { setUsernameStatus('invalid'); return }
+    setUsernameStatus('checking')
+    debounceRef.current = window.setTimeout(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', value)
+        .neq('id', user.id)
+        .maybeSingle()
+      setUsernameStatus(data ? 'taken' : 'available')
+    }, 500)
   }
 
   return (
@@ -150,13 +181,61 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
           />
         </div>
 
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 7, paddingLeft: 4, fontWeight: 500 }}>
+            Pseudo
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 0,
+            background: '#fff', borderRadius: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '15px 0 15px 16px', fontSize: 16, color: '#8E8E93', fontWeight: 600,
+              userSelect: 'none', flexShrink: 0,
+            }}>@</div>
+            <input
+              value={username}
+              onChange={e => {
+                const val = e.target.value.toLowerCase()
+                setUsername(val)
+                checkUsername(val)
+              }}
+              placeholder="ton-pseudo"
+              style={{
+                flex: 1, padding: '15px 16px 15px 4px', border: 'none',
+                background: 'transparent', fontSize: 16, color: '#1C1C1E',
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 11, color: '#AEAEB2', marginTop: 5, paddingLeft: 4 }}>
+            3 à 30 caractères · lettres minuscules, chiffres et tirets
+          </div>
+          {usernameStatus && (
+            <div style={{
+              fontSize: 12, fontWeight: 600, marginTop: 6, paddingLeft: 4,
+              color: usernameStatus === 'available' ? '#34C759'
+                : usernameStatus === 'same' ? '#8E8E93'
+                : usernameStatus === 'checking' ? '#8E8E93'
+                : '#FF3B30',
+            }}>
+              {usernameStatus === 'available' && '✅ Disponible'}
+              {usernameStatus === 'taken' && '❌ Déjà pris'}
+              {usernameStatus === 'invalid' && '❌ Format invalide'}
+              {usernameStatus === 'checking' && '⏳ Vérification…'}
+              {usernameStatus === 'same' && 'Pseudo actuel'}
+            </div>
+          )}
+        </div>
+
         {error && (
           <div style={{ color: '#FF3B30', fontSize: 13, marginBottom: 16, paddingLeft: 4 }}>{error}</div>
         )}
 
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || usernameStatus === 'invalid' || usernameStatus === 'taken'}
           style={{
             width: '100%', padding: 17, borderRadius: 16, border: 'none',
             background: saving ? '#C7C7CC' : 'linear-gradient(135deg,#e055aa,#f5a623)',

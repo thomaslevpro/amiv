@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { AtSign, Trash2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const inputStyle = {
@@ -41,6 +41,10 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState(null)
+  const [username, setUsername] = useState('')
+  const [usernameInitial, setUsernameInitial] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState(null)
+  const usernameDebounceRef = useRef(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -48,8 +52,17 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
     setName(profile?.name ?? '')
     setBirthday(profile?.birthday ?? '')
     setEmail(profile?.email ?? '')
+    setUsername(profile?.username ?? '')
+    setUsernameInitial(profile?.username ?? '')
+    setUsernameStatus(null)
     setError(null)
   }, [isOpen, profile])
+
+  useEffect(() => {
+    return () => {
+      if (usernameDebounceRef.current) window.clearTimeout(usernameDebounceRef.current)
+    }
+  }, [])
 
   if (!isOpen) return null
 
@@ -60,6 +73,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
     const nextName = name.trim()
     const nextEmail = email.trim()
     const nextBirthday = birthday || null
+    const nextUsername = username.trim() || null
 
     if (!nextFirstName || !nextName) {
       setError('Le prénom et le nom sont obligatoires.')
@@ -68,6 +82,11 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
 
     if (!isValidDate(birthday)) {
       setError('La date de naissance est invalide.')
+      return
+    }
+
+    if (usernameStatus === 'invalid' || usernameStatus === 'taken') {
+      setError(usernameStatus === 'taken' ? 'Ce pseudo est déjà pris' : 'Le format du pseudo est invalide.')
       return
     }
 
@@ -85,11 +104,17 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
           first_name: nextFirstName,
           name: nextName,
           birthday: nextBirthday,
+          username: nextUsername,
         })
         .eq('id', user.id)
         .select('id, first_name, name, email, avatar_url, created_at, birthday, username')
         .maybeSingle()
 
+      if (updateError?.code === '23505') {
+        setUsernameStatus('taken')
+        setError('Ce pseudo est déjà pris')
+        return
+      }
       if (updateError) throw updateError
 
       if (nextEmail && nextEmail !== profile?.email) {
@@ -103,6 +128,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
         first_name: nextFirstName,
         name: nextName,
         birthday: nextBirthday,
+        username: nextUsername,
         email: nextEmail || profile?.email || data?.email || null,
       }
 
@@ -113,6 +139,45 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
     } finally {
       setSaving(false)
     }
+  }
+
+  function checkUsername(value) {
+    const nextValue = value.trim()
+    if (usernameDebounceRef.current) window.clearTimeout(usernameDebounceRef.current)
+    if (!nextValue) {
+      setUsernameStatus(null)
+      return
+    }
+    if (nextValue === usernameInitial) {
+      setUsernameStatus('same')
+      return
+    }
+    if (!/^[a-z0-9-]{3,30}$/.test(nextValue)) {
+      setUsernameStatus('invalid')
+      return
+    }
+
+    setUsernameStatus('checking')
+    usernameDebounceRef.current = window.setTimeout(async () => {
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError) throw userError
+        if (!user) throw new Error('Utilisateur non connecté.')
+
+        const { data, error: usernameError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', nextValue)
+          .neq('id', user.id)
+          .maybeSingle()
+
+        if (usernameError) throw usernameError
+        setUsernameStatus(data ? 'taken' : 'available')
+      } catch (err) {
+        console.error('username availability failed', err)
+        setUsernameStatus('taken')
+      }
+    }, 500)
   }
 
   async function handleDeleteAccount() {
@@ -222,6 +287,48 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
 
           <div style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <label style={{ display: 'block', fontSize: 13, color: '#8E8E93', fontWeight: 600, marginBottom: 7 }}>
+              Pseudo
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E5E5EA', borderRadius: 14, background: '#fff', overflow: 'hidden' }}>
+              <div style={{ paddingLeft: 14, color: '#8E8E93', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                <AtSign size={17} strokeWidth={2} />
+              </div>
+              <input
+                value={username}
+                onChange={e => {
+                  const value = e.target.value.toLowerCase()
+                  setUsername(value)
+                  checkUsername(value)
+                }}
+                placeholder="ton-pseudo"
+                autoCapitalize="none"
+                autoCorrect="off"
+                style={{ ...inputStyle, border: 'none', borderRadius: 0, paddingLeft: 5, boxShadow: 'none' }}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: '#AEAEB2', marginTop: 7, lineHeight: 1.35 }}>
+              3 à 30 caractères · lettres minuscules, chiffres et tirets
+            </div>
+            {usernameStatus && (
+              <div style={{
+                fontSize: 12,
+                fontWeight: 700,
+                marginTop: 7,
+                color: usernameStatus === 'available' ? '#34C759'
+                  : usernameStatus === 'same' || usernameStatus === 'checking' ? '#8E8E93'
+                  : '#FF3B30',
+              }}>
+                {usernameStatus === 'available' && '✅ Disponible'}
+                {usernameStatus === 'taken' && '❌ Déjà pris'}
+                {usernameStatus === 'invalid' && '❌ Format invalide'}
+                {usernameStatus === 'checking' && '⏳ Vérification…'}
+                {usernameStatus === 'same' && 'Pseudo actuel'}
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+            <label style={{ display: 'block', fontSize: 13, color: '#8E8E93', fontWeight: 600, marginBottom: 7 }}>
               Email
             </label>
             <input
@@ -243,18 +350,18 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || usernameStatus === 'invalid' || usernameStatus === 'taken'}
             style={{
               width: '100%',
               padding: 16,
               borderRadius: 16,
               border: 'none',
-              background: saving ? '#C7C7CC' : 'linear-gradient(135deg,#e055aa,#f5a623)',
+              background: saving || usernameStatus === 'invalid' || usernameStatus === 'taken' ? '#C7C7CC' : 'linear-gradient(135deg,#e055aa,#f5a623)',
               color: '#fff',
               fontSize: 17,
               fontWeight: 800,
-              cursor: saving ? 'default' : 'pointer',
-              boxShadow: saving ? 'none' : '0 4px 18px rgba(224,85,170,0.35)',
+              cursor: saving || usernameStatus === 'invalid' || usernameStatus === 'taken' ? 'default' : 'pointer',
+              boxShadow: saving || usernameStatus === 'invalid' || usernameStatus === 'taken' ? 'none' : '0 4px 18px rgba(224,85,170,0.35)',
               fontFamily: 'inherit',
             }}
           >

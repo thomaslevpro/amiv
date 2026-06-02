@@ -141,23 +141,25 @@ export default function FriendSearchSheet({ onClose, currentUserId, onFriendAdde
     <div
       onClick={onClose}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         inset: 0,
-        zIndex: 20,
+        zIndex: 9999,
         background: 'rgba(28,28,30,0.20)',
         display: 'flex',
-        alignItems: 'flex-end',
+        alignItems: 'flex-start',
         justifyContent: 'center',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
+          position: 'relative',
+          zIndex: 10000,
           width: '100%',
           maxHeight: '80vh',
           background: WHITE,
-          borderRadius: '20px 20px 0 0',
-          boxShadow: '0 -8px 28px rgba(0,0,0,0.16)',
+          borderRadius: '0 0 20px 20px',
+          boxShadow: '0 8px 28px rgba(0,0,0,0.16)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',

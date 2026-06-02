@@ -27,6 +27,7 @@ import ConversationScreen from './screens/ConversationScreen'
 import SecretSpacePage from './pages/SecretSpacePage'
 import OrganizerSpacePage from './pages/OrganizerSpacePage'
 import EventPage from './pages/EventPage'
+import DispoCalendarPage from './pages/DispoCalendarPage'
 import UsernamePrompt from './components/UsernamePrompt'
 
 export default function App() {
@@ -176,6 +177,7 @@ function MainApp() {
     screen === 'create' ||
     screen === 'editProfile' ||
     screen === 'allEvents' ||
+    screen === 'dispoCalendar' ||
     (screen === 'invitation' && selectedEvent) ||
     (screen === 'eventDetail' && selectedEvent) ||
     (screen === 'messages' && selectedEvent) ||
@@ -205,6 +207,7 @@ function MainApp() {
       />
     )
     if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
+    if (screen === 'dispoCalendar') return <DispoCalendarPage userId={session.user.id} onBack={() => setScreen('home')} />
     if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} initialData={createInitialData} />
     if (screen === 'editProfile') return (
       <EditProfile
@@ -224,7 +227,7 @@ function MainApp() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} onCreateDispoClick={() => setShowCreateDispo(true)} onDispoDetailClick={(id) => setDispoDetailId(id)} onCreateDispoConvertClick={handleCreateFromDispo} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => setDispoDetailId(id)} onDispoCalendarClick={() => setScreen('dispoCalendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {

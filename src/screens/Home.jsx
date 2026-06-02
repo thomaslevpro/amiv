@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { Send } from 'lucide-react'
 import NotificationBell from '../components/NotificationBell'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
 import TrendingSection from '../components/TrendingSection'
 import BirthdaySection from '../components/home/BirthdaySection'
-import AvailabilityCard from '../components/home/AvailabilityCard'
 import InvitationsSection from '../components/home/InvitationsSection'
 import InviteCard from '../components/home/InviteCard'
 import MyEventsSection from '../components/home/MyEventsSection'
@@ -14,15 +12,6 @@ import SectionHeader from '../components/home/SectionHeader'
 import { useAvailability } from '../hooks/useAvailability'
 import { useFriendships } from '../hooks/useFriendships'
 import { useHomeData } from '../hooks/useHomeData'
-
-const dispoMoods = [
-  { key: 'diner', label: '🍽️ Dîner' },
-  { key: 'apero', label: '🍻 Apéro' },
-  { key: 'jeux', label: '🎲 Jeux' },
-  { key: 'cine', label: '🎬 Ciné' },
-  { key: 'cafe', label: '☕ Café' },
-  { key: 'balade', label: '🚶 Balade' },
-]
 
 export default function Home({
   onEventClick,
@@ -35,9 +24,8 @@ export default function Home({
   onAllEventsClick,
   onCalendarClick,
   onTrendingClick,
-  onCreateDispoClick,
   onDispoDetailClick,
-  onCreateDispoConvertClick,
+  onDispoCalendarClick,
   session,
   birthdayRefreshTrigger = 0,
 }) {
@@ -48,11 +36,9 @@ export default function Home({
   const userEmail = session?.user?.email
   const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
   const { invitations, refetchInvitations, myEvents, profileName } = useHomeData(userId, userEmail)
-  const { feed: availabilityFeed, respond: respondAvailability, refetch: refetchAvailability } = useAvailability(userId)
+  const { feed: availabilityFeed } = useAvailability(userId)
   const [toast, setToast] = useState(null)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [dispoComposerExpanded, setDispoComposerExpanded] = useState(false)
-  const [pendingDispoMoods, setPendingDispoMoods] = useState([])
 
   function showToast(message, isError = false, duration = 3000) {
     setToast({ message, isError })
@@ -64,35 +50,6 @@ export default function Home({
   const dateStr = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dateRest}`
   const displayName = profileName || session?.user?.user_metadata?.first_name || session?.user?.user_metadata?.name || userEmail?.split('@')[0] || 'toi'
   const amivCount = myEvents.length
-
-  async function handleAvailabilityRespond(postId, status, moods) {
-    try {
-      await respondAvailability(postId, userId, status, moods)
-      await refetchAvailability()
-    } catch (err) {
-      console.error('[Home] availability response error:', err)
-      showToast("Impossible d'enregistrer ta réponse.", true)
-    }
-  }
-
-  function togglePendingDispoMood(moodKey) {
-    setPendingDispoMoods(prev => (
-      prev.includes(moodKey)
-        ? prev.filter(key => key !== moodKey)
-        : [...prev, moodKey]
-    ))
-  }
-
-  function handleDispoComposerSubmit(event) {
-    event.stopPropagation()
-    if (pendingDispoMoods.length > 0) {
-      onCreateDispoClick?.(pendingDispoMoods)
-    } else {
-      onCreateDispoClick?.()
-    }
-    setDispoComposerExpanded(false)
-    setPendingDispoMoods([])
-  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden', position: 'relative' }}>
@@ -130,6 +87,34 @@ export default function Home({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+            {availabilityFeed.length > 0 && (
+              <div
+                onClick={() => {
+                  if (onDispoCalendarClick) onDispoCalendarClick()
+                  else onDispoDetailClick?.(availabilityFeed[0].id)
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                  borderRadius: 999,
+                  padding: '5px 11px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  opacity: 0.85,
+                }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>
+                  {availabilityFeed.length} dispo{availabilityFeed.length > 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
             <NotificationBell unreadCount={notificationUnreadCount} onClick={() => setShowNotifications(true)} />
           </div>
         </div>
@@ -142,114 +127,6 @@ export default function Home({
         )}
 
         <InvitationsSection invitations={invitations} userId={userId} userEmail={userEmail} onUpdate={refetchInvitations} />
-
-        <SectionHeader
-          title="Dispos 🟢"
-          badge={availabilityFeed.length > 0 ? availabilityFeed.length : null}
-        />
-        <div
-          onClick={() => setDispoComposerExpanded(true)}
-          style={{
-            background: '#fff',
-            borderRadius: 16,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-            marginBottom: 12,
-            padding: '12px 14px',
-            cursor: 'pointer',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ height: 28, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                flex: '0 0 8px',
-                background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                borderRadius: '50%',
-                animation: 'pulse-dot 1.4s ease-in-out infinite',
-              }}
-            />
-            <div style={{ fontSize: 14, color: '#AEAEB2', flex: 1 }}>
-              Tu es dispo ?…
-            </div>
-            <button
-              type="button"
-              onClick={handleDispoComposerSubmit}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                border: 'none',
-                background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pendingDispoMoods.length > 0 ? 1 : 0.3,
-                transition: 'opacity 0.18s ease',
-                cursor: 'pointer',
-                flex: '0 0 36px',
-              }}
-              aria-label="Publier une dispo"
-            >
-              <Send size={16} color="#fff" strokeWidth={2.5} />
-            </button>
-          </div>
-          <div
-            style={{
-              height: dispoComposerExpanded ? 44 : 0,
-              overflow: 'hidden',
-              transition: 'height 0.22s ease',
-            }}
-          >
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', overflowX: 'auto', paddingTop: 12 }}>
-              {dispoMoods.map(mood => {
-                const selected = pendingDispoMoods.includes(mood.key)
-                return (
-                  <button
-                    key={mood.key}
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      togglePendingDispoMood(mood.key)
-                    }}
-                    style={{
-                      background: selected ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
-                      borderRadius: 999,
-                      border: 'none',
-                      padding: '6px 12px',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: selected ? '#fff' : '#3A3A3C',
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {mood.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-        {availabilityFeed.slice(0, 2).map(post => (
-          <AvailabilityCard
-            key={post.id}
-            post={post}
-            currentUserId={userId}
-            onRespond={handleAvailabilityRespond}
-            onConvert={onCreateDispoConvertClick}
-            onOpenDetail={onDispoDetailClick}
-          />
-        ))}
-        {availabilityFeed.length > 2 && (
-          <div
-            onClick={() => onDispoDetailClick?.(availabilityFeed[0].id)}
-            style={{ color: '#007AFF', fontSize: 13, fontWeight: 800, margin: '-2px 2px 18px', cursor: 'pointer' }}
-          >
-            Voir tout ({availabilityFeed.length})
-          </div>
-        )}
 
         <BirthdaySection user={session?.user} onToast={showToast} onMessage={onMessagesClick} refreshTrigger={birthdayRefreshTrigger} />
 
