@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import NotificationBell from '../components/NotificationBell'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
@@ -35,7 +34,7 @@ export default function Home({
   const userId = session?.user?.id
   const userEmail = session?.user?.email
   const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
-  const { invitations, refetchInvitations, myEvents, profileName } = useHomeData(userId, userEmail)
+  const { invitations, refetchInvitations, myEvents, profileName, profileAvatar } = useHomeData(userId, userEmail)
   const { feed: availabilityFeed } = useAvailability(userId)
   const [toast, setToast] = useState(null)
   const [showNotifications, setShowNotifications] = useState(false)
@@ -50,6 +49,7 @@ export default function Home({
   const dateStr = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dateRest}`
   const displayName = profileName || session?.user?.user_metadata?.first_name || session?.user?.user_metadata?.name || userEmail?.split('@')[0] || 'toi'
   const amivCount = myEvents.length
+  const availableFriendsCount = new Set(availabilityFeed.filter(p => p.user_id !== userId).map(p => p.user_id)).size
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden', position: 'relative' }}>
@@ -65,57 +65,76 @@ export default function Home({
       `}</style>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, padding: '6px 2px 0', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: '#aaa', fontWeight: 500, marginBottom: 10 }}>
-              {dateStr}
-            </div>
-            <div style={{ fontSize: 26, lineHeight: 1.15, fontWeight: 800, color: '#1C1C1E', letterSpacing: -0.5 }}>
-              Bonjour {displayName},
-              <br />
-              vous avez{' '}
-              <span style={{
-                background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}>
-                {amivCount} amiv{amivCount > 1 ? 's' : ''}
-              </span>
-            </div>
-            <div style={{ fontSize: 13, color: '#aaa', fontWeight: 400, marginTop: 8 }}>
-              à venir dans les 30 prochains jours
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
-            {availabilityFeed.length > 0 && (
-              <div
-                onClick={() => {
-                  if (onDispoCalendarClick) onDispoCalendarClick()
-                  else onDispoDetailClick?.(availabilityFeed[0].id)
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-                  borderRadius: 999,
-                  padding: '5px 11px',
-                  cursor: 'pointer',
-                }}
-              >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, padding: '20px 2px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 23, flexShrink: 0, overflow: 'hidden' }}>
+              {profileAvatar ? (
+                <img src={profileAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 23 }} />
+              ) : (
                 <div style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: '#fff',
-                  opacity: 0.85,
-                }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>
-                  {availabilityFeed.length} dispo{availabilityFeed.length > 1 ? 's' : ''}
+                  width: '100%', height: '100%',
+                  background: 'linear-gradient(135deg, #c5b49a, #a89070)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 19, fontWeight: 600, color: '#fff',
+                }}>
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ fontSize: 13, color: '#8E8E93', fontWeight: 400, lineHeight: 1 }}>
+                Bonjour,
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', lineHeight: 1.2 }}>
+                <span style={{
+                  background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}>
+                  {displayName}
                 </span>
               </div>
+              {availableFriendsCount > 0 ? (
+                <div
+                  onClick={() => {
+                    if (onDispoCalendarClick) onDispoCalendarClick()
+                    else onDispoDetailClick?.(availabilityFeed[0].id)
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
+                >
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#34C759', flexShrink: 0, animation: 'pulse-dot 2s ease-in-out infinite' }} />
+                  <span style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 500 }}>
+                    {availableFriendsCount} ami{availableFriendsCount > 1 ? 's' : ''} disponible{availableFriendsCount > 1 ? 's' : ''} cette semaine
+                  </span>
+                  <span style={{ color: '#AEAEB2', fontSize: 12 }}>›</span>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: '#8E8E93', fontWeight: 400 }}>
+                  {dateStr}
+                </div>
+              )}
+            </div>
+          </div>
+          <div
+            onClick={() => setShowNotifications(true)}
+            style={{
+              width: 38, height: 38, background: '#fff', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.10)', flexShrink: 0, cursor: 'pointer',
+              position: 'relative',
+            }}
+          >
+            <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, stroke: '#1C1C1E', fill: 'none', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            {notificationUnreadCount > 0 && (
+              <div style={{
+                position: 'absolute', top: 6, right: 6,
+                width: 8, height: 8, borderRadius: '50%',
+                background: '#FF3B30', border: '1.5px solid #fff',
+              }} />
             )}
-            <NotificationBell unreadCount={notificationUnreadCount} onClick={() => setShowNotifications(true)} />
           </div>
         </div>
 

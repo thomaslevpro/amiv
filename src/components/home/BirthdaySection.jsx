@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Link2, User, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link2, User, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import AddAmivModal from '../AddAmivModal'
 import BirthdayBottomSheet from '../BirthdayBottomSheet'
@@ -304,75 +304,12 @@ function MonthCalendar({ month, birthdays, today }) {
   )
 }
 
-function CalendarSheet({ birthdays, months, today, onClose }) {
-  const bodyRef = useRef(null)
-
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      bodyRef.current?.scrollTo({ top: 0, behavior: 'auto' })
-    })
-  }, [])
-
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.32)' }} />
-      <div
-        style={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 301,
-          maxHeight: '86vh',
-          background: '#fff',
-          borderRadius: '22px 22px 0 0',
-          boxShadow: '0 -10px 34px rgba(0,0,0,0.16)',
-          display: 'flex',
-          flexDirection: 'column',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '11px 0 0', flexShrink: 0 }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: '#E5E5EA' }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 12px', flexShrink: 0 }}>
-          <div style={{ color: '#1C1C1E', fontSize: 15, fontWeight: 700 }}>Calendrier anniversaires</div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fermer"
-            style={{
-              width: 32,
-              height: 32,
-              border: 'none',
-              borderRadius: '50%',
-              background: '#F2F2F7',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#3A3A3C',
-              cursor: 'pointer',
-            }}
-          >
-            <X size={17} strokeWidth={2} />
-          </button>
-        </div>
-        <div ref={bodyRef} style={{ overflowY: 'auto', padding: '2px 18px 28px', WebkitOverflowScrolling: 'touch' }}>
-          {months.map(month => (
-            <MonthCalendar key={month.key} month={month} birthdays={birthdays} today={today} />
-          ))}
-        </div>
-      </div>
-    </>
-  )
-}
 
 export default function BirthdaySection({ user, onToast, onMessage, refreshTrigger = 0 }) {
   const [birthdays, setBirthdays] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
-  const [showCalendar, setShowCalendar] = useState(false)
-  const [showAddAmiv, setShowAddAmiv] = useState(false)
+const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [selectedBirthday, setSelectedBirthday] = useState(null)
   const [editBirthday, setEditBirthday] = useState(null)
   const today = useMemo(() => startOfToday(), [])
@@ -513,30 +450,10 @@ export default function BirthdaySection({ user, onToast, onMessage, refreshTrigg
         <style>{`
           [data-birthday-scroll]::-webkit-scrollbar { display: none; }
         `}</style>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '0 2px' }}>
+        <div style={{ marginBottom: 12, padding: '0 2px' }}>
           <div style={{ color: '#8E8E93', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Anniversaires
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCalendar(true)}
-            aria-label="Ouvrir le calendrier anniversaires"
-            style={{
-              width: 34,
-              height: 34,
-              border: 'none',
-              borderRadius: '50%',
-              background: '#fff',
-              boxShadow: '0 1px 5px rgba(0,0,0,0.10)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#e055aa',
-              cursor: 'pointer',
-            }}
-          >
-            <CalendarDays size={18} strokeWidth={1.9} />
-          </button>
         </div>
 
       <div
@@ -620,11 +537,7 @@ export default function BirthdaySection({ user, onToast, onMessage, refreshTrigg
         </div>
       )}
 
-      {showCalendar && (
-        <CalendarSheet birthdays={birthdays} months={months} today={today} onClose={() => setShowCalendar(false)} />
-      )}
-
-      {showAddAmiv && (
+{showAddAmiv && (
         <AddAmivModal
           onClose={() => setShowAddAmiv(false)}
           onSaved={fetchBirthdays}

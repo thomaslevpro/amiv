@@ -54,6 +54,11 @@ function MiniEventStatusChip({ item }) {
       fontWeight: 600,
       lineHeight: 1.15,
       whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      minWidth: 0,
+      maxWidth: '100%',
+      flexShrink: 1,
       ...(chip.glass && {
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
@@ -76,7 +81,7 @@ function MyEventMiniCard({ item, onClick }) {
     <div
       onClick={() => onClick?.(item)}
       style={{
-        width: 160,
+        width: 'clamp(148px, calc((100vw - 48px) / 2.2), 172px)',
         height: 160,
         flexShrink: 0,
         position: 'relative',
@@ -106,6 +111,8 @@ function MyEventMiniCard({ item, onClick }) {
         alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: 8,
+        minWidth: 0,
+        overflow: 'hidden',
       }}>
         <MiniEventStatusChip item={item} />
         <div style={{
@@ -131,15 +138,17 @@ function MyEventMiniCard({ item, onClick }) {
         right: 10,
         bottom: 10,
         textShadow: '0 1px 4px rgba(0,0,0,0.28)',
+        minWidth: 0,
+        overflow: 'hidden',
       }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ flex: 1, minWidth: 0, maxWidth: '100%', fontSize: 14, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.name || 'Événement'}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
-          <span style={{ minWidth: 0, fontSize: 10, color: 'rgba(255,255,255,0.86)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, minWidth: 0, overflow: 'hidden' }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 10, color: 'rgba(255,255,255,0.86)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {dateStr}{item.location ? ` · ${item.location}` : ''}
           </span>
-          <span style={{ color: 'rgba(255,255,255,0.86)', fontSize: 10, lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ color: 'rgba(255,255,255,0.86)', fontSize: 10, lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {stats.yes} oui
           </span>
         </div>
@@ -154,12 +163,13 @@ function CreateEventMiniCard({ onClick }) {
       type="button"
       onClick={onClick}
       style={{
-        width: 160,
+        width: 'clamp(148px, calc((100vw - 48px) / 2.2), 172px)',
+        height: 160,
         flexShrink: 0,
-        minHeight: 160,
         border: '1.5px dashed #e0d8ea',
         background: 'transparent',
         borderRadius: 18,
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -179,7 +189,7 @@ function CreateEventMiniCard({ onClick }) {
       }}>
         <Plus size={20} color="#fff" strokeWidth={2.6} />
       </span>
-      <span style={{ fontSize: 11, fontWeight: 600, color: '#c0b0cc', textAlign: 'center' }}>
+      <span style={{ width: '100%', minWidth: 0, maxWidth: '100%', fontSize: 11, fontWeight: 600, color: '#c0b0cc', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         Créer un événement
       </span>
     </button>
@@ -188,7 +198,7 @@ function CreateEventMiniCard({ onClick }) {
 
 export default function MyEventsSection({ events, onSeeAll, onEventClick, onCreateClick }) {
   return (
-    <div style={{ margin: '0 -16px 12px' }}>
+    <div style={{ margin: '0 -16px 12px', background: 'var(--bg)' }}>
       <style>{`
         .home-my-events-scroll::-webkit-scrollbar {
           display: none;
@@ -233,6 +243,7 @@ export default function MyEventsSection({ events, onSeeAll, onEventClick, onCrea
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           padding: '4px 20px 8px',
+          background: 'transparent',
         }}
       >
         {events.map(event => (

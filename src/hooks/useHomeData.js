@@ -6,6 +6,7 @@ export function useHomeData(userId, userEmail) {
   const [invitations, setInvitations] = useState([])
   const [myEvents, setMyEvents] = useState([])
   const [profileName, setProfileName] = useState('')
+  const [profileAvatar, setProfileAvatar] = useState('')
 
   const refetchInvitations = useCallback(async () => {
     if (!userId) {
@@ -80,11 +81,12 @@ export function useHomeData(userId, userEmail) {
 
     supabase
       .from('profiles')
-      .select('first_name, name, email')
+      .select('first_name, name, email, avatar_url')
       .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
         setProfileName(data?.first_name || data?.name || data?.email?.split('@')[0] || '')
+        setProfileAvatar(data?.avatar_url || '')
       })
   }, [userId])
 
@@ -172,5 +174,5 @@ export function useHomeData(userId, userEmail) {
     return () => { cancelled = true }
   }, [userId])
 
-  return { invitations, refetchInvitations, myEvents, profileName }
+  return { invitations, refetchInvitations, myEvents, profileName, profileAvatar }
 }
