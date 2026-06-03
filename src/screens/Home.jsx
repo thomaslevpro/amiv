@@ -147,7 +147,20 @@ export default function Home({
 
         <InvitationsSection invitations={invitations} userId={userId} userEmail={userEmail} onUpdate={refetchInvitations} />
 
-        <BirthdaySection user={session?.user} onToast={showToast} onMessage={onMessagesClick} refreshTrigger={birthdayRefreshTrigger} />
+        <BirthdaySection
+          user={session?.user}
+          onToast={showToast}
+          onMessage={onMessagesClick}
+          refreshTrigger={birthdayRefreshTrigger}
+          availabilityFeed={availabilityFeed}
+          availableFriendsCount={availableFriendsCount}
+          nextEvent={myEvents[0] ?? null}
+          onAvailabilityClick={() => {
+            if (onDispoCalendarClick) onDispoCalendarClick()
+            else onDispoDetailClick?.(availabilityFeed.find(post => post.user_id !== userId)?.id)
+          }}
+          onEventClick={onNotifEventClick ?? onEventClick}
+        />
 
         {suggestions.length > 0 && (
           <>

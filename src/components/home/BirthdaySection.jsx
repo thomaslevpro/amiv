@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link2, User, X } from 'lucide-react'
+import { Link2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import AddAmivModal from '../AddAmivModal'
 import BirthdayBottomSheet from '../BirthdayBottomSheet'
@@ -9,17 +9,30 @@ import HeroBirthdayCard from '../HeroBirthdayCard'
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
 const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 const BUBBLE_THEMES = [
-  { fill: '#FFC39A', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: true },
-  { fill: '#A9D0F4', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: false },
-  { fill: '#B8F5BE', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: true },
-  { fill: '#E6CEF5', ringStart: '#E3E0EA', ringEnd: '#E3E0EA', dot: false },
-  { fill: '#FFC19B', ringStart: '#E3E0EA', ringEnd: '#E3E0EA', dot: false },
-  { fill: '#F4C0D1', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: false },
-]
+  { fill: '#FFD6E7', letter: '#C4185A', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: true  },
+  { fill: '#FFE9B0', letter: '#A86000', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: true  },
+  { fill: '#D6F0FF', letter: '#1A6FA8', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: false },
+  { fill: '#E8D6FF', letter: '#6B2DB5', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: true  },
+  { fill: '#C8F5D6', letter: '#1A7A42', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: false },
+  { fill: '#FFD0B8', letter: '#C44A1A', ringStart: '#E7549B', ringEnd: '#F6A04A', dot: true  },
+];
 const DAY_HEADERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
 const DAY_MS = 24 * 60 * 60 * 1000
 const RING_RADIUS = 26
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
+
+const HERO_CARD_THEMES = {
+  availability: {
+    border: 'linear-gradient(135deg, #0A84FF, #64D2FF, #0A84FF)',
+    background: 'radial-gradient(circle at 86% 12%, rgba(122, 205, 255, 0.64) 0%, rgba(10, 132, 255, 0.28) 28%, rgba(10, 132, 255, 0) 48%), linear-gradient(135deg, #007AFF 0%, #0A84FF 58%, #64D2FF 100%)',
+    shadow: '0 4px 24px rgba(0,122,255,0.26)',
+  },
+  event: {
+    border: 'linear-gradient(135deg, #30D158, #34C759, #00C7BE)',
+    background: 'radial-gradient(circle at 86% 12%, rgba(128, 255, 194, 0.56) 0%, rgba(52, 199, 89, 0.25) 28%, rgba(52, 199, 89, 0) 48%), linear-gradient(135deg, #28B463 0%, #34C759 58%, #00C7BE 100%)',
+    shadow: '0 4px 24px rgba(52,199,89,0.25)',
+  },
+}
 
 function startOfToday() {
   const today = new Date()
@@ -89,6 +102,61 @@ function formatBirthdateShort(birthdate) {
   const { month, day } = parseBirthdateParts(birthdate)
   if (!day || month < 0 || month >= MONTH_LABELS.length) return ''
   return `${day} ${MONTH_LABELS[month].toLowerCase()}`
+}
+
+function getProfileName(profile) {
+  return [profile?.first_name, profile?.name].filter(Boolean).join(' ') || 'Ami'
+}
+
+function formatEventDate(dateStr) {
+  if (!dateStr) return 'Date à définir'
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return 'Date à définir'
+  return date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })
+}
+
+function HomeHeroInfoCard({ eyebrow, title, subtitle, theme, onClick, truncateTitle = false }) {
+  return (
+    <div style={{
+      padding: '2.5px',
+      borderRadius: 22,
+      background: theme.border,
+      marginBottom: 0,
+      flex: '1 1 0',
+      minWidth: 0,
+      display: 'flex',
+    }}>
+      <div
+        onClick={onClick}
+        style={{
+          flex: 1,
+          position: 'relative',
+          overflow: 'hidden',
+          background: theme.background,
+          borderRadius: 19,
+          padding: '14px',
+          boxShadow: theme.shadow,
+          color: '#fff',
+          cursor: onClick ? 'pointer' : 'default',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          alignItems: 'flex-start',
+          minWidth: 0,
+        }}
+      >
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.75)', whiteSpace: 'normal', lineHeight: 1.15, marginBottom: 4 }}>
+          {eyebrow}
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', lineHeight: 1.15, whiteSpace: truncateTitle ? 'nowrap' : 'normal', overflow: truncateTitle ? 'hidden' : 'visible', textOverflow: truncateTitle ? 'ellipsis' : 'clip', width: '100%' }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.2, whiteSpace: 'normal', minWidth: 0, maxWidth: '100%', marginTop: 2 }}>
+          {subtitle}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function enrichBirthdays(rows, today) {
@@ -176,7 +244,7 @@ function BirthdayBubble({ birthday, onClick }) {
           ) : isLinked ? (
             <span style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{linkedInitials}</span>
           ) : (
-            <User size={26} strokeWidth={1.7} />
+            <span style={{ fontSize: 17, fontWeight: 800, color: theme.letter }}>{displayName[0]?.toUpperCase() ?? '?'}</span>
           )}
         </div>
         {isLinked && (
@@ -305,11 +373,21 @@ function MonthCalendar({ month, birthdays, today }) {
 }
 
 
-export default function BirthdaySection({ user, onToast, onMessage, refreshTrigger = 0 }) {
+export default function BirthdaySection({
+  user,
+  onToast,
+  onMessage,
+  refreshTrigger = 0,
+  availabilityFeed = [],
+  availableFriendsCount = 0,
+  nextEvent = null,
+  onAvailabilityClick,
+  onEventClick,
+}) {
   const [birthdays, setBirthdays] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
-const [showAddAmiv, setShowAddAmiv] = useState(false)
+  const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [selectedBirthday, setSelectedBirthday] = useState(null)
   const [editBirthday, setEditBirthday] = useState(null)
   const today = useMemo(() => startOfToday(), [])
@@ -435,15 +513,44 @@ const [showAddAmiv, setShowAddAmiv] = useState(false)
   const heroBirthday = birthdays[0]
     ? { ...birthdays[0], days: birthdays[0].daysUntil }
     : null
+  const availableFriendNames = availabilityFeed
+    .filter(post => post.user_id !== user?.id)
+    .map(post => getProfileName(post.profiles))
+    .filter((name, index, names) => names.indexOf(name) === index)
+  const availabilityTitle = availableFriendsCount > 0
+    ? `${availableFriendsCount} ami${availableFriendsCount > 1 ? 's' : ''} dispo`
+    : 'Aucun ami dispo'
+  const availabilitySubtitle = availableFriendNames.length > 0
+    ? availableFriendNames.slice(0, 3).join(', ')
+    : 'Cette semaine'
 
   return (
     <>
       {!loading && (
-        <HeroBirthdayCard
-          birthday={heroBirthday}
-          onReminderSaved={handleHeroReminderSaved}
-          onToast={onToast}
-        />
+        <div style={{ marginBottom: 0 }}>
+          <HeroBirthdayCard
+            birthday={heroBirthday}
+            onReminderSaved={handleHeroReminderSaved}
+            onToast={onToast}
+          />
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <HomeHeroInfoCard
+              eyebrow="Amis disponibles"
+              title={availabilityTitle}
+              subtitle={availabilitySubtitle}
+              theme={HERO_CARD_THEMES.availability}
+              onClick={onAvailabilityClick}
+            />
+            <HomeHeroInfoCard
+              eyebrow="Prochain événement"
+              title={nextEvent?.name || 'Aucun événement'}
+              subtitle={nextEvent ? formatEventDate(nextEvent.date) : 'Crée ton prochain Amiv'}
+              theme={HERO_CARD_THEMES.event}
+              onClick={nextEvent ? () => onEventClick?.(nextEvent) : undefined}
+              truncateTitle
+            />
+          </div>
+        </div>
       )}
 
       <section style={{ background: '#faf9fb', padding: '2px 0 18px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
