@@ -74,12 +74,20 @@ function getTotalCount(stats, event) {
   return yes + maybe + no
 }
 
+function normalizeStatus(status) {
+  if (status === 'going' || status === 'yes' || status === 'accepted' || status === 'confirmed' || status === 'organizing') return 'yes'
+  if (status === 'maybe' || status === 'invited' || status === 'pending') return 'maybe'
+  if (status === 'declined' || status === 'no' || status === 'not_going') return 'no'
+  return status || null
+}
+
 function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
   const [hovering, setHovering] = useState(false)
   const coverUrl = getCoverUrl(event.cover_image)
   const yesCount = getYesCount(stats, event)
   const title = titleCase(event.name, 'Événement')
   const details = `${dateParts.longDate} · ${dateParts.time}${event.location ? ` · ${event.location}` : ''}`
+  const isDeclined = normalizeStatus(event.rsvpStatus) === 'no'
   const avatarGradients = [
     'linear-gradient(135deg,#e055aa,#f5a623)',
     'linear-gradient(135deg,#f5a623,#e055aa)',
@@ -107,6 +115,7 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
         boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
         marginBottom: 16,
         cursor: 'pointer',
+        opacity: isDeclined ? 0.6 : 1,
         transition: 'transform 0.22s ease, box-shadow 0.22s ease',
       }}
     >
@@ -155,7 +164,25 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
           <div style={{ marginTop: 3, fontSize: 11, fontWeight: 700, color: '#8E8E93' }}>{dateParts.month}</div>
         </div>
 
-        {dateParts.badge && (
+        {isDeclined && (
+          <div style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            borderRadius: 20,
+            padding: '5px 13px',
+            background: 'rgba(142,142,147,0.92)',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 800,
+            lineHeight: 1.2,
+            boxShadow: '0 3px 10px rgba(0,0,0,0.18)',
+          }}>
+            Décliné
+          </div>
+        )}
+
+        {dateParts.badge && !isDeclined && (
           <div style={{
             position: 'absolute',
             top: 12,

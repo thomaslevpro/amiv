@@ -101,7 +101,36 @@ export async function cancelFriendRequest(friendshipId) {
 }
 
 export async function getFriends(userId) {
-  return supabase.rpc('get_friends', { p_user_id: userId })
+  const { data, error } = await supabase.rpc('get_friends', { p_user_id: userId })
+  if (error || !data?.length) return { data, error }
+
+  const needsProfileFields = data.some(friend =>
+    friend.friend_first_name === undefined || friend.friend_username === undefined
+  )
+  if (!needsProfileFields) return { data, error: null }
+
+  const friendIds = data.map(friend => friend.friend_id).filter(Boolean)
+  if (!friendIds.length) return { data, error: null }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, first_name, username')
+    .in('id', friendIds)
+
+  if (profilesError) return { data, error: null }
+
+  const profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
+  return {
+    data: data.map(friend => {
+      const profile = profilesById[friend.friend_id] ?? {}
+      return {
+        ...friend,
+        friend_first_name: friend.friend_first_name ?? profile.first_name ?? null,
+        friend_username: friend.friend_username ?? profile.username ?? null,
+      }
+    }),
+    error: null,
+  }
 }
 
 export async function getPendingRequests(userId) {

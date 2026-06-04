@@ -408,7 +408,13 @@ export default function CalendarPage({ navigate = () => {} }) {
 
       setCalendarDots(dotsResult.data ?? [])
       const mapped = (invitedResult.data || [])
-        .filter(row => row.events && row.events.user_id !== user.id && row.events.date >= today && row.events.date <= ninetyDaysLater)
+        .filter(row => {
+          if (!row.events) return false
+          if (row.events.user_id === user.id) return false
+          const normalized = normalizeStatus(row.status)
+          if (normalized === 'no') return true
+          return row.events.date >= today && row.events.date <= ninetyDaysLater
+        })
         .map(row => ({ ...row.events, rsvpStatus: row.status }))
       const ownEvents = (ownResult.data ?? []).map(e => ({ ...e, rsvpStatus: 'organizing', isOrganizer: true }))
       const eventIds = [...new Set([...mapped, ...ownEvents].map(event => event.id).filter(Boolean))]
@@ -513,6 +519,9 @@ export default function CalendarPage({ navigate = () => {} }) {
       {(() => {
         const goingEvents = invitedEvents.filter(e => e.rsvpStatus === 'going').sort((a, b) => a.date.localeCompare(b.date))
         const pendingEvents = invitedEvents.filter(e => e.rsvpStatus === 'invited').sort((a, b) => a.date.localeCompare(b.date))
+        const declinedEvents = invitedEvents
+          .filter(e => normalizeStatus(e.rsvpStatus) === 'no')
+          .sort((a, b) => a.date.localeCompare(b.date))
         const allEventsMap = new Map()
         ;[...organizedEvents, ...invitedEvents].forEach(e => { if (!allEventsMap.has(e.id)) allEventsMap.set(e.id, e) })
         const allEvents = [...allEventsMap.values()].sort((a, b) => a.date.localeCompare(b.date))
@@ -523,6 +532,7 @@ export default function CalendarPage({ navigate = () => {} }) {
           { key: 'organizing', label: "J'organise", events: bySelectedDate(organizedEvents) },
           { key: 'going', label: "J'y participe", events: bySelectedDate(goingEvents) },
           { key: 'pending', label: 'En attente', events: bySelectedDate(pendingEvents) },
+          { key: 'declined', label: 'Déclinés', events: bySelectedDate(declinedEvents) },
         ]
         const currentEvents = TABS.find(t => t.key === activeTab)?.events ?? []
 

@@ -159,6 +159,7 @@ export default function ConversationList({
                     conversation={conv}
                     onOpenChannel={secretChannel => handleConversationTap(conv, secretChannel)}
                     onHide={() => hideEventCard(conv.eventId)}
+                    currentUserId={effectiveUserId}
                   />
                 ) : (
                   <ConversationRow

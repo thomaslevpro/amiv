@@ -3,7 +3,8 @@ import { Calendar as CalendarIcon, CalendarFold, EyeOff, Lock, MessageCircle, Mo
 import { BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { formatEventDateTime, previewMessage } from './utils'
 
-function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
+function ChannelPreview({ type, message, unreadCount = 0, onClick, isOrganizer = false }) {
+  if (type === 'secret' && isOrganizer) return null
   const isSecretChannel = type === 'secret'
   const preview = previewMessage(message?.content)
   const hasUnread = unreadCount > 0
@@ -68,10 +69,11 @@ function ChannelPreview({ type, message, unreadCount = 0, onClick }) {
   )
 }
 
-export default function EventConversationCard({ conversation, onOpenChannel, onHide }) {
+export default function EventConversationCard({ conversation, onOpenChannel, onHide, currentUserId }) {
   const [showMenu, setShowMenu] = useState(false)
   const menuContainerRef = useRef(null)
   const event = conversation.event ?? {}
+  const isOrganizer = !!currentUserId && !!event.user_id && currentUserId === event.user_id
 
   useEffect(() => {
     if (!showMenu) return undefined
@@ -128,7 +130,7 @@ export default function EventConversationCard({ conversation, onOpenChannel, onH
 
       <div style={{ padding: '0 14px 14px', display: 'flex', gap: 8 }}>
         <ChannelPreview type="general" message={conversation.generalMessage} unreadCount={conversation.generalUnreadCount || 0} onClick={() => onOpenChannel(false)} />
-        <ChannelPreview type="secret" message={conversation.secretMessage} unreadCount={conversation.secretUnreadCount || 0} onClick={() => onOpenChannel(true)} />
+        <ChannelPreview type="secret" message={conversation.secretMessage} unreadCount={conversation.secretUnreadCount || 0} onClick={() => onOpenChannel(true)} isOrganizer={isOrganizer} />
       </div>
     </div>
   )

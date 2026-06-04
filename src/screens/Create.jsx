@@ -31,7 +31,7 @@ const labelStyle = {
 }
 
 function friendProfile(f) {
-  return { id: f.friend_id, name: f.friend_name, avatar_url: f.friend_avatar }
+  return { id: f.friend_id, name: f.friend_name, first_name: f.friend_first_name, username: f.friend_username, avatar_url: f.friend_avatar }
 }
 
 function birthdayFriendName(friend) {
@@ -40,6 +40,14 @@ function birthdayFriendName(friend) {
 
 function birthdayFriendInitial(friend) {
   return birthdayFriendName(friend).charAt(0).toUpperCase()
+}
+
+function inviteeLabel(friend) {
+  return friend?.first_name || friend?.name?.split(' ')[0] || friend?.username || 'Ami'
+}
+
+function inviteeInitial(friend) {
+  return inviteeLabel(friend).charAt(0).toUpperCase()
 }
 
 export default function Create({ onBack, session, initialData = null }) {
@@ -466,22 +474,37 @@ export default function Create({ onBack, session, initialData = null }) {
                   const p = friendProfile(f)
                   if (!p) return null
                   const selected = selectedFriendIds.includes(p.id)
+                  const label = inviteeLabel(p)
                   return (
                     <div
                       key={p.id}
                       onClick={() => toggleFriend(p.id)}
                       style={{
-                        padding: '7px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px 6px 6px',
                         borderRadius: 20,
-                        fontSize: 13,
-                        fontWeight: 600,
                         background: selected ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
                         color: selected ? '#fff' : '#1C1C1E',
                         cursor: 'pointer',
                         transition: 'all 0.15s',
                       }}
                     >
-                      {p.name}
+                      {p.avatar_url ? (
+                        <img
+                          src={p.avatar_url}
+                          alt={p.name || p.username || label}
+                          style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#FBBF9A', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+                          {inviteeInitial(p)}
+                        </div>
+                      )}
+                      <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1 }}>
+                        {label}
+                      </span>
                     </div>
                   )
                 })}

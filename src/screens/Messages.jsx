@@ -183,7 +183,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (rsvpResult.error) rsvpRows = (await supabase.from('rsvps').select('event_id').eq('user_id', userId)).data ?? []
     const allIds = [...new Set([...(rsvpRows?.map(r => r.event_id) ?? []), ...(ownRows?.map(e => e.id) ?? [])])]
     if (!allIds.length) return []
-    const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, birthday_person_user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
+    const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, birthday_person_user_id, user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
     const lastByEvent = {}, generalLastByEvent = {}, secretLastByEvent = {}, generalUnreadByEvent = {}, secretUnreadByEvent = {}
     const lastReadByEvent = Object.fromEntries((rsvpRows ?? []).map(row => [row.event_id, row.last_read_at]))
     ;(msgs ?? []).forEach(message => {
