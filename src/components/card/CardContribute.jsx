@@ -417,7 +417,7 @@ export default function CardContribute({ eventId, currentUserId }) {
               style={{
                 border: selected ? '1px solid rgba(224,85,170,0.42)' : '1px solid transparent',
                 borderRadius: 999,
-                background: selected ? SELECTED_REACTION_BG : '#F2F2F7',
+                background: selected ? SELECTED_REACTION_BG : '#F5F5F5',
                 color: selected ? '#993556' : '#1C1C1E',
                 fontSize: 11,
                 fontWeight: 800,
@@ -498,7 +498,7 @@ export default function CardContribute({ eventId, currentUserId }) {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '14px 2px 10px' }}>
           <div style={{ fontSize: 15, fontWeight: 900, color: '#1C1C1E' }}>Tous vos souvenirs</div>
-          <div style={{ borderRadius: 999, padding: '4px 9px', background: '#F2F2F7', color: '#8E8E93', fontSize: 12, fontWeight: 800 }}>
+          <div style={{ borderRadius: 999, padding: '4px 9px', background: '#F5F5F5', color: '#8E8E93', fontSize: 12, fontWeight: 800 }}>
             {memories.length}
           </div>
         </div>
@@ -535,7 +535,7 @@ export default function CardContribute({ eventId, currentUserId }) {
                   )}
                   <div style={{ padding: 10 }}>
                     {!memory.photo_url && memory.memory_year && (
-                      <div style={{ display: 'inline-flex', borderRadius: 999, padding: '3px 8px', background: '#F2F2F7', color: '#8E8E93', fontSize: 10, fontWeight: 800, marginBottom: 8 }}>
+                      <div style={{ display: 'inline-flex', borderRadius: 999, padding: '3px 8px', background: '#F5F5F5', color: '#8E8E93', fontSize: 10, fontWeight: 800, marginBottom: 8 }}>
                         {memory.memory_year}
                       </div>
                     )}
@@ -564,7 +564,7 @@ export default function CardContribute({ eventId, currentUserId }) {
                           style={{
                             border: 'none',
                             borderRadius: 999,
-                            background: hasCurrentUserReaction(memory.reactions, emoji, currentUserId) ? SELECTED_REACTION_BG : '#F2F2F7',
+                            background: hasCurrentUserReaction(memory.reactions, emoji, currentUserId) ? SELECTED_REACTION_BG : '#F5F5F5',
                             color: '#993556',
                             fontSize: 13,
                             lineHeight: 1,
@@ -593,7 +593,7 @@ export default function CardContribute({ eventId, currentUserId }) {
     return (
       <section style={cardStyles.section}>
         <div style={cardStyles.eyebrow}>Ton souvenir</div>
-        <div style={{ border: '1px solid #F2F2F7', borderRadius: 14, overflow: 'hidden', background: '#fff' }}>
+        <div style={{ border: '1px solid #F5F5F5', borderRadius: 14, overflow: 'hidden', background: '#fff' }}>
           {existing.photo_url ? (
             <div style={{ position: 'relative' }}>
               <img src={existing.photo_url} alt="Ton souvenir" style={{ width: '100%', maxHeight: 208, objectFit: 'cover', display: 'block' }} />
@@ -605,7 +605,7 @@ export default function CardContribute({ eventId, currentUserId }) {
             </div>
           ) : existing.memory_year ? (
             <div style={{ padding: '12px 12px 0' }}>
-              <div style={{ display: 'inline-flex', borderRadius: 999, padding: '4px 9px', background: '#fff', border: '1px solid #F2F2F7', color: '#8E8E93', fontSize: 11, fontWeight: 800 }}>
+              <div style={{ display: 'inline-flex', borderRadius: 999, padding: '4px 9px', background: '#fff', border: '1px solid #F5F5F5', color: '#8E8E93', fontSize: 11, fontWeight: 800 }}>
                 {existing.memory_year}
               </div>
             </div>
@@ -639,7 +639,7 @@ export default function CardContribute({ eventId, currentUserId }) {
           onClick={editing ? stopEditing : () => window.history.back()}
           aria-label="Retour"
           title="Retour"
-          style={{ border: 'none', background: '#F2F2F7', color: '#1C1C1E', width: 34, height: 34, borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+          style={{ border: 'none', background: '#F5F5F5', color: '#1C1C1E', width: 34, height: 34, borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
         >
           <ArrowLeft size={18} />
         </button>
@@ -654,7 +654,7 @@ export default function CardContribute({ eventId, currentUserId }) {
         </div>
       </div>
 
-      <div style={{ borderRadius: 14, background: '#fff', border: '1px solid #F2F2F7', padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+      <div style={{ borderRadius: 14, background: '#fff', border: '1px solid #F5F5F5', padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 900, color: '#1C1C1E' }}>
             {contributorCount} personne{contributorCount > 1 ? 's' : ''} ont déjà contribué

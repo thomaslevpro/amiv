@@ -7,7 +7,7 @@ export default function Invitation({ event, onBack }) {
   if (!event) return null
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden' }}>
       {/* Hero */}
       <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: '16px 20px 28px', textAlign: 'center', color: '#fff', flexShrink: 0, position: 'relative' }}>
         <div onClick={onBack} style={{ position: 'absolute', top: 14, left: 16, cursor: 'pointer' }}>
@@ -45,7 +45,7 @@ export default function Invitation({ event, onBack }) {
           {[0,1,2].map(i => (
             <div key={i} style={{ width: 32, height: 32, background: '#FBBF9A', borderRadius: '50%', border: '2px solid #fff', marginLeft: i > 0 ? -6 : 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>👤</div>
           ))}
-          <div style={{ width: 32, height: 32, background: '#F2F2F7', borderRadius: '50%', border: '2px solid #fff', marginLeft: -6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#8E8E93' }}>
+          <div style={{ width: 32, height: 32, background: '#F5F5F5', borderRadius: '50%', border: '2px solid #fff', marginLeft: -6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#8E8E93' }}>
             +{event.guests - 3}
           </div>
         </div>
@@ -61,7 +61,7 @@ export default function Invitation({ event, onBack }) {
             <div key={r.key} onClick={() => setRsvp(r.key)} style={{
               flex: 1, padding: 12, borderRadius: 12, textAlign: 'center',
               fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              background: rsvp === r.key ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+              background: rsvp === r.key ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5',
               color: rsvp === r.key ? '#fff' : '#1C1C1E',
               opacity: rsvp && rsvp !== r.key ? 0.5 : 1,
               transition: 'all 0.15s',
@@ -79,7 +79,7 @@ export default function Invitation({ event, onBack }) {
 
         {/* Calendar */}
         <div style={{
-          border: '1.5px solid #F2F2F7', background: '#fff', borderRadius: 14, padding: 12, textAlign: 'center',
+          border: '1.5px solid #F5F5F5', background: '#fff', borderRadius: 14, padding: 12, textAlign: 'center',
           fontSize: 12, fontWeight: 500, color: '#8E8E93', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>

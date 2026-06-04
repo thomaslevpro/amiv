@@ -246,7 +246,7 @@ export default function CollectiveCardContributorView({ event, currentUserId }: 
                           key={reaction.emoji}
                           type="button"
                           onClick={() => handleReaction(memory.id, reaction.emoji)}
-                          style={{ border: 'none', borderRadius: 10, padding: '3px 7px', background: reaction.userReacted ? '#FFF3E0' : '#F2F2F7', color: '#1C1C1E', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                          style={{ border: 'none', borderRadius: 10, padding: '3px 7px', background: reaction.userReacted ? '#FFF3E0' : '#F5F5F5', color: '#1C1C1E', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
                         >
                           {reaction.emoji} {reaction.count}
                         </button>

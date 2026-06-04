@@ -56,6 +56,7 @@ export default function Create({ onBack, session, initialData = null }) {
   const initialType = typeValues.indexOf(initialData?.type ?? emojiTypeMap[initialData?.emoji] ?? 'Autre')
   const [type, setType] = useState(initialType >= 0 ? initialType : 3)
   const [form, setForm] = useState({ name: initialData?.title ?? '', date: '', location: '', desc: initialData?.desc ?? initialData?.description ?? '' })
+  const [coverImage, setCoverImage] = useState(initialData?.coverImage ?? initialData?.cover_image ?? '')
   const [birthdayPersonId, setBirthdayPersonId] = useState(initialData?.birthday_person_user_id ?? null)
   const [birthdayFriends, setBirthdayFriends] = useState([])
   const [usePoll, setUsePoll] = useState(false)
@@ -73,6 +74,10 @@ export default function Create({ onBack, session, initialData = null }) {
       if (data) setFriends(data)
     })
   }, [userId])
+
+  useEffect(() => {
+    setCoverImage(initialData?.coverImage ?? initialData?.cover_image ?? '')
+  }, [initialData])
 
   useEffect(() => {
     if (type !== 0) setBirthdayPersonId(null)
@@ -157,6 +162,7 @@ export default function Create({ onBack, session, initialData = null }) {
         type: typeValues[type],
         visibility: 'Sur invitation',
         user_id: user.id,
+        cover_image: coverImage || null,
         birthday_person_user_id: birthdayPersonId,
       }).select().single()
       if (error) throw error
@@ -199,7 +205,7 @@ export default function Create({ onBack, session, initialData = null }) {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden' }}>
       <div style={{
         background: 'linear-gradient(135deg, #e055aa, #f5a623)',
         padding: '16px 20px 28px',
@@ -259,6 +265,24 @@ export default function Create({ onBack, session, initialData = null }) {
             ))}
           </div>
         </div>
+
+        {/* Cover */}
+        {coverImage && (
+          <div style={{ padding: '0 16px', marginTop: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 8 }}>Cover</div>
+            <img
+              src={coverImage}
+              alt=""
+              style={{
+                width: '100%',
+                height: 200,
+                objectFit: 'cover',
+                borderRadius: 16,
+                display: 'block',
+              }}
+            />
+          </div>
+        )}
 
         {/* Details */}
         <div style={{ padding: '0 16px', marginTop: 14 }}>
@@ -485,7 +509,7 @@ export default function Create({ onBack, session, initialData = null }) {
                         gap: 6,
                         padding: '6px 12px 6px 6px',
                         borderRadius: 20,
-                        background: selected ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+                        background: selected ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5',
                         color: selected ? '#fff' : '#1C1C1E',
                         cursor: 'pointer',
                         transition: 'all 0.15s',
@@ -513,7 +537,7 @@ export default function Create({ onBack, session, initialData = null }) {
             <div style={{ height: 0.5, background: 'rgba(0,0,0,0.07)', margin: 0 }} />
             <div style={{ padding: '12px 14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#8E8E93', fontSize: 13, fontWeight: 500, opacity: 0.4, cursor: 'default' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F2F2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F5F5F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Link size={14} color="#8E8E93" />
                 </div>
                 <span>Copier le lien d'invitation</span>
@@ -584,7 +608,7 @@ export default function Create({ onBack, session, initialData = null }) {
             <div
               onClick={onBack}
               style={{
-                padding: 14, background: '#F2F2F7', color: '#1C1C1E',
+                padding: 14, background: '#F5F5F5', color: '#1C1C1E',
                 borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: 'pointer',
               }}
             >

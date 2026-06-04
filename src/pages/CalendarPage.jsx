@@ -244,7 +244,7 @@ function WeekStrip({ currentMonth, setCurrentMonth, fetchDots, calendarDots, sel
             height: 28,
             borderRadius: '50%',
             border: 'none',
-            background: '#F2F2F7',
+            background: '#F5F5F5',
             display: 'grid',
             placeItems: 'center',
             padding: 0,
@@ -280,7 +280,7 @@ function WeekStrip({ currentMonth, setCurrentMonth, fetchDots, calendarDots, sel
             height: 28,
             borderRadius: '50%',
             border: 'none',
-            background: '#F2F2F7',
+            background: '#F5F5F5',
             display: 'grid',
             placeItems: 'center',
             padding: 0,
@@ -335,7 +335,7 @@ function WeekStrip({ currentMonth, setCurrentMonth, fetchDots, calendarDots, sel
                   fontSize: 14,
                   fontWeight: isToday || showSelected ? 600 : 400,
                   color: isToday ? '#fff' : '#1C1C1E',
-                  background: isToday ? GRADIENT : showSelected ? '#F2F2F7' : 'transparent',
+                  background: isToday ? GRADIENT : showSelected ? '#F5F5F5' : 'transparent',
                 }}
               >
                 {date.getDate()}
@@ -545,7 +545,7 @@ export default function CalendarPage({ navigate = () => {} }) {
                   onClick={() => setActiveTab(tab.key)}
                   style={{
                     flexShrink: 0,
-                    background: activeTab === tab.key ? '#1C1C1E' : '#faf9fb',
+                    background: activeTab === tab.key ? '#1C1C1E' : '#FFFFFF',
                     color: activeTab === tab.key ? '#fff' : '#1C1C1E',
                     border: 'none',
                     borderRadius: 20,

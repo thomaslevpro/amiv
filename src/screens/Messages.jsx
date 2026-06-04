@@ -13,6 +13,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [messages, setMessages] = useState([]), [input, setInput] = useState('')
   const [userId, setUserId] = useState(null), [isSecret, setIsSecret] = useState(false)
   const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null), [myRsvpStatus, setMyRsvpStatus] = useState(null)
+  const [currentUsername, setCurrentUsername] = useState('')
   const [conversations, setConversations] = useState([]), [listLoading, setListLoading] = useState(true)
   const [friends, setFriends] = useState([]), [friendsLoading, setFriendsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('all'), [showNewMessage, setShowNewMessage] = useState(false)
@@ -33,7 +34,17 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       appOpenedAtRef.current = window.localStorage.getItem('last_app_opened_at') || new Date(0).toISOString()
       window.localStorage.setItem('last_app_opened_at', new Date().toISOString())
     }
-    supabase.auth.getUser().then(({ data: { user } }) => { if (user) { setUserId(user.id); setHiddenConversations(readHiddenConversations(user.id)) } })
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      setUserId(user.id)
+      setHiddenConversations(readHiddenConversations(user.id))
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, first_name, name')
+        .eq('id', user.id)
+        .maybeSingle()
+      setCurrentUsername(profile?.username || profile?.first_name || profile?.name || user.email?.split('@')[0] || 'amiv')
+    })
   }, [])
 
   useEffect(() => {
@@ -324,6 +335,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (notifErr) console.error('[Notif] rpc error:', notifErr)
   }
 
-  if (!event) return <ConversationList unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
+  if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
   return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} />
 }

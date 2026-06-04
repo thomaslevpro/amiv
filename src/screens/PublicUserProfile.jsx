@@ -4,7 +4,7 @@ import { UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const COLORS = {
-  page: '#faf9fb',
+  page: '#FFFFFF',
   card: '#fff',
   text: '#1C1C1E',
   secondary: '#8E8E93',
@@ -181,7 +181,7 @@ export default function PublicUserProfile() {
                   type="button"
                   disabled={buttonState.disabled || sending}
                   onClick={handleAction}
-                  style={{ width: '100%', minHeight: 52, borderRadius: 16, border: 'none', background: buttonState.disabled ? '#F2F2F7' : COLORS.gradient, color: buttonState.disabled ? COLORS.secondary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 16, fontWeight: 800, cursor: buttonState.disabled || sending ? 'default' : 'pointer', boxShadow: buttonState.disabled ? 'none' : '0 4px 18px rgba(224,85,170,0.30)', fontFamily: 'inherit' }}
+                  style={{ width: '100%', minHeight: 52, borderRadius: 16, border: 'none', background: buttonState.disabled ? '#F5F5F5' : COLORS.gradient, color: buttonState.disabled ? COLORS.secondary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 16, fontWeight: 800, cursor: buttonState.disabled || sending ? 'default' : 'pointer', boxShadow: buttonState.disabled ? 'none' : '0 4px 18px rgba(224,85,170,0.30)', fontFamily: 'inherit' }}
                 >
                   {!buttonState.disabled && <UserPlus size={18} strokeWidth={2.2} />}
                   <span>{sending ? 'Envoi...' : buttonState.label}</span>

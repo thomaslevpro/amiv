@@ -219,7 +219,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
           maxWidth: 430,
           maxHeight: '92vh',
           overflowY: 'auto',
-          background: '#F2F2F7',
+          background: '#F5F5F5',
           borderRadius: '20px 20px 0 0',
           padding: '20px 20px max(28px, env(safe-area-inset-bottom))',
           boxShadow: '0 -8px 36px rgba(0,0,0,0.18)',

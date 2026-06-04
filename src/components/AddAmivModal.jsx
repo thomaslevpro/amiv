@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 const SHARE_URL = 'https://amiv.app'
 
 const baseInput = {
-  border: '1.5px solid #F2F2F7',
+  border: '1.5px solid #F5F5F5',
   borderRadius: 12,
   padding: '13px 14px',
   fontSize: 15,
@@ -211,7 +211,7 @@ export default function AddAmivModal({ onClose, onSaved, onToast }) {
 
           {/* Sharing section */}
           <div style={{
-            background: '#F2F2F7', borderRadius: 16,
+            background: '#F5F5F5', borderRadius: 16,
             padding: '14px', marginBottom: 20,
           }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#8E8E93', marginBottom: 10 }}>

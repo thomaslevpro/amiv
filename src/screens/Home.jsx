@@ -2,7 +2,7 @@ import { useState } from 'react'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
 import FriendSuggestions from '../components/FriendSuggestions'
-import TrendingSection from '../components/TrendingSection'
+import TrendingNow from '../components/TrendingNow'
 import BirthdaySection from '../components/home/BirthdaySection'
 import InvitationsSection from '../components/home/InvitationsSection'
 import InviteCard from '../components/home/InviteCard'
@@ -52,7 +52,7 @@ export default function Home({
   const availableFriendsCount = new Set(availabilityFeed.filter(p => p.user_id !== userId).map(p => p.user_id)).size
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden', position: 'relative' }}>
       <style>{`
         @keyframes pulse-border {
           0%, 100% { box-shadow: 0 0 0 0px rgba(224,85,170,0.4), 0 0 0 0px rgba(245,166,35,0.2); }
@@ -176,7 +176,7 @@ export default function Home({
           onCreateClick={onCreateClick}
         />
 
-        <TrendingSection onCreateEvent={onTrendingClick} />
+        <TrendingNow onCardClick={onTrendingClick} />
         <InviteCard onToast={showToast} />
       </div>
 

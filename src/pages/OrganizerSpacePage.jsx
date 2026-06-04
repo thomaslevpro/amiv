@@ -38,7 +38,7 @@ const SUGGESTIONS = {
 
 const sheetInput = {
   width: '100%',
-  background: '#F2F2F7',
+  background: '#F5F5F5',
   borderRadius: 12,
   padding: '13px 14px',
   fontSize: 14,
@@ -866,7 +866,7 @@ function GuestGroup({ title, rows }) {
 
 const styles = `
 .organizer-page {
-  --bg: #F2F2F7;
+  --bg: #F5F5F5;
   --white: #FFFFFF;
   --black: #1C1C1E;
   --blue: #007AFF;
@@ -875,7 +875,7 @@ const styles = `
   --orange: #FF9500;
   --gray1: #8E8E93;
   --gray2: #AEAEB2;
-  --gray3: #F2F2F7;
+  --gray3: #F5F5F5;
   --salmon: #FBBF9A;
   --grad: linear-gradient(135deg, #e055aa, #f5a623);
   --r-card: 20px;
@@ -920,7 +920,7 @@ const styles = `
 .chip-green { background: rgba(52,199,89,0.10); color: #34C759; }
 .chip-pink { background: rgba(224,85,170,0.10); color: #e055aa; }
 .chip-orange { background: rgba(255,149,0,0.12); color: #FF9500; }
-.chip-gray { background: #F2F2F7; color: #6B6B6B; }
+.chip-gray { background: #F5F5F5; color: #6B6B6B; }
 .org-dashed-btn { background: var(--white); border: 1.5px dashed var(--gray2); border-radius: var(--r-inner); padding: 11px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--gray1); font-size: 12px; font-weight: 500; margin-top: 4px; }
 .org-empty, .org-budget-set { background: var(--white); border-radius: var(--r-card); box-shadow: var(--shadow-card); padding: 16px; }
 .org-empty h2, .org-budget-set h2 { font-size: 16px; font-weight: 800; margin-bottom: 10px; }

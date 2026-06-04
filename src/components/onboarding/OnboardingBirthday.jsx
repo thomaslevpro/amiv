@@ -40,7 +40,7 @@ export default function OnboardingBirthday({ userId, onNext }) {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#faf9fb', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#FFFFFF', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 24px 0' }}>
 
         <div style={{ paddingTop: 12, marginBottom: 32 }}>

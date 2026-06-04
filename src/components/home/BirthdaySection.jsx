@@ -553,7 +553,7 @@ export default function BirthdaySection({
         </div>
       )}
 
-      <section style={{ background: '#faf9fb', padding: '2px 0 18px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
+      <section style={{ background: '#FFFFFF', padding: '2px 0 18px', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif' }}>
         <style>{`
           [data-birthday-scroll]::-webkit-scrollbar { display: none; }
         `}</style>

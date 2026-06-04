@@ -15,7 +15,7 @@ export default function EventRsvpButtons({ rsvpStatus, myRsvp, loading, currentU
         ].map(({ status, label }) => {
           const active = rsvpStatus === status
           return (
-            <div key={status} onClick={() => !loading && onRsvp(status)} style={{ flex: 1, minHeight: 44, padding: '11px 8px', borderRadius: active ? 14 : 12, textAlign: 'center', fontSize: 13, fontWeight: 800, cursor: loading ? 'default' : 'pointer', background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', color: active ? '#fff' : '#1C1C1E', boxShadow: 'none', transition: 'all 0.15s', opacity: loading ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+            <div key={status} onClick={() => !loading && onRsvp(status)} style={{ flex: 1, minHeight: 44, padding: '11px 8px', borderRadius: active ? 14 : 12, textAlign: 'center', fontSize: 13, fontWeight: 800, cursor: loading ? 'default' : 'pointer', background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5', color: active ? '#fff' : '#1C1C1E', boxShadow: 'none', transition: 'all 0.15s', opacity: loading ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'nowrap' }}>
               {status === 'declined' && <span style={{ fontSize: 18, lineHeight: 0.8, fontWeight: 500 }}>×</span>}
               {label}
             </div>

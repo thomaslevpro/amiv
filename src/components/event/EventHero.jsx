@@ -42,7 +42,9 @@ export default function EventHero({ event, eventOverrides, canManage, onBack, on
   const countdown = isPollActive ? null : countdownDays(displayDate)
   const rawCoverImage = eventOverrides.cover_image !== undefined ? eventOverrides.cover_image : event.cover_image
   const coverUrl = rawCoverImage
-    ? supabase.storage.from('event-covers').getPublicUrl(rawCoverImage).data.publicUrl
+    ? rawCoverImage.startsWith('http') || rawCoverImage.startsWith('/')
+      ? rawCoverImage
+      : supabase.storage.from('event-covers').getPublicUrl(rawCoverImage).data.publicUrl
     : null
 
   return (

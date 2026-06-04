@@ -123,7 +123,7 @@ export default function AvailabilityCard({ post, currentUserId, onRespond, onCon
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 14 }}>
         {(post.moods ?? []).map(mood => (
-          <span key={mood} style={{ background: '#F2F2F7', borderRadius: 999, padding: '6px 10px', fontSize: 13, fontWeight: 700, color: '#3A3A3C' }}>
+          <span key={mood} style={{ background: '#F5F5F5', borderRadius: 999, padding: '6px 10px', fontSize: 13, fontWeight: 700, color: '#3A3A3C' }}>
             {moodEmoji[mood] ?? '🟢'} {mood}
           </span>
         ))}

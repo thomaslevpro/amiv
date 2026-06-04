@@ -276,7 +276,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#F2F2F7',
+          background: '#F5F5F5',
           borderRadius: '20px 20px 0 0',
           boxShadow: '0 -4px 32px rgba(0,0,0,0.14)',
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
@@ -375,7 +375,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
             </div>
           </div>
 
-          <div style={{ width: 1, background: '#F2F2F7', margin: '14px 0' }} />
+          <div style={{ width: 1, background: '#F5F5F5', margin: '14px 0' }} />
 
           <div style={{
             flex: 1, display: 'flex', flexDirection: 'column',
@@ -458,7 +458,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
                     fontWeight: 700,
                     background: active
                       ? 'linear-gradient(90deg, #e055aa, #f5a623)'
-                      : '#F2F2F7',
+                      : '#F5F5F5',
                     color: active ? '#fff' : '#8E8E93',
                     transition: 'background 0.18s, color 0.18s',
                   }}
@@ -567,7 +567,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
               <div style={{
                 marginTop: 12,
                 borderRadius: 12,
-                border: '1px solid #F2F2F7',
+                border: '1px solid #F5F5F5',
                 overflow: 'hidden',
               }}>
                 {friendsLoading ? (
@@ -584,7 +584,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
                       style={{
                         width: '100%',
                         border: 'none',
-                        borderBottom: index < friends.length - 1 ? '1px solid #F2F2F7' : 'none',
+                        borderBottom: index < friends.length - 1 ? '1px solid #F5F5F5' : 'none',
                         background: '#fff',
                         padding: '10px 11px',
                         display: 'flex',

@@ -100,7 +100,7 @@ export default function PlusOneReviewList({ eventId, isOrganizer }) {
                 type="button"
                 onClick={() => handleResponse(request, 'declined')}
                 disabled={savingId === request.key}
-                style={{ flex: 1, borderRadius: 12, padding: '10px 12px', background: '#F2F2F7', color: 'var(--black)', fontSize: 13, fontWeight: 800, opacity: savingId === request.key ? 0.55 : 1 }}
+                style={{ flex: 1, borderRadius: 12, padding: '10px 12px', background: '#F5F5F5', color: 'var(--black)', fontSize: 13, fontWeight: 800, opacity: savingId === request.key ? 0.55 : 1 }}
               >
                 ✗ Refuser
               </button>

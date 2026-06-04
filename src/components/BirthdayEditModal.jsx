@@ -46,7 +46,7 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: '#F2F2F7',
+          background: '#F5F5F5',
           borderRadius: '20px 20px 0 0',
           width: '100%',
           padding: '24px 20px',

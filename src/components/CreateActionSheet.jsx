@@ -60,9 +60,9 @@ export default function CreateActionSheet({ onClose, onCreateEvent, onAddAmiv })
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
             }}
-            onTouchStart={e => e.currentTarget.style.background = '#F2F2F7'}
+            onTouchStart={e => e.currentTarget.style.background = '#F5F5F5'}
             onTouchEnd={e => e.currentTarget.style.background = 'transparent'}
-            onMouseDown={e => e.currentTarget.style.background = '#F2F2F7'}
+            onMouseDown={e => e.currentTarget.style.background = '#F5F5F5'}
             onMouseUp={e => e.currentTarget.style.background = 'transparent'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
@@ -84,7 +84,7 @@ export default function CreateActionSheet({ onClose, onCreateEvent, onAddAmiv })
           </div>
 
           {/* Divider */}
-          <div style={{ height: 1, background: '#F2F2F7', marginLeft: 78 }} />
+          <div style={{ height: 1, background: '#F5F5F5', marginLeft: 78 }} />
 
           {/* Row 2 — Ajouter un amiv */}
           <div
@@ -95,15 +95,15 @@ export default function CreateActionSheet({ onClose, onCreateEvent, onAddAmiv })
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
             }}
-            onTouchStart={e => e.currentTarget.style.background = '#F2F2F7'}
+            onTouchStart={e => e.currentTarget.style.background = '#F5F5F5'}
             onTouchEnd={e => e.currentTarget.style.background = 'transparent'}
-            onMouseDown={e => e.currentTarget.style.background = '#F2F2F7'}
+            onMouseDown={e => e.currentTarget.style.background = '#F5F5F5'}
             onMouseUp={e => e.currentTarget.style.background = 'transparent'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
             <div style={{
               width: 52, height: 52, borderRadius: 16, flexShrink: 0,
-              background: '#F2F2F7',
+              background: '#F5F5F5',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <UserPlus size={24} color="#1C1C1E" strokeWidth={1.8} />

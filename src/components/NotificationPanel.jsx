@@ -80,7 +80,7 @@ function Avatar({ notification }) {
   ) : sender?.avatar_url ? (
     <img src={sender.avatar_url} alt={displayName(sender)} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
   ) : notification.type === 'message_received' && !sender ? (
-    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F2F2F7', display: 'grid', placeItems: 'center', fontSize: 21 }}>
+    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F5F5F5', display: 'grid', placeItems: 'center', fontSize: 21 }}>
       💬
     </div>
   ) : (
@@ -189,7 +189,7 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
           <button
             type="button"
             onClick={event => handleFriendAction('decline', event)}
-            style={{ border: 'none', borderRadius: 20, background: '#F2F2F7', color: '#1C1C1E', fontSize: 12, fontWeight: 700, padding: '8px 10px', cursor: 'pointer' }}
+            style={{ border: 'none', borderRadius: 20, background: '#F5F5F5', color: '#1C1C1E', fontSize: 12, fontWeight: 700, padding: '8px 10px', cursor: 'pointer' }}
           >
             Refuser
           </button>
@@ -198,7 +198,7 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
         <button
           type="button"
           onClick={event => { event.stopPropagation(); onNavigate(notification) }}
-          style={{ border: 'none', borderRadius: 20, background: '#F2F2F7', color: '#1C1C1E', fontSize: 12, fontWeight: 700, padding: '8px 13px', cursor: 'pointer', flexShrink: 0 }}
+          style={{ border: 'none', borderRadius: 20, background: '#F5F5F5', color: '#1C1C1E', fontSize: 12, fontWeight: 700, padding: '8px 13px', cursor: 'pointer', flexShrink: 0 }}
         >
           Créer
         </button>
@@ -452,7 +452,7 @@ export default function NotificationPanel({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#F2F2F7', color: '#1C1C1E', display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0 }}
+            style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#F5F5F5', color: '#1C1C1E', display: 'grid', placeItems: 'center', cursor: 'pointer', flexShrink: 0 }}
           >
             <ChevronLeft size={20} strokeWidth={2.2} />
           </button>
@@ -473,7 +473,7 @@ export default function NotificationPanel({
                 style={{
                   border: 'none',
                   borderRadius: 20,
-                  background: active ? GRADIENT : '#F2F2F7',
+                  background: active ? GRADIENT : '#F5F5F5',
                   color: active ? '#fff' : '#8E8E93',
                   padding: '8px 15px',
                   fontSize: 13,

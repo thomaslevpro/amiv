@@ -142,7 +142,7 @@ export default function OnboardingUsername({ userId, onNext, variant }) {
   const embedded = variant === 'embedded'
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#faf9fb', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#FFFFFF', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 24px 48px', overflowY: 'auto' }}>
         {!embedded && (
           <div style={{ paddingTop: 12, marginBottom: 32 }}>
@@ -158,7 +158,7 @@ export default function OnboardingUsername({ userId, onNext, variant }) {
 
         <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', padding: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 7, fontWeight: 600 }}>Nom d’utilisateur</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F2F2F7', borderRadius: 14, padding: '0 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F5F5F5', borderRadius: 14, padding: '0 14px' }}>
             <span style={{ fontSize: 15, color: '#8E8E93', fontWeight: 700 }}>amiv.app/u/</span>
             <input
               value={username}

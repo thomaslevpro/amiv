@@ -17,7 +17,7 @@ export default function OnboardingNotifications({ onNext }) {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#faf9fb', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#FFFFFF', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
 
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',

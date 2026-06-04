@@ -167,7 +167,7 @@ export default function PlusOneRequest({
                   gap: 8,
                   boxShadow: 'none',
                 }
-              : { width: '100%', borderRadius: 12, padding: '12px 14px', background: '#F2F2F7', color: 'var(--black)', fontSize: 14, fontWeight: 800 }}
+              : { width: '100%', borderRadius: 12, padding: '12px 14px', background: '#F5F5F5', color: 'var(--black)', fontSize: 14, fontWeight: 800 }}
           >
             {variant === 'pill' && <UserPlus size={18} strokeWidth={1.8} color="#A8A8AF" />}
             Demander un +1
@@ -199,7 +199,7 @@ export default function PlusOneRequest({
   return (
     <div style={{ ...CARD, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
       <Badge tone="red">❌ +1 refusé</Badge>
-      <button type="button" onClick={() => setOpen(true)} style={{ borderRadius: 12, padding: '9px 12px', background: '#F2F2F7', color: 'var(--black)', fontSize: 13, fontWeight: 800 }}>
+      <button type="button" onClick={() => setOpen(true)} style={{ borderRadius: 12, padding: '9px 12px', background: '#F5F5F5', color: 'var(--black)', fontSize: 13, fontWeight: 800 }}>
         Redemander
       </button>
     </div>

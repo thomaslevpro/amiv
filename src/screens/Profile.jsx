@@ -31,7 +31,7 @@ import FriendsListModal from '../components/profile/FriendsListModal'
 dayjs.locale('fr')
 
 const COLORS = {
-  page: '#faf9fb',
+  page: '#FFFFFF',
   card: '#FFFFFF',
   gradient: 'linear-gradient(135deg, #e055aa, #f5a623)',
   heroGradient: 'linear-gradient(155deg, #e055aa, #f5a623)',

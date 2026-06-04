@@ -185,7 +185,7 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
 
                   {status === 'pending' && (
                     <div style={{
-                      background: '#F2F2F7', borderRadius: 20,
+                      background: '#F5F5F5', borderRadius: 20,
                       padding: '5px 12px', fontSize: 12, fontWeight: 600,
                       color: '#8E8E93', flexShrink: 0,
                     }}>
@@ -239,7 +239,7 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
             style={{
               padding: '15px', borderRadius: 14, textAlign: 'center',
               fontSize: 15, fontWeight: 700,
-              background: canInvite ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7',
+              background: canInvite ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5',
               color: canInvite ? '#fff' : '#8E8E93',
               cursor: (canInvite && !sending) ? 'pointer' : 'default',
               opacity: sending ? 0.6 : 1,

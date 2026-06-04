@@ -106,7 +106,7 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', minHeight: '100dvh' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', minHeight: '100dvh' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 20px 40px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
           {!isOnboarding && onBack && (

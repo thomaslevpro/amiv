@@ -109,7 +109,7 @@ export default function ChangePasswordModal({ isOpen, onClose }) {
         style={{
           width: '100%',
           maxWidth: 430,
-          background: '#F2F2F7',
+          background: '#F5F5F5',
           borderRadius: '20px 20px 0 0',
           padding: '20px 20px max(28px, env(safe-area-inset-bottom))',
           boxShadow: '0 -8px 36px rgba(0,0,0,0.18)',

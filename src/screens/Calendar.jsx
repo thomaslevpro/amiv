@@ -11,7 +11,7 @@ import EventCard from '../components/EventCard'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
-const PAGE_BG = 'linear-gradient(180deg, #fdf6ff 0%, #fff8f2 50%, #fafafa 100%)'
+const PAGE_BG = '#FFFFFF'
 
 function toYMD(date) {
   return date.toISOString().split('T')[0]
@@ -272,13 +272,13 @@ function WeekStrip({ weekOffset, setWeekOffset, selectedDate, setSelectedDate, c
       boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <button onClick={() => setWeekOffset(w => w - 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: '#F2F2F7', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={() => setWeekOffset(w => w - 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: '#F5F5F5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M6 1L1 6l5 5" stroke="#1C1C1E" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <button onClick={onOpenCalendar} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#1C1C1E', textTransform: 'capitalize' }}>
           {monthLabel} ▾
         </button>
-        <button onClick={() => setWeekOffset(w => w + 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: '#F2F2F7', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={() => setWeekOffset(w => w + 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: '#F5F5F5', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="7" height="12" viewBox="0 0 7 12" fill="none"><path d="M1 1l5 5-5 5" stroke="#1C1C1E" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       </div>

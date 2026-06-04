@@ -107,7 +107,7 @@ export default function AddMemoryModal({
         <button
           type="button"
           onClick={openPicker}
-          style={{ position: 'relative', width: '100%', height: 180, border: 'none', borderRadius: 14, background: '#F2F2F7', padding: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: 'pointer' }}
+          style={{ position: 'relative', width: '100%', height: 180, border: 'none', borderRadius: 14, background: '#F5F5F5', padding: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: 'pointer' }}
         >
           {imagePreview ? (
             <>
@@ -150,7 +150,7 @@ export default function AddMemoryModal({
             onChange={event => setText(event.target.value)}
             rows={4}
             placeholder="Décris ce souvenir…"
-            style={{ width: '100%', boxSizing: 'border-box', border: 'none', borderRadius: 12, background: '#F2F2F7', padding: 12, fontSize: 14, color: '#1C1C1E', outline: 'none', resize: 'vertical' }}
+            style={{ width: '100%', boxSizing: 'border-box', border: 'none', borderRadius: 12, background: '#F5F5F5', padding: 12, fontSize: 14, color: '#1C1C1E', outline: 'none', resize: 'vertical' }}
           />
         </label>
 

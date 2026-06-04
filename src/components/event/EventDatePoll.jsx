@@ -14,7 +14,7 @@ export default function EventDatePoll({ dateOptions, myVotes, allVoteCounts, can
           const count = allVoteCounts[opt.id] || 0
           const isWinner = maxVoteCount > 0 && count === maxVoteCount
           return (
-            <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, marginBottom: 8, background: isWinner ? 'rgba(224,85,170,0.08)' : '#F2F2F7', border: isWinner ? '1.5px solid rgba(224,85,170,0.3)' : '1.5px solid transparent' }}>
+            <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, marginBottom: 8, background: isWinner ? 'rgba(224,85,170,0.08)' : '#F5F5F5', border: isWinner ? '1.5px solid rgba(224,85,170,0.3)' : '1.5px solid transparent' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{formatPollDate(opt.proposed_date, opt.proposed_time)}</div>
                 <div style={{ fontSize: 11, color: isWinner ? '#e055aa' : '#8E8E93', marginTop: 2, fontWeight: isWinner ? 700 : 400 }}>
@@ -43,8 +43,8 @@ export default function EventDatePoll({ dateOptions, myVotes, allVoteCounts, can
           <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i > 0 ? '0.5px solid rgba(0,0,0,0.07)' : 'none' }}>
             <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>{formatPollDate(opt.proposed_date, opt.proposed_time)}</div>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <div onClick={() => onVote(opt.id, true)} style={{ padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: myVote === true ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', color: myVote === true ? '#fff' : '#8E8E93', cursor: 'pointer', transition: 'all 0.15s' }}>✓</div>
-              <div onClick={() => onVote(opt.id, false)} style={{ padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: myVote === false ? '#FF3B30' : '#F2F2F7', color: myVote === false ? '#fff' : '#8E8E93', cursor: 'pointer', transition: 'all 0.15s' }}>✕</div>
+              <div onClick={() => onVote(opt.id, true)} style={{ padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: myVote === true ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5', color: myVote === true ? '#fff' : '#8E8E93', cursor: 'pointer', transition: 'all 0.15s' }}>✓</div>
+              <div onClick={() => onVote(opt.id, false)} style={{ padding: '7px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: myVote === false ? '#FF3B30' : '#F5F5F5', color: myVote === false ? '#fff' : '#8E8E93', cursor: 'pointer', transition: 'all 0.15s' }}>✕</div>
             </div>
           </div>
         )

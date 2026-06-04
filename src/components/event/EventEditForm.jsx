@@ -76,7 +76,7 @@ export default function EventEditForm({
           {(coverPreview || event.cover_image) && (
             <img src={coverPreview || supabase.storage.from('event-covers').getPublicUrl(event.cover_image).data.publicUrl} alt="cover preview" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, marginBottom: 8 }} />
           )}
-          <label style={{ display: 'block', width: '100%', padding: '11px', borderRadius: 10, background: '#F2F2F7', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#1C1C1E', cursor: 'pointer', boxSizing: 'border-box' }}>
+          <label style={{ display: 'block', width: '100%', padding: '11px', borderRadius: 10, background: '#F5F5F5', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#1C1C1E', cursor: 'pointer', boxSizing: 'border-box' }}>
             {coverPreview ? '🖼 Changer la photo' : event.cover_image ? '🖼 Remplacer la photo' : '📷 Ajouter une photo'}
             <input
               type="file"
@@ -92,7 +92,7 @@ export default function EventEditForm({
           </label>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={onCancel} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#F2F2F7', color: '#8E8E93', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          <button type="button" onClick={onCancel} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#F5F5F5', color: '#8E8E93', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             Annuler
           </button>
           <button type="submit" disabled={saving} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}>

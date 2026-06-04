@@ -52,7 +52,7 @@ function StatusChip({ status }) {
       ? { label: 'En attente', bg: 'rgba(245,166,35,0.15)', color: '#A35E00' }
       : normalized === 'no'
         ? { label: 'Décliné', bg: 'rgba(255,59,48,0.10)', color: '#D12A22' }
-        : { label: 'En attente', bg: '#F2F2F7', color: '#6B6B72' }
+        : { label: 'En attente', bg: '#F5F5F5', color: '#6B6B72' }
 
   return (
     <span style={{
@@ -183,7 +183,7 @@ function EventCard({ event, onClick }) {
               {stats.yes} oui · {stats.maybe} att.
             </div>
           </div>
-          <div style={{ height: 6, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden' }}>
+          <div style={{ height: 6, borderRadius: 999, background: '#F5F5F5', overflow: 'hidden' }}>
             <div style={{
               width: `${progress}%`,
               height: '100%',
@@ -251,7 +251,7 @@ export default function AllEvents({ onBack, onEventClick }) {
   const past = events.filter(e => e.date && new Date(e.date) < new Date())
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#faf9fb', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden' }}>
 
       {/* Header */}
       <div style={{ background: '#fff', padding: '10px 16px 14px', borderBottom: '0.5px solid rgba(0,0,0,0.08)', flexShrink: 0 }}>

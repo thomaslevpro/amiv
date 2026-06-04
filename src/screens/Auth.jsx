@@ -97,7 +97,7 @@ export default function Auth({ initialIsLogin = false }) {
         {/* Form */}
         <div style={{ width: '100%', maxWidth: 340 }}>
           {/* Toggle */}
-          <div style={{ display: 'flex', background: '#F2F2F7', borderRadius: 12, padding: 4, marginBottom: 24 }}>
+          <div style={{ display: 'flex', background: '#F5F5F5', borderRadius: 12, padding: 4, marginBottom: 24 }}>
             {['Connexion', 'Inscription'].map((t, i) => (
               <div key={i} onClick={() => { setIsLogin(i === 0); setError(null) }} style={{
                 flex: 1, padding: '9px 0', borderRadius: 10, textAlign: 'center',
@@ -113,7 +113,7 @@ export default function Auth({ initialIsLogin = false }) {
           </div>
 
           {/* Email */}
-          <div style={{ background: '#F2F2F7', borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
+          <div style={{ background: '#F5F5F5', borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Email</div>
             <input
               type="email"
@@ -125,7 +125,7 @@ export default function Auth({ initialIsLogin = false }) {
           </div>
 
           {/* Password */}
-          <div style={{ background: '#F2F2F7', borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
+          <div style={{ background: '#F5F5F5', borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Mot de passe</div>
             <input
               type="password"
@@ -147,7 +147,7 @@ export default function Auth({ initialIsLogin = false }) {
           {/* Submit */}
           <div onClick={handle} style={{
             width: '100%', padding: 16, marginTop: 6,
-            background: loading ? '#F2F2F7' : 'linear-gradient(135deg,#e055aa,#f5a623)',
+            background: loading ? '#F5F5F5' : 'linear-gradient(135deg,#e055aa,#f5a623)',
             color: loading ? '#8E8E93' : '#fff',
             borderRadius: 16, fontSize: 16, fontWeight: 700,
             textAlign: 'center', cursor: loading ? 'not-allowed' : 'pointer',

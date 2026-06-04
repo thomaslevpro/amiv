@@ -109,7 +109,7 @@ export default function FriendProfileModal({ friend, onClose, onSendMessage }) {
               onClick={onClose}
               style={{
                 width: '100%', padding: '14px 0', borderRadius: 12,
-                background: '#F2F2F7',
+                background: '#F5F5F5',
                 color: '#1C1C1E', fontSize: 15, fontWeight: 600,
                 border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               }}

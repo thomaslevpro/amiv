@@ -63,7 +63,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F2F2F7', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden' }}>
       <EventHero event={heroEvent} eventOverrides={eventOverrides} canManage={canManage} onBack={onBack} onEdit={handleEditOpen} onCoverChange={handleHeroCoverChange} coverInputRef={coverInputRef} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
@@ -129,7 +129,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       {showCoOrgModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 16px 20px' }}>
           <div style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 20, padding: '18px 16px 16px', boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}><div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#1C1C1E' }}>Ajouter un co-organisateur</div><button type="button" onClick={() => setShowCoOrgModal(false)} style={{ width: 34, height: 34, borderRadius: 17, border: 'none', background: '#F2F2F7', color: '#8E8E93', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 18 }}>×</button></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}><div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#1C1C1E' }}>Ajouter un co-organisateur</div><button type="button" onClick={() => setShowCoOrgModal(false)} style={{ width: 34, height: 34, borderRadius: 17, border: 'none', background: '#F5F5F5', color: '#8E8E93', display: 'grid', placeItems: 'center', cursor: 'pointer', fontSize: 18 }}>×</button></div>
             {coOrgError && <div style={{ fontSize: 12, color: '#FF3B30', fontWeight: 600, marginBottom: 10 }}>{coOrgError}</div>}
             {coOrgLoading ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#8E8E93', fontSize: 14 }}>Chargement…</div> : confirmedParticipants.length === 0 ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#8E8E93', fontSize: 14 }}>Aucun participant confirmé disponible</div> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
@@ -148,7 +148,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           <div style={{ background: '#fff', borderRadius: 20, padding: '24px 20px 16px', width: '100%', maxWidth: 430, boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E', textAlign: 'center', marginBottom: 10 }}>Supprimer l'événement ?</div>
             <div style={{ fontSize: 14, color: '#8E8E93', textAlign: 'center', lineHeight: 1.5, marginBottom: 24 }}>Cette action est irréversible. Tous les invités seront notifiés de l'annulation.</div>
-            <div style={{ display: 'flex', gap: 10 }}><button onClick={() => setShowDeleteModal(false)} disabled={deleting} style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: '#F2F2F7', color: '#1C1C1E', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Annuler</button><button onClick={handleDeleteEvent} disabled={deleting} style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: '#FF3B30', color: '#fff', fontSize: 15, fontWeight: 700, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.6 : 1 }}>{deleting ? '…' : 'Supprimer'}</button></div>
+            <div style={{ display: 'flex', gap: 10 }}><button onClick={() => setShowDeleteModal(false)} disabled={deleting} style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: '#F5F5F5', color: '#1C1C1E', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>Annuler</button><button onClick={handleDeleteEvent} disabled={deleting} style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', background: '#FF3B30', color: '#fff', fontSize: 15, fontWeight: 700, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.6 : 1 }}>{deleting ? '…' : 'Supprimer'}</button></div>
           </div>
         </div>
       )}

@@ -8,7 +8,7 @@ export default function EventInfoCard({ displayLocation, organizers, userId, eve
   return (
     <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F2F2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F5F5F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <MapPin size={17} strokeWidth={1.8} color="#8E8E93" />
         </div>
         <div style={{ flex: 1 }}>
@@ -33,7 +33,7 @@ export default function EventInfoCard({ displayLocation, organizers, userId, eve
               )}
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{displayName}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: owner ? '#fff' : '#8E8E93', background: owner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', padding: '1px 7px', borderRadius: 20, display: 'inline-block', marginTop: 2 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: owner ? '#fff' : '#8E8E93', background: owner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5', padding: '1px 7px', borderRadius: 20, display: 'inline-block', marginTop: 2 }}>
                   {owner ? 'Organisateur' : 'Co-organisateur'}
                 </div>
               </div>

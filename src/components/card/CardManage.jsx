@@ -91,7 +91,7 @@ export default function CardManage({ eventId, currentUserId }) {
           )}
 
           {messages.length === 0 ? (
-            <div style={{ background: '#F2F2F7', borderRadius: 14, padding: 16, textAlign: 'center', color: '#8E8E93', fontSize: 13 }}>
+            <div style={{ background: '#F5F5F5', borderRadius: 14, padding: 16, textAlign: 'center', color: '#8E8E93', fontSize: 13 }}>
               Aucune contribution pour l’instant.
             </div>
           ) : (
@@ -99,7 +99,7 @@ export default function CardManage({ eventId, currentUserId }) {
               {messages.map(message => {
                 const name = displayName(message.profile)
                 return (
-                  <div key={message.id} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 14, background: '#F2F2F7' }}>
+                  <div key={message.id} style={{ display: 'flex', gap: 10, padding: 10, borderRadius: 14, background: '#F5F5F5' }}>
                     {message.photo_url ? (
                       <img src={message.photo_url} alt="" style={{ width: 54, height: 54, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
                     ) : (

@@ -33,7 +33,7 @@ export default function FriendSuggestions({ suggestions, onAdd }) {
           <div key={s.user_id} style={{
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '12px 16px',
-            borderBottom: i < suggestions.length - 1 ? '1px solid #F2F2F7' : 'none',
+            borderBottom: i < suggestions.length - 1 ? '1px solid #F5F5F5' : 'none',
           }}>
             <Avatar url={s.avatar_url} name={s.name} />
             <div style={{ flex: 1, minWidth: 0 }}>

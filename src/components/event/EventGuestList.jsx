@@ -30,7 +30,7 @@ export default function EventGuestList({ participants, guestRsvps, eventGuests, 
           const chipColor = guest.rsvp_status === 'confirmed' ? '#34C759' : guest.rsvp_status === 'declined' ? '#FF3B30' : '#8E8E93'
           const chipLabel = guest.rsvp_status === 'confirmed' ? 'Confirmé' : guest.rsvp_status === 'declined' ? 'Décliné' : 'En attente'
           const btnDisabled = guest.is_friend || guest.friend_request_sent
-          const btnBg = guest.is_friend ? 'rgba(52,199,89,0.10)' : '#F2F2F7'
+          const btnBg = guest.is_friend ? 'rgba(52,199,89,0.10)' : '#F5F5F5'
           const btnColor = guest.is_friend ? '#34C759' : guest.friend_request_sent ? '#8E8E93' : '#1C1C1E'
           const btnLabel = guest.is_friend ? 'Amis ✓' : guest.friend_request_sent ? 'Demande envoyée' : '+ Ajouter'
           return (

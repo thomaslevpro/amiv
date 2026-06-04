@@ -112,7 +112,7 @@ function ReminderSheet({ birthday, onClose, onSaved, onToast }) {
           width: '100%',
           maxHeight: '82vh',
           overflowY: 'auto',
-          background: '#faf9fb',
+          background: '#FFFFFF',
           borderRadius: '24px 24px 0 0',
           padding: '10px 16px 28px',
           boxShadow: '0 -12px 36px rgba(18,31,46,0.18)',
@@ -207,7 +207,7 @@ function ReminderSheet({ birthday, onClose, onSaved, onToast }) {
                     cursor: 'pointer',
                     fontSize: 13,
                     fontWeight: 700,
-                    background: active ? 'linear-gradient(90deg, #e055aa, #f5a623)' : '#F2F2F7',
+                    background: active ? 'linear-gradient(90deg, #e055aa, #f5a623)' : '#F5F5F5',
                     color: active ? '#fff' : '#8E8E93',
                   }}
                 >

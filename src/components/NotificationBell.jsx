@@ -32,7 +32,7 @@ export default function NotificationBell({ unreadCount = 0, onClick }) {
               height: 14,
               borderRadius: 7,
               background: '#FF3B30',
-              border: '2px solid #F2F2F7',
+              border: '2px solid #F5F5F5',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

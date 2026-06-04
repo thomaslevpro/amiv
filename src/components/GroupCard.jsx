@@ -297,7 +297,7 @@ export default function GroupCard({ eventId, eventDate, isOrganizer }) {
           <div style={{ fontSize: 14, lineHeight: 1.4, color: '#8E8E93', marginBottom: 24 }}>
             Vos invités vous écrivent des messages en secret
           </div>
-          <div style={{ height: 8, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden', marginBottom: 10 }}>
+          <div style={{ height: 8, borderRadius: 999, background: '#F5F5F5', overflow: 'hidden', marginBottom: 10 }}>
             <div style={{ width: `${loading ? 0 : progressWidth}%`, height: '100%', background: GRADIENT, borderRadius: 999, transition: 'width 0.25s' }} />
           </div>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#993556' }}>
@@ -330,7 +330,7 @@ export default function GroupCard({ eventId, eventDate, isOrganizer }) {
         <div style={{ fontSize: 13, color: '#8E8E93', lineHeight: 1.35, marginBottom: 12 }}>
           Elle sera révélée le {formatRevealDate(eventDate)}.
         </div>
-        <div style={{ height: 6, borderRadius: 999, background: '#F2F2F7', overflow: 'hidden', marginBottom: 8 }}>
+        <div style={{ height: 6, borderRadius: 999, background: '#F5F5F5', overflow: 'hidden', marginBottom: 8 }}>
           <div style={{ width: `${Math.min(100, Math.max(10, messageCount * 12))}%`, height: '100%', background: GRADIENT, borderRadius: 999 }} />
         </div>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#993556' }}>

@@ -112,7 +112,7 @@ export default function CoOrganizers({ eventId, isOwner }) {
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#1C1C1E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {displayName(profile)}
                     </div>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 4, padding: '3px 9px', borderRadius: 20, background: isCoOrganizer ? '#F2F2F7' : gradient, color: isCoOrganizer ? '#8E8E93' : '#fff', fontSize: 11, fontWeight: 800 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 4, padding: '3px 9px', borderRadius: 20, background: isCoOrganizer ? '#F5F5F5' : gradient, color: isCoOrganizer ? '#8E8E93' : '#fff', fontSize: 11, fontWeight: 800 }}>
                       {isCoOrganizer ? 'Co-organisateur' : 'Organisateur'}
                     </div>
                   </div>
@@ -143,7 +143,7 @@ export default function CoOrganizers({ eventId, isOwner }) {
           <form onSubmit={handleAdd} style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 20, padding: '18px 16px 16px', boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#1C1C1E' }}>Ajouter un co-organisateur</div>
-              <button type="button" onClick={() => setModalOpen(false)} style={{ width: 34, height: 34, borderRadius: 17, border: 'none', background: '#F2F2F7', color: '#8E8E93', display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+              <button type="button" onClick={() => setModalOpen(false)} style={{ width: 34, height: 34, borderRadius: 17, border: 'none', background: '#F5F5F5', color: '#8E8E93', display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
                 <X size={18} strokeWidth={2} />
               </button>
             </div>

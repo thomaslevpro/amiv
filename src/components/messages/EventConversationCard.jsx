@@ -89,7 +89,7 @@ export default function EventConversationCard({ conversation, onOpenChannel, onH
   }, [showMenu])
 
   return (
-    <div style={{ background: WHITE, borderRadius: 20, marginBottom: 10, position: 'relative' }}>
+    <div style={{ background: WHITE, borderRadius: 20, marginBottom: 10, position: 'relative', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.04)' }}>
       <div style={{ width: '100%', background: 'transparent', padding: '14px 14px 12px', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', fontFamily: FONT }}>
         <div style={{ width: 38, height: 38, borderRadius: 10, background: GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <CalendarFold size={20} strokeWidth={1.7} color={WHITE} />

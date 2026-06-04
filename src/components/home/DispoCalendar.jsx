@@ -505,7 +505,7 @@ export default function DispoCalendar({
           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
           --color-text-primary: #1C1C1E;
           --color-text-secondary: #8E8E93;
-          --color-background-secondary: #F2F2F7;
+          --color-background-secondary: #F5F5F5;
           --color-border-secondary: rgba(60,60,67,0.24);
           --color-border-tertiary: rgba(60,60,67,0.12);
           color: #1C1C1E;
@@ -552,7 +552,7 @@ export default function DispoCalendar({
           height: 32px;
           border-radius: 50%;
           border: none;
-          background: #F2F2F7;
+          background: #F5F5F5;
           color: #8E8E93;
           display: flex;
           align-items: center;
@@ -884,7 +884,7 @@ export default function DispoCalendar({
           width: 26px;
           height: 26px;
           border-radius: 8px;
-          background: #F2F2F7;
+          background: #F5F5F5;
           color: #888;
           display: inline-flex;
           align-items: center;

@@ -1,194 +1,273 @@
+import { useEffect, useRef, useState } from 'react'
+import { ArrowUpRight } from 'lucide-react'
+
+/**
+ * @typedef {Object} Card
+ * @property {string} id
+ * @property {string} title
+ * @property {string} createType
+ * @property {string} eventType
+ * @property {string} image
+ * @property {string} coverImage
+ */
+
+/**
+ * @typedef {Object} TrendingNowProps
+ * @property {(data: { title: string, type: string, eventType: string, emoji: string, coverImage: string }) => void} [onCardClick]
+ */
+
+/** @type {Card[]} */
 const cards = [
   {
-    title: 'Coffee time',
-    emoji: '☕',
-    label: 'Populaire en ce moment',
-    subtitle: "Une pause café s'impose, non ?",
-    cta: 'Organiser un café →',
-    emojis: ['☕', '🥐', '💬'],
-    bgColor: '#18101a',
-    blobs: ['#e055aa', '#f5a623'],
-    blob1: { top: -20, left: 18, size: 122 },
-    blob2: { bottom: 18, right: 18, size: 88 },
+    id: 'brunch',
+    title: "It's Brunch o'Clock",
+    createType: 'Repas',
+    eventType: 'brunch',
+    image: '/trending/brunch.png',
+    coverImage: '/trending/brunch.png',
   },
   {
-    title: 'Dîner entre amis',
-    emoji: '🍽️',
-    label: 'Ce week-end',
-    subtitle: 'Les meilleurs dîners sont improvisés',
-    cta: 'Organiser un dîner →',
-    emojis: ['🥂', '🍝', '🕯️'],
-    bgColor: '#0d1710',
-    blobs: ['#34C759', '#1D9E75'],
-    blob1: { top: -24, right: 20, size: 116 },
-    blob2: { bottom: 20, left: 16, size: 86 },
+    id: 'apero',
+    title: 'Apéro surprise',
+    createType: 'Soirée',
+    eventType: 'apero',
+    image: '/trending/Apero.png',
+    coverImage: '/trending/Apero.png',
   },
   {
-    title: "Planif' voyage d'été",
-    emoji: '✈️',
-    label: 'Saison estivale',
-    subtitle: "Organise les vacances avant qu'il soit trop tard",
-    cta: "Lancer la planif' →",
-    emojis: ['🏖️', '✈️', '🗺️'],
-    bgColor: '#0a1020',
-    blobs: ['#007AFF', '#5856D6'],
-    blob1: { top: -20, left: 72, size: 128 },
-    blob2: { bottom: 16, right: 18, size: 90 },
+    id: 'cremaillere',
+    title: 'Crémai\nllère',
+    createType: 'Soirée',
+    eventType: 'cremaillere',
+    image: '/trending/cremaillere.png',
+    coverImage: '/trending/cremaillere.png',
   },
   {
-    title: 'Soirée ciné',
-    emoji: '🎬',
-    label: 'Soirée culte',
-    subtitle: 'Canapé, pop-corn, film culte — qui est partant ?',
-    cta: 'Organiser une soirée →',
-    emojis: ['🎬', '🍿', '🛋️'],
-    bgColor: '#100a0a',
-    blobs: ['#FF3B30', '#FF9500'],
-    blob1: { top: -22, right: 34, size: 120 },
-    blob2: { bottom: 18, left: 22, size: 84 },
+    id: 'jeux',
+    title: 'JEUX',
+    createType: 'Soirée',
+    eventType: 'games',
+    image: '/trending/Jeux.png',
+    coverImage: '/trending/Jeux.png',
+  },
+  {
+    id: 'netflix',
+    title: 'Soirée\nNetflix',
+    createType: 'Soirée',
+    eventType: 'netflix',
+    image: '/trending/netflix.png',
+    coverImage: '/trending/netflix.png',
+  },
+  {
+    id: 'dinner',
+    title: 'Dîner',
+    createType: 'Repas',
+    eventType: 'dinner',
+    image: '/trending/Diner.png',
+    coverImage: '/trending/Diner.png',
+  },
+  {
+    id: 'soleil',
+    title: 'Bain de\nsoleil',
+    createType: 'Autre',
+    eventType: 'soleil',
+    image: '/trending/soleil.png',
+    coverImage: '/trending/soleil.png',
+  },
+  {
+    id: 'expo',
+    title: 'Expo\ntime',
+    createType: 'Autre',
+    eventType: 'expo',
+    image: '/trending/expo.png',
+    coverImage: '/trending/expo.png',
+  },
+  {
+    id: 'musee',
+    title: 'Musée',
+    createType: 'Autre',
+    eventType: 'musee',
+    image: '/trending/musee.jpg',
+    coverImage: '/trending/musee.jpg',
+  },
+  {
+    id: 'dancing',
+    title: 'Dancing\nQueen',
+    createType: 'Soirée',
+    eventType: 'dancing',
+    image: '/trending/dancing.png',
+    coverImage: '/trending/dancing.png',
   },
 ]
 
-const miniCardTransforms = [
-  'rotate(-8deg) translateY(4px)',
-  'rotate(2deg)',
-  'rotate(9deg) translateY(6px)',
-]
+const CARD_WIDTH = 200
+const CARD_GAP = 16
+const CARD_STEP = CARD_WIDTH + CARD_GAP
 
+/** @param {TrendingNowProps} props */
 export default function TrendingNow({ onCardClick }) {
+  const scrollRef = useRef(null)
+  const isResettingRef = useRef(false)
+  const [availableImages, setAvailableImages] = useState(null)
+  const [scrollLeft, setScrollLeft] = useState(0)
+
+  const imageCards = cards.filter(card => card.image)
+  const visibleCards = availableImages
+    ? imageCards.filter(card => availableImages.has(card.image))
+    : []
+  const CARDS = [...visibleCards, ...visibleCards, ...visibleCards].filter(card => card.image)
+  const loopOffset = visibleCards.length * CARD_STEP
+
+  useEffect(() => {
+    let cancelled = false
+
+    Promise.all(
+      imageCards.map(
+        card =>
+          new Promise(resolve => {
+            const img = new Image()
+            img.onload = () => resolve(card.image)
+            img.onerror = () => resolve(null)
+            img.src = card.image
+          })
+      )
+    ).then(results => {
+      if (!cancelled) setAvailableImages(new Set(results.filter(Boolean)))
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !loopOffset) return
+    el.scrollLeft = loopOffset
+    setScrollLeft(loopOffset)
+  }, [loopOffset])
+
+  function resetScrollPosition(el, nextScrollLeft) {
+    if (isResettingRef.current) return
+    isResettingRef.current = true
+    const previousBehavior = el.style.scrollBehavior
+    el.style.scrollBehavior = 'auto'
+    el.scrollLeft = nextScrollLeft
+    setScrollLeft(nextScrollLeft)
+    requestAnimationFrame(() => {
+      el.style.scrollBehavior = previousBehavior || 'smooth'
+      isResettingRef.current = false
+    })
+  }
+
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el || isResettingRef.current || !loopOffset) return
+
+    setScrollLeft(el.scrollLeft)
+
+    if (el.scrollLeft < loopOffset) {
+      resetScrollPosition(el, el.scrollLeft + loopOffset)
+    } else if (el.scrollLeft >= loopOffset * 2) {
+      resetScrollPosition(el, el.scrollLeft - loopOffset)
+    }
+  }
+
+  function handleCardClick(card) {
+    onCardClick?.({
+      title: card.title.replace(/\n/g, ' '),
+      type: card.createType,
+      eventType: card.eventType,
+      emoji: '🎉',
+      coverImage: card.coverImage,
+    })
+  }
+
+  const containerCenter = scrollRef.current ? scrollRef.current.offsetWidth / 2 : 0
+
   return (
-    <>
-      <style>{`[data-trending-now]::-webkit-scrollbar { display: none; }`}</style>
+    <section style={{ marginBottom: 18 }}>
       <div
-        data-trending-now
         style={{
           display: 'flex',
-          gap: 10,
+          alignItems: 'center',
+          gap: 7,
+          marginBottom: 12,
+          padding: '0 2px',
+        }}
+      >
+        <ArrowUpRight size={15} color="#e055aa" strokeWidth={2.7} />
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '0.09em',
+            textTransform: 'uppercase',
+            color: 'var(--gray1)',
+          }}
+        >
+          TRENDING NOW
+        </span>
+      </div>
+
+      <style>{`[data-trending-now]::-webkit-scrollbar { display: none; }`}</style>
+      <div
+        ref={scrollRef}
+        data-trending-now
+        onScroll={handleScroll}
+        style={{
+          display: 'flex',
+          gap: CARD_GAP,
           overflowX: 'auto',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           WebkitOverflowScrolling: 'touch',
-          padding: '0 16px',
-          margin: '0 -16px',
+          padding: `4px calc(50% - ${CARD_WIDTH / 2}px) 8px`,
+          margin: 0,
+          perspective: '800px',
+          scrollBehavior: 'smooth',
+          transformStyle: 'preserve-3d',
         }}
       >
-        {cards.map(card => (
-          <div
-            key={card.title}
-            onClick={() => onCardClick?.({ title: card.title, emoji: card.emoji })}
-            style={{
-              position: 'relative',
-              width: 280,
-              height: 280,
-              flexShrink: 0,
-              borderRadius: 22,
-              background: card.bgColor,
-              padding: 18,
-              overflow: 'hidden',
-              cursor: 'pointer',
-              boxSizing: 'border-box',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                width: card.blob1.size,
-                height: card.blob1.size,
-                borderRadius: '50%',
-                background: card.blobs[0],
-                filter: 'blur(46px)',
-                opacity: 0.38,
-                ...card.blob1,
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                width: card.blob2.size,
-                height: card.blob2.size,
-                borderRadius: '50%',
-                background: card.blobs[1],
-                filter: 'blur(42px)',
-                opacity: 0.38,
-                ...card.blob2,
-              }}
-            />
+        {CARDS.map((card, index) => {
+          const cardCenter = index * CARD_STEP + CARD_WIDTH / 2
+          const distanceFromCenter = cardCenter - scrollLeft - containerCenter
+          const absDistance = Math.abs(distanceFromCenter)
+          const maxDist = CARD_STEP
+          const scale = Math.max(0.75, 1 - (absDistance / maxDist) * 0.25)
+          const rotateY = Math.max(-45, Math.min(45, (distanceFromCenter / maxDist) * 45))
+          const translateX = distanceFromCenter > 0 ? -absDistance * 0.08 : absDistance * 0.08
+          const opacity = Math.max(0.5, 1 - (absDistance / maxDist) * 0.5)
+          const zIndex = Math.round(100 - absDistance)
 
-            <div style={{ position: 'relative', zIndex: 2 }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 7 }}>
-                {card.label}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', lineHeight: 1.1, marginBottom: 7 }}>
-                {card.title}
-              </div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.60)', lineHeight: 1.35 }}>
-                {card.subtitle}
-              </div>
-            </div>
-
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 60,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                display: 'flex',
-                alignItems: 'center',
-                zIndex: 3,
-              }}
-            >
-              {card.emojis.map((emoji, index) => (
-                <div
-                  key={`${card.title}-${emoji}`}
-                  style={{
-                    width: 56,
-                    height: 66,
-                    background: 'rgba(255,255,255,0.10)',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 28,
-                    transform: miniCardTransforms[index],
-                    marginRight: index === 0 ? -8 : 0,
-                    marginLeft: index === 2 ? -8 : 0,
-                    zIndex: index === 1 ? 3 : 2,
-                    boxSizing: 'border-box',
-                    backdropFilter: 'blur(14px)',
-                    WebkitBackdropFilter: 'blur(14px)',
-                  }}
-                >
-                  {emoji}
-                </div>
-              ))}
-            </div>
-
+          return (
             <button
               type="button"
+              key={`${card.id}-${index}`}
+              onClick={() => handleCardClick(card)}
               style={{
-                position: 'absolute',
-                left: 18,
-                right: 18,
-                bottom: 18,
-                width: 'calc(100% - 36px)',
+                position: 'relative',
+                width: CARD_WIDTH,
+                height: CARD_WIDTH,
+                flexShrink: 0,
                 border: 'none',
-                borderRadius: 100,
-                padding: '10px 20px',
-                background: '#fff',
-                color: '#1C1C1E',
-                fontSize: 13,
-                fontWeight: 700,
+                borderRadius: 20,
+                overflow: 'hidden',
                 cursor: 'pointer',
-                zIndex: 4,
-                fontFamily: 'inherit',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
+                backgroundImage: `url(${card.image})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                opacity,
+                transform: `perspective(800px) rotateY(${rotateY}deg) scale(${scale}) translateX(${translateX}px)`,
+                transformStyle: 'preserve-3d',
+                transition: 'transform 0.15s ease, opacity 0.15s ease',
+                zIndex,
               }}
-            >
-              {card.cta}
-            </button>
-          </div>
-        ))}
+            />
+          )
+        })}
       </div>
-    </>
+    </section>
   )
 }

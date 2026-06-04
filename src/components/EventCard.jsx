@@ -8,7 +8,7 @@ const AMIV_GRADIENT_135 = 'linear-gradient(135deg, #e055aa, #f5a623)'
 
 function getCoverUrl(coverImage) {
   if (!coverImage) return null
-  if (coverImage.startsWith('http')) return coverImage
+  if (coverImage.startsWith('http') || coverImage.startsWith('/')) return coverImage
   return supabase.storage.from('event-covers').getPublicUrl(coverImage).data.publicUrl
 }
 

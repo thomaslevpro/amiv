@@ -137,12 +137,12 @@ export default function DispoDetailScreen({ postId, currentUserId, onBack, onCre
   }
 
   if (loading) {
-    return <div style={{ flex: 1, background: '#faf9fb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8E8E93', fontWeight: 800 }}>Chargement…</div>
+    return <div style={{ flex: 1, background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8E8E93', fontWeight: 800 }}>Chargement…</div>
   }
 
   if (!post) {
     return (
-      <div style={{ flex: 1, background: '#faf9fb', padding: 16 }}>
+      <div style={{ flex: 1, background: '#FFFFFF', padding: 16 }}>
         <BackRow onBack={onBack} title="Dispo" />
         <div style={{ color: '#8E8E93', fontWeight: 700 }}>{error || 'Dispo introuvable.'}</div>
       </div>
@@ -150,7 +150,7 @@ export default function DispoDetailScreen({ postId, currentUserId, onBack, onCre
   }
 
   return (
-    <div style={{ flex: 1, background: '#faf9fb', overflowY: 'auto', padding: '14px 16px 30px' }}>
+    <div style={{ flex: 1, background: '#FFFFFF', overflowY: 'auto', padding: '14px 16px 30px' }}>
       <BackRow onBack={onBack} title={`Dispo de ${firstName(post.profiles)}`} />
 
       <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 2px 16px rgba(0,0,0,0.08)', padding: 18, marginBottom: 18 }}>
@@ -286,7 +286,7 @@ function SectionTitle({ label }) {
 
 function Chip({ label, small = false }) {
   return (
-    <span style={{ background: '#F2F2F7', color: '#3A3A3C', borderRadius: 999, padding: small ? '4px 7px' : '7px 10px', fontSize: small ? 11 : 12, fontWeight: 800 }}>
+    <span style={{ background: '#F5F5F5', color: '#3A3A3C', borderRadius: 999, padding: small ? '4px 7px' : '7px 10px', fontSize: small ? 11 : 12, fontWeight: 800 }}>
       {label}
     </span>
   )

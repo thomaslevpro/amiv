@@ -6,7 +6,7 @@ export const EVENT_GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 
 export function getCoverUrl(coverImage) {
   if (!coverImage) return null
-  if (coverImage.startsWith('http')) return coverImage
+  if (coverImage.startsWith('http') || coverImage.startsWith('/')) return coverImage
   return supabase.storage.from('event-covers').getPublicUrl(coverImage).data.publicUrl
 }
 
@@ -40,7 +40,7 @@ function MiniEventStatusChip({ item }) {
     ? { label: '✦ Organisateur', bg: 'rgba(255,255,255,0.18)', color: '#fff' }
     : normalized === 'yes'
       ? { label: '✦ Invité', bg: 'rgba(255,255,255,0.18)', color: '#fff', glass: true }
-      : { label: 'En attente', bg: '#F2F2F7', color: '#8E8E93' }
+      : { label: 'En attente', bg: '#F5F5F5', color: '#8E8E93' }
 
   return (
     <span style={{

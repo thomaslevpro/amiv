@@ -60,7 +60,7 @@ export default function AmivQrModal({ isOpen, link, onClose, onToast }) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 760, background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: 430, background: '#F2F2F7', borderRadius: '22px 22px 0 0', padding: '18px 20px max(28px, env(safe-area-inset-bottom))', boxShadow: '0 -8px 36px rgba(0,0,0,0.18)', boxSizing: 'border-box' }}>
+      <div onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: 430, background: '#F5F5F5', borderRadius: '22px 22px 0 0', padding: '18px 20px max(28px, env(safe-area-inset-bottom))', boxShadow: '0 -8px 36px rgba(0,0,0,0.18)', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
           <div style={{ width: 38, height: 4, borderRadius: 2, background: '#D1D1D6' }} />
         </div>

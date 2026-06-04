@@ -11,7 +11,7 @@ const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const TEXT = '#1C1C1E'
 const SECONDARY = '#8E8E93'
 const CARD = '#FFFFFF'
-const PAGE = '#F2F2F7'
+const PAGE = '#F5F5F5'
 const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif"
 const CARD_SHADOW = '0 1px 8px rgba(0,0,0,0.07)'
 

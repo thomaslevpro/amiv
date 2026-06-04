@@ -28,7 +28,7 @@ export default function BirthdayContextMenu({ birthday, onEdit, onDelete, onClos
         {/* Header */}
         <div style={{
           padding: '22px 20px 18px', textAlign: 'center',
-          borderBottom: '1px solid #F2F2F7',
+          borderBottom: '1px solid #F5F5F5',
         }}>
           <div style={{ marginBottom: 8 }}><Cake size={20} strokeWidth={1.5} /></div>
           <div style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1E' }}>{birthday.name}</div>
@@ -42,7 +42,7 @@ export default function BirthdayContextMenu({ birthday, onEdit, onDelete, onClos
           onClick={onEdit}
           style={{
             padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12,
-            cursor: 'pointer', borderBottom: '1px solid #F2F2F7',
+            cursor: 'pointer', borderBottom: '1px solid #F5F5F5',
           }}
         >
           <span style={{ fontSize: 20 }}>✏️</span>

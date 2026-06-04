@@ -6,7 +6,7 @@ export default function EventInviteSection({ friends, invitedIds, copySuccess, o
       </div>
 
       {friends.length === 0 ? (
-        <div style={{ background: '#F2F2F7', borderRadius: 16, padding: '20px', textAlign: 'center', marginBottom: 10 }}>
+        <div style={{ background: '#F5F5F5', borderRadius: 16, padding: '20px', textAlign: 'center', marginBottom: 10 }}>
           <div style={{ fontSize: 13, color: '#8E8E93' }}>Aucun ami à inviter pour l'instant</div>
         </div>
       ) : (
@@ -33,7 +33,7 @@ export default function EventInviteSection({ friends, invitedIds, copySuccess, o
 
       <div style={{ background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E', marginBottom: 8 }}>Ou partage le lien</div>
-        <div onClick={onCopyLink} style={{ width: '100%', borderRadius: 12, padding: 12, textAlign: 'center', fontSize: 14, fontWeight: 600, cursor: 'pointer', background: copySuccess ? 'rgba(52,199,89,0.10)' : '#F2F2F7', color: copySuccess ? '#34C759' : '#1C1C1E', boxSizing: 'border-box' }}>
+        <div onClick={onCopyLink} style={{ width: '100%', borderRadius: 12, padding: 12, textAlign: 'center', fontSize: 14, fontWeight: 600, cursor: 'pointer', background: copySuccess ? 'rgba(52,199,89,0.10)' : '#F5F5F5', color: copySuccess ? '#34C759' : '#1C1C1E', boxSizing: 'border-box' }}>
           {copySuccess ? '✓ Lien copié !' : '🔗 Copier le lien d\'invitation'}
         </div>
       </div>

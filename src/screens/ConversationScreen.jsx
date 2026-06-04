@@ -5,8 +5,8 @@ import DirectFriendProfileSheet from '../components/messages/DirectFriendProfile
 import { CloseFriendBadge } from '../components/messages/MessageUI'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
-const PAGE_BG = '#faf9fb'
-const BG = '#F2F2F7'
+const PAGE_BG = '#FFFFFF'
+const BG = '#F5F5F5'
 const WHITE = '#FFFFFF'
 const BLACK = '#1C1C1E'
 const GRAY = '#8E8E93'

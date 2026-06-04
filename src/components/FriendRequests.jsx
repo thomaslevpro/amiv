@@ -32,7 +32,7 @@ export default function FriendRequests({ requests, onAccept, onDecline }) {
         {requests.map((req, i) => (
           <div key={req.friendship_id} style={{
             padding: '10px 16px',
-            borderBottom: i < requests.length - 1 ? '1px solid #F2F2F7' : 'none',
+            borderBottom: i < requests.length - 1 ? '1px solid #F5F5F5' : 'none',
             display: 'flex',
             alignItems: 'center',
             gap: 10,
@@ -64,7 +64,7 @@ export default function FriendRequests({ requests, onAccept, onDecline }) {
                 onClick={() => onDecline?.(req.friendship_id)}
                 style={{
                   padding: '7px 14px',
-                  background: '#F2F2F7', color: '#1C1C1E', border: 'none', borderRadius: 10,
+                  background: '#F5F5F5', color: '#1C1C1E', border: 'none', borderRadius: 10,
                   fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
                 }}
               >

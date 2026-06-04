@@ -5,7 +5,7 @@ export default function CloseFriendsScreen({ onBack, userId }) {
   const { friends, toggleCloseFriend } = useFriendships(userId)
 
   return (
-    <div style={{ flex: 1, background: '#faf9fb', overflowY: 'auto', padding: '14px 16px 30px' }}>
+    <div style={{ flex: 1, background: '#FFFFFF', overflowY: 'auto', padding: '14px 16px 30px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
         <button
           type="button"

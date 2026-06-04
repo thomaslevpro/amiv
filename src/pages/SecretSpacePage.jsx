@@ -7,7 +7,7 @@ import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 
 const COLORS = {
-  bg: '#F2F2F7',
+  bg: '#F5F5F5',
   card: '#FFFFFF',
   text: '#1C1C1E',
   muted: '#8E8E93',

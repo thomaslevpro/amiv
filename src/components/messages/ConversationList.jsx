@@ -1,14 +1,23 @@
 import { useState } from 'react'
-import { Plus, Search, UserPlus } from 'lucide-react'
+import { MoreHorizontal, Search, SquarePen, UserPlus } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, GRAY2, PAGE_BG, WHITE } from './constants'
 import { firstName } from './utils'
-import { Avatar, EmptyState, IconButton, SkeletonRow } from './MessageUI'
+import { Avatar, EmptyState, SkeletonRow } from './MessageUI'
 import ConversationRow from './ConversationRow'
 import EventConversationCard from './EventConversationCard'
 import NewMessageSheet from './NewMessageSheet'
 import FriendSearchSheet from './FriendSearchSheet'
 
+function searchableFriendText(friend) {
+  return [
+    friend?.friend_name,
+    friend?.friend_first_name,
+    friend?.friend_username,
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
 export default function ConversationList({
+  currentUsername,
   unreadTotal,
   openNewMessage,
   friendsLoading,
@@ -33,7 +42,13 @@ export default function ConversationList({
   onFriendAdded,
 }) {
   const [showFriendSearch, setShowFriendSearch] = useState(false)
+  const [friendQuery, setFriendQuery] = useState('')
   const effectiveUserId = currentUserId || userId
+  const trimmedFriendQuery = friendQuery.trim().toLowerCase()
+  const visibleFriends = trimmedFriendQuery
+    ? friends.filter(friend => searchableFriendText(friend).includes(trimmedFriendQuery))
+    : friends
+  const username = currentUsername || 'amiv'
   const tabs = [
     { id: 'all', label: 'Tous' },
     { id: 'events', label: 'Événements 🎉' },
@@ -43,28 +58,50 @@ export default function ConversationList({
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PAGE_BG, overflow: 'hidden', fontFamily: FONT }}>
-      <div style={{ padding: '18px 16px 10px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 27, lineHeight: 1.1, fontWeight: 800, color: BLACK, letterSpacing: 0 }}>
-              Messages
-            </h1>
-            <div style={{ marginTop: 4, fontSize: 13, color: GRAY1 }}>
-              {unreadTotal} non lu{unreadTotal > 1 ? 's' : ''}
-            </div>
+      <div style={{ padding: '18px 16px 12px', flexShrink: 0, background: WHITE }}>
+        <div style={{ position: 'relative', minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+          <button
+            type="button"
+            aria-label="Profil"
+            style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'calc(100% - 144px)', minWidth: 0, border: 'none', background: 'transparent', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: FONT }}
+          >
+            <span style={{ maxWidth: '100%', overflowWrap: 'anywhere', textAlign: 'center', fontSize: 22, lineHeight: 1.12, fontWeight: 800, color: BLACK, letterSpacing: 0 }}>
+              {username}
+            </span>
+          </button>
+
+          <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              type="button"
+              aria-label="Options"
+              style={{ width: 34, height: 34, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer' }}
+            >
+              <MoreHorizontal size={24} strokeWidth={2.4} color={BLACK} />
+            </button>
+            <button
+              type="button"
+              aria-label="Composer"
+              onClick={openNewMessage}
+              style={{ width: 34, height: 34, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer' }}
+            >
+              <SquarePen size={27} strokeWidth={2.2} color={BLACK} />
+            </button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <IconButton label="Rechercher"><Search size={17} strokeWidth={2.2} color={BLACK} /></IconButton>
-            <IconButton label="Composer" gradient onClick={openNewMessage}><Plus size={22} strokeWidth={2} color={WHITE} /></IconButton>
-          </div>
+        </div>
+
+        <div style={{ height: 48, borderRadius: 24, background: BG, display: 'flex', alignItems: 'center', gap: 11, padding: '0 16px' }}>
+            <Search size={17} strokeWidth={2.2} color={GRAY1} />
+            <input
+              value={friendQuery}
+              onChange={event => setFriendQuery(event.target.value)}
+              placeholder="Rechercher"
+              style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 18, color: BLACK, fontFamily: FONT }}
+            />
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 90 }}>
-        <section style={{ padding: '8px 16px 0' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: GRAY1, textTransform: 'uppercase', letterSpacing: 0, marginBottom: 8 }}>
-            AMIS
-          </div>
+        <section style={{ padding: '12px 16px 0' }}>
           <div style={{ display: 'flex', gap: 14, overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: 6, scrollbarWidth: 'none' }}>
             <button
               type="button"
@@ -82,7 +119,9 @@ export default function ConversationList({
               [0, 1, 2, 3].map(item => <div key={item} style={{ width: 58, height: 68, flexShrink: 0, borderRadius: 16, background: 'rgba(255,255,255,0.7)' }} />)
             ) : friends.length === 0 ? (
               <div style={{ fontSize: 13, color: GRAY1, padding: '8px 0 12px' }}>Aucun ami pour l'instant</div>
-            ) : friends.map(friend => {
+            ) : visibleFriends.length === 0 ? (
+              <div style={{ fontSize: 13, color: GRAY1, padding: '8px 0 12px' }}>Aucun ami trouvé</div>
+            ) : visibleFriends.map(friend => {
               const conv = conversationsByFriendId.get(friend.friend_id)
               const openedAt = new Date(appOpenedAtRef.current || 0).getTime()
               const hasFreshMessages = conv?.lastMessage?.sender_id !== effectiveUserId && new Date(conv?.lastAt || 0).getTime() > openedAt

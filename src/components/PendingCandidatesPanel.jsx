@@ -83,7 +83,7 @@ export default function PendingCandidatesPanel({
                   disabled={!canManage}
                   onClick={() => handleDecision(rejectCandidate, candidate.user_id)}
                   aria-label={`Refuser ${name}`}
-                  style={{ width: 36, height: 36, borderRadius: 12, background: '#F2F2F7', color: COLORS.muted, display: 'grid', placeItems: 'center', cursor: canManage ? 'pointer' : 'default' }}
+                  style={{ width: 36, height: 36, borderRadius: 12, background: '#F5F5F5', color: COLORS.muted, display: 'grid', placeItems: 'center', cursor: canManage ? 'pointer' : 'default' }}
                 >
                   <X size={17} strokeWidth={2.4} />
                 </button>
