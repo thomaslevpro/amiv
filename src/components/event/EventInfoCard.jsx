@@ -20,18 +20,19 @@ export default function EventInfoCard({ displayLocation, organizers, userId, eve
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingTop: 10 }}>
         {sortedOrganizers.map(({ role, profile }) => {
           const name = profile?.first_name || profile?.name || 'Organisateur'
+          const displayName = profile?.id === userId ? 'Moi' : name
           const owner = role === 'owner'
           return (
             <div key={profile?.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt={name} style={{ width: 26, height: 26, borderRadius: 13, objectFit: 'cover' }} />
+                <img src={profile.avatar_url} alt={displayName} style={{ width: 26, height: 26, borderRadius: 13, objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: 26, height: 26, borderRadius: 13, background: '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff' }}>
-                  {name.charAt(0).toUpperCase()}
+                  {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{name}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1E' }}>{displayName}</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: owner ? '#fff' : '#8E8E93', background: owner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F2F2F7', padding: '1px 7px', borderRadius: 20, display: 'inline-block', marginTop: 2 }}>
                   {owner ? 'Organisateur' : 'Co-organisateur'}
                 </div>

@@ -1,4 +1,4 @@
-import { ChevronLeft, Image as ImageIcon, Cake } from 'lucide-react'
+import { ChevronLeft, Cake } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const typeEmoji = {
@@ -32,7 +32,7 @@ function countdownDays(dateStr) {
   return diff >= 0 ? diff : null
 }
 
-export default function EventHero({ event, eventOverrides, canManage, onBack, onEdit, onCoverChange, coverInputRef }) {
+export default function EventHero({ event, eventOverrides, canManage, onBack, onEdit }) {
   const displayName = eventOverrides.name ?? event.name
   const displayDate = eventOverrides.date ?? event.date
   const isPollActive = event.__isPollActive
@@ -64,20 +64,11 @@ export default function EventHero({ event, eventOverrides, canManage, onBack, on
           Retour
         </div>
         {canManage && (
-          <div onClick={onEdit} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff', backdropFilter: 'blur(6px)', marginRight: 44 }}>
-            Modifier ✏️
+          <div onClick={onEdit} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff', backdropFilter: 'blur(6px)' }}>
+            Modifier
           </div>
         )}
       </div>
-
-      {canManage && (
-        <>
-          <button type="button" aria-label="Changer la photo de couverture" onClick={() => coverInputRef.current?.click()} style={{ position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.85)', color: '#1C1C1E', border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.14)', display: 'grid', placeItems: 'center', cursor: 'pointer', zIndex: 3 }}>
-            <ImageIcon size={18} strokeWidth={1.8} />
-          </button>
-          <input ref={coverInputRef} type="file" accept="image/*" onChange={onCoverChange} style={{ display: 'none' }} />
-        </>
-      )}
 
       <div style={{
         position: coverUrl ? 'absolute' : 'relative',

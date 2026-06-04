@@ -83,7 +83,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
         {renderChatBanner()}
 
-        {!canManage && isInvitedGuest && (
+        {!canManage && isInvitedGuest && event.type === 'Anniversaire' && (
           <div style={{ marginBottom: 14 }}>
             <div onClick={() => navigate(`/events/${event.id}/secret-space`)} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
               <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: 'rgba(224,85,170,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -119,7 +119,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
         {isPollActive && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
         {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
-        {userId && canManage && <div style={{ marginBottom: 14 }}><CardView eventId={event.id} currentUserId={userId} /></div>}
+        {userId && canManage && event.type === 'Anniversaire' && <div style={{ marginBottom: 14 }}><CardView eventId={event.id} currentUserId={userId} /></div>}
         {canManage && <EventInviteSection friends={friends} invitedIds={invitedIds} copySuccess={copySuccess} onInvite={handleInviteFriend} onCopyLink={handleCopyLink} />}
         {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}
       </div>
