@@ -100,9 +100,9 @@ const cards = [
   },
 ]
 
-const CARD_WIDTH = 200
-const CARD_GAP = 16
-const CARD_STEP = CARD_WIDTH + CARD_GAP
+const CARD_WIDTH = 220
+const VISIBLE_SIDE = 60
+const CARD_STEP = VISIBLE_SIDE
 
 /** @param {TrendingNowProps} props */
 export default function TrendingNow({ onCardClick }) {
@@ -142,10 +142,10 @@ export default function TrendingNow({ onCardClick }) {
 
   useEffect(() => {
     const el = scrollRef.current
-    if (!el || !loopOffset) return
+    if (!el || visibleCards.length === 0) return
     el.scrollLeft = loopOffset
-    setScrollLeft(loopOffset)
-  }, [loopOffset])
+    setScrollLeft(loopOffset - el.offsetWidth / 2 + CARD_WIDTH / 2)
+  }, [loopOffset, visibleCards.length])
 
   function resetScrollPosition(el, nextScrollLeft) {
     if (isResettingRef.current) return
@@ -153,7 +153,7 @@ export default function TrendingNow({ onCardClick }) {
     const previousBehavior = el.style.scrollBehavior
     el.style.scrollBehavior = 'auto'
     el.scrollLeft = nextScrollLeft
-    setScrollLeft(nextScrollLeft)
+    setScrollLeft(nextScrollLeft - el.offsetWidth / 2 + CARD_WIDTH / 2)
     requestAnimationFrame(() => {
       el.style.scrollBehavior = previousBehavior || 'smooth'
       isResettingRef.current = false
@@ -164,7 +164,7 @@ export default function TrendingNow({ onCardClick }) {
     const el = scrollRef.current
     if (!el || isResettingRef.current || !loopOffset) return
 
-    setScrollLeft(el.scrollLeft)
+    setScrollLeft(el.scrollLeft - el.offsetWidth / 2 + CARD_WIDTH / 2)
 
     if (el.scrollLeft < loopOffset) {
       resetScrollPosition(el, el.scrollLeft + loopOffset)
@@ -217,14 +217,17 @@ export default function TrendingNow({ onCardClick }) {
         onScroll={handleScroll}
         style={{
           display: 'flex',
-          gap: CARD_GAP,
+          gap: 0,
           overflowX: 'auto',
+          overflowY: 'visible',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           WebkitOverflowScrolling: 'touch',
-          padding: `4px calc(50% - ${CARD_WIDTH / 2}px) 8px`,
+          padding: `8px calc(50% - ${CARD_WIDTH / 2}px)`,
           margin: 0,
           perspective: '800px',
+          scrollSnapType: 'x mandatory',
+          scrollPaddingLeft: `calc(50% - ${CARD_WIDTH / 2}px)`,
           scrollBehavior: 'smooth',
           transformStyle: 'preserve-3d',
         }}
@@ -234,37 +237,51 @@ export default function TrendingNow({ onCardClick }) {
           const distanceFromCenter = cardCenter - scrollLeft - containerCenter
           const absDistance = Math.abs(distanceFromCenter)
           const maxDist = CARD_STEP
+          const isVisible = absDistance <= CARD_STEP * 2
           const scale = Math.max(0.75, 1 - (absDistance / maxDist) * 0.25)
-          const rotateY = Math.max(-45, Math.min(45, (distanceFromCenter / maxDist) * 45))
-          const translateX = distanceFromCenter > 0 ? -absDistance * 0.08 : absDistance * 0.08
-          const opacity = Math.max(0.5, 1 - (absDistance / maxDist) * 0.5)
-          const zIndex = Math.round(100 - absDistance)
+          const rotateY = Math.max(-35, Math.min(35, (distanceFromCenter / maxDist) * 35))
+          const translateX = 0
+          const opacity = isVisible ? Math.max(0.5, 1 - (absDistance / maxDist) * 0.5) : 0
+          const zIndex = Math.max(0, Math.round(100 - absDistance))
 
           return (
-            <button
-              type="button"
+            <div
               key={`${card.id}-${index}`}
-              onClick={() => handleCardClick(card)}
               style={{
                 position: 'relative',
-                width: CARD_WIDTH,
+                width: CARD_STEP,
                 height: CARD_WIDTH,
                 flexShrink: 0,
-                border: 'none',
-                borderRadius: 20,
-                overflow: 'hidden',
-                cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
-                backgroundImage: `url(${card.image})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                opacity,
-                transform: `perspective(800px) rotateY(${rotateY}deg) scale(${scale}) translateX(${translateX}px)`,
-                transformStyle: 'preserve-3d',
-                transition: 'transform 0.15s ease, opacity 0.15s ease',
+                overflow: 'visible',
+                scrollSnapAlign: 'start',
                 zIndex,
               }}
-            />
+            >
+              <button
+                type="button"
+                onClick={() => handleCardClick(card)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: CARD_WIDTH,
+                  height: CARD_WIDTH,
+                  border: 'none',
+                  borderRadius: 20,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  pointerEvents: isVisible ? 'auto' : 'none',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
+                  backgroundImage: `url(${card.image})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  opacity,
+                  transform: `perspective(800px) rotateY(${rotateY}deg) scale(${scale}) translateX(${translateX}px)`,
+                  transformStyle: 'preserve-3d',
+                  transition: 'transform 0.15s ease, opacity 0.15s ease',
+                }}
+              />
+            </div>
           )
         })}
       </div>
