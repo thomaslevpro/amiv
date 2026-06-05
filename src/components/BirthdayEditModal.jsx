@@ -1,6 +1,49 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+function calculateAge(birthdate) {
+  const today = new Date()
+  const birth = new Date(birthdate)
+
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birth.getDate())
+  ) {
+    age--
+  }
+
+  return age
+}
+
+function calculateBirthdateFromAge(age, birthdate) {
+  const numericAge = Number(age)
+  const dateParts = String(birthdate).slice(0, 10).split('-')
+  const monthIndex = Number(dateParts[1]) - 1
+  const dayNumber = Number(dateParts[2])
+
+  if (
+    !Number.isFinite(numericAge) ||
+    dateParts.length !== 3 ||
+    Number.isNaN(monthIndex) ||
+    Number.isNaN(dayNumber)
+  ) {
+    return birthdate
+  }
+
+  const today = new Date()
+  const birthdayAlreadyPassed =
+    today.getMonth() > monthIndex ||
+    (today.getMonth() === monthIndex && today.getDate() >= dayNumber)
+  const birthYear = today.getFullYear() - numericAge - (birthdayAlreadyPassed ? 0 : 1)
+  const month = dateParts[1]
+  const day = dateParts[2]
+
+  return `${birthYear}-${month}-${day}`
+}
+
 export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast }) {
   const amiv = birthday
   const nameParts = (amiv.name ?? '').trim().split(/\s+/).filter(Boolean)
@@ -9,7 +52,22 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
   const [firstName, setFirstName] = useState(initialFirstName)
   const [lastName, setLastName]   = useState(initialLastName)
   const [date, setDate]           = useState(amiv.birthdate)
+  const [age, setAge]             = useState(() => (amiv.birthdate ? calculateAge(amiv.birthdate) : ''))
   const [saving, setSaving]       = useState(false)
+
+  function handleAgeChange(e) {
+    const nextAge = e.target.value
+    setAge(nextAge)
+
+    if (nextAge === '') return
+    setDate(calculateBirthdateFromAge(nextAge, date))
+  }
+
+  function handleDateChange(e) {
+    const nextDate = e.target.value
+    setDate(nextDate)
+    setAge(nextDate ? calculateAge(nextDate) : '')
+  }
 
   async function handleSave(e) {
     e.preventDefault()
@@ -94,9 +152,22 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
             }}
           />
           <input
+            type="number"
+            placeholder="Âge"
+            value={age}
+            onChange={handleAgeChange}
+            min="0"
+            step="1"
+            inputMode="numeric"
+            style={{
+              border: '1px solid #E5E5EA', borderRadius: 12, padding: '13px 14px',
+              fontSize: 15, outline: 'none', color: '#1C1C1E', background: '#fff',
+            }}
+          />
+          <input
             type="date"
             value={date}
-            onChange={e => setDate(e.target.value)}
+            onChange={handleDateChange}
             required
             style={{
               border: '1px solid #E5E5EA', borderRadius: 12, padding: '13px 14px',

@@ -146,7 +146,8 @@ function MainApp() {
   const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
   const handleTabChange = (newTab) => {
     setTab(newTab)
-    setScreen('home')
+    setScreen(newTab)
+    setSelectedEvent(null)
     setConversationEvent(null)
     setDirectConv(null)
   }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { MoreHorizontal, Search, SquarePen, UserPlus } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, GRAY2, PAGE_BG, WHITE } from './constants'
-import { firstName } from './utils'
+import { friendFirstName } from './utils'
 import { Avatar, EmptyState, SkeletonRow } from './MessageUI'
 import ConversationRow from './ConversationRow'
 import EventConversationCard from './EventConversationCard'
@@ -125,6 +125,7 @@ export default function ConversationList({
               const conv = conversationsByFriendId.get(friend.friend_id)
               const openedAt = new Date(appOpenedAtRef.current || 0).getTime()
               const hasFreshMessages = conv?.lastMessage?.sender_id !== effectiveUserId && new Date(conv?.lastAt || 0).getTime() > openedAt
+              const label = friendFirstName(friend)
               return (
                 <button
                   key={friend.friend_id}
@@ -134,11 +135,11 @@ export default function ConversationList({
                 >
                   <div style={{ padding: 2, borderRadius: '50%', background: hasFreshMessages ? GRADIENT : '#E5E5EA' }}>
                     <div style={{ padding: 2, borderRadius: '50%', background: BG }}>
-                      <Avatar name={friend.friend_name} url={friend.friend_avatar} size={48} isCloseFriend={friend.is_close_friend} />
+                      <Avatar name={label} url={friend.friend_avatar} size={48} isCloseFriend={friend.is_close_friend} />
                     </div>
                   </div>
                   <span style={{ maxWidth: 58, fontSize: 11, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {firstName(friend.friend_name)}
+                    {label}
                   </span>
                 </button>
               )

@@ -10,6 +10,16 @@ export function firstName(name) {
   return (name ?? 'Ami').trim().split(/\s+/)[0] || 'Ami'
 }
 
+export function friendFirstName(friend, fallback = 'Ami') {
+  const explicitFirstName = friend?.friend_first_name?.trim()
+  if (explicitFirstName) return explicitFirstName
+
+  const fullName = friend?.friend_name?.trim()
+  if (fullName) return firstName(fullName)
+
+  return friend?.friend_username || fallback
+}
+
 export function directProfileDisplayName(profile) {
   return profile?.first_name || profile?.name || profile?.email || 'Utilisateur'
 }

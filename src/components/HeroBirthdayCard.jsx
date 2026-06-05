@@ -270,6 +270,12 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
   const birthdayLabel = birthdayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
   const birthdayDay = birthdayDate.getDate()
   const birthdayMonth = birthdayDate.toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase().replace('.', '')
+  const isToday = days === 0
+  const eyebrow = isToday ? "ANNIVERSAIRE AUJOURD'HUI" : 'PROCHAIN ANNIVERSAIRE'
+  const subtitle = isToday
+    ? 'Souhaite-lui un joyeux anniversaire 🎂'
+    : birthdayLabel
+  const ageLabel = `${age} ans`
 
   return (
     <>
@@ -329,7 +335,7 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1, paddingRight: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.8, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Cake size={20} strokeWidth={1.5} /> Prochain anniversaire
+                <Cake size={20} strokeWidth={1.5} /> {eyebrow}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {isLinked && (
@@ -377,7 +383,9 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
                 <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>{displayName}</div>
               </div>
               <div style={{ fontSize: 13, opacity: 0.85, marginTop: 5 }}>
-                {birthdayLabel} · {age} ans
+                {subtitle}
+                <br />
+                {ageLabel}
               </div>
             </div>
 

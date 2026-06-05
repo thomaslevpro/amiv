@@ -124,6 +124,7 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
   const [removing, setRemoving] = useState(false)
   const title = notification.title || 'Activité'
   const body = notification.body || ''
+  const isBirthdayReminder = notification.type === 'birthday_reminder'
   const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'plus_one_request', 'plus_one_response'].includes(notification.type)
   const friendshipId = notification.data?.friendship_id || notification.data?.request_id
 
@@ -143,13 +144,13 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
 
   return (
     <div
-      onClick={() => onNavigate(notification)}
+      onClick={isBirthdayReminder ? undefined : () => onNavigate(notification)}
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 12,
         padding: '10px 16px',
-        cursor: 'pointer',
+        cursor: isBirthdayReminder ? 'default' : 'pointer',
         opacity: removing ? 0 : 1,
         maxHeight: removing ? 0 : 76,
         overflow: 'hidden',
@@ -194,14 +195,6 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
             Refuser
           </button>
         </div>
-      ) : notification.type === 'birthday_reminder' ? (
-        <button
-          type="button"
-          onClick={event => { event.stopPropagation(); onNavigate(notification) }}
-          style={{ border: 'none', borderRadius: 20, background: '#F5F5F5', color: '#1C1C1E', fontSize: 12, fontWeight: 700, padding: '8px 13px', cursor: 'pointer', flexShrink: 0 }}
-        >
-          Créer
-        </button>
       ) : hasEventThumb ? (
         <EventThumb notification={notification} />
       ) : !notification.read ? (
@@ -264,7 +257,6 @@ export default function NotificationPanel({
   currentUser,
   onEventOpen,
   onMessagesOpen,
-  onCreateEvent,
   onNotificationsRead,
   onAcceptFriend,
   onDeclineFriend,
@@ -400,10 +392,6 @@ export default function NotificationPanel({
       onClose?.()
       onEventOpen?.({ id: notification.data.event_id })
       return
-    }
-    if (notification.type === 'birthday_reminder') {
-      onClose?.()
-      onCreateEvent?.({ birthday_person_user_id: notification.data?.friend_id })
     }
   }
 

@@ -24,13 +24,35 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: corsHeaders })
 
+  const requestId = crypto.randomUUID()
+  console.log('[birthday-today-reminders] start', {
+    requestId,
+    method: req.method,
+    url: req.url,
+  })
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   const { data, error } = await supabase.rpc('create_birthday_today_notifications')
 
-  if (error) return json({ error: error.message }, 500)
+  if (error) {
+    console.error('[birthday-today-reminders] rpc_error', {
+      requestId,
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    })
+    return json({ error: error.message }, 500)
+  }
 
   const result = (data?.[0] ?? { inserted_count: 0, skipped_count: 0 }) as BirthdayTodayReminderResult
+
+  console.log('[birthday-today-reminders] success', {
+    requestId,
+    inserted: result.inserted_count,
+    skipped: result.skipped_count,
+  })
 
   return json({
     success: true,

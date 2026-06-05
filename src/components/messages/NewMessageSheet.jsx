@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { BG, BLACK, FONT, GRAY1, WHITE } from './constants'
 import { Avatar, SkeletonRow } from './MessageUI'
+import { friendFirstName } from './utils'
 
 export default function NewMessageSheet({ friends, loading, onClose, onSelectFriend }) {
   return (
@@ -60,35 +61,38 @@ export default function NewMessageSheet({ friends, loading, onClose, onSelectFri
             <div style={{ padding: 24, color: GRAY1, fontSize: 14, textAlign: 'center' }}>
               Aucun ami disponible pour le moment
             </div>
-          ) : friends.map((friend, index) => (
-            <div key={friend.friend_id}>
-              <button
-                type="button"
-                onClick={() => onSelectFriend(friend)}
-                style={{
-                  width: '100%',
-                  border: 'none',
-                  background: WHITE,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  fontFamily: FONT,
-                }}
-              >
-                <Avatar name={friend.friend_name} url={friend.friend_avatar} isCloseFriend={friend.is_close_friend} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 650, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {friend.friend_name || 'Ami'}
+          ) : friends.map((friend, index) => {
+            const label = friendFirstName(friend)
+            return (
+              <div key={friend.friend_id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectFriend(friend)}
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    background: WHITE,
+                    padding: '12px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontFamily: FONT,
+                  }}
+                >
+                  <Avatar name={label} url={friend.friend_avatar} isCloseFriend={friend.is_close_friend} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 650, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {label}
+                    </div>
+                    <div style={{ marginTop: 3, fontSize: 13, color: GRAY1 }}>Envoyer un message</div>
                   </div>
-                  <div style={{ marginTop: 3, fontSize: 13, color: GRAY1 }}>Envoyer un message</div>
-                </div>
-              </button>
-              {index !== friends.length - 1 && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
-            </div>
-          ))}
+                </button>
+                {index !== friends.length - 1 && <div style={{ marginLeft: 74, height: 0.5, background: 'rgba(0,0,0,0.08)' }} />}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
