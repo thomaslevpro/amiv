@@ -108,6 +108,7 @@ const CARD_STEP = VISIBLE_SIDE
 export default function TrendingNow({ onCardClick }) {
   const scrollRef = useRef(null)
   const isResettingRef = useRef(false)
+  const rafRef = useRef(null)
   const [availableImages, setAvailableImages] = useState(null)
   const [scrollLeft, setScrollLeft] = useState(0)
 
@@ -147,30 +148,32 @@ export default function TrendingNow({ onCardClick }) {
     setScrollLeft(loopOffset - el.offsetWidth / 2 + CARD_WIDTH / 2)
   }, [loopOffset, visibleCards.length])
 
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
+
   function resetScrollPosition(el, nextScrollLeft) {
     if (isResettingRef.current) return
     isResettingRef.current = true
-    const previousBehavior = el.style.scrollBehavior
     el.style.scrollBehavior = 'auto'
     el.scrollLeft = nextScrollLeft
     setScrollLeft(nextScrollLeft - el.offsetWidth / 2 + CARD_WIDTH / 2)
     requestAnimationFrame(() => {
-      el.style.scrollBehavior = previousBehavior || 'smooth'
       isResettingRef.current = false
     })
   }
 
   function handleScroll() {
-    const el = scrollRef.current
-    if (!el || isResettingRef.current || !loopOffset) return
-
-    setScrollLeft(el.scrollLeft - el.offsetWidth / 2 + CARD_WIDTH / 2)
-
-    if (el.scrollLeft < loopOffset) {
-      resetScrollPosition(el, el.scrollLeft + loopOffset)
-    } else if (el.scrollLeft >= loopOffset * 2) {
-      resetScrollPosition(el, el.scrollLeft - loopOffset)
-    }
+    if (rafRef.current) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      const el = scrollRef.current
+      if (!el || isResettingRef.current || !loopOffset) return
+      setScrollLeft(el.scrollLeft - el.offsetWidth / 2 + CARD_WIDTH / 2)
+      if (el.scrollLeft < loopOffset) {
+        resetScrollPosition(el, el.scrollLeft + loopOffset)
+      } else if (el.scrollLeft >= loopOffset * 2) {
+        resetScrollPosition(el, el.scrollLeft - loopOffset)
+      }
+    })
   }
 
   function handleCardClick(card) {
@@ -228,7 +231,7 @@ export default function TrendingNow({ onCardClick }) {
           perspective: '800px',
           scrollSnapType: 'x mandatory',
           scrollPaddingLeft: `calc(50% - ${CARD_WIDTH / 2}px)`,
-          scrollBehavior: 'smooth',
+          touchAction: 'pan-x',
           transformStyle: 'preserve-3d',
         }}
       >
@@ -278,7 +281,7 @@ export default function TrendingNow({ onCardClick }) {
                   opacity,
                   transform: `perspective(800px) rotateY(${rotateY}deg) scale(${scale}) translateX(${translateX}px)`,
                   transformStyle: 'preserve-3d',
-                  transition: 'transform 0.15s ease, opacity 0.15s ease',
+                  willChange: 'transform',
                 }}
               />
             </div>
