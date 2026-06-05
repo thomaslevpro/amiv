@@ -153,47 +153,28 @@ export default function Create({ onBack, session, initialData = null }) {
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Utilisateur non connecté.')
+
       const isoDate = form.date ? new Date(form.date).toISOString() : null
-      const { data: eventData, error } = await supabase.from('events').insert({
-        name: form.name,
-        date: usePoll ? null : isoDate,
-        location: form.location,
-        description: form.desc,
-        type: typeValues[type],
-        visibility: 'Sur invitation',
-        user_id: user.id,
-        cover_image: coverImage || null,
-        birthday_person_user_id: birthdayPersonId,
-      }).select().single()
-      if (error) throw error
+      const dateOptions = usePoll
+        ? pollDates
+          .filter(d => d.date)
+          .map(d => ({ date: d.date, time: d.time || null }))
+        : []
 
-      await supabase.from('event_organizers').insert({
-        event_id: eventData.id,
-        user_id: user.id,
-        role: 'owner',
+      const { data: eventData, error } = await supabase.rpc('create_event_with_owner', {
+        p_name: form.name,
+        p_date: usePoll ? null : isoDate,
+        p_location: form.location,
+        p_description: form.desc,
+        p_type: typeValues[type],
+        p_visibility: 'Sur invitation',
+        p_cover_image: coverImage || null,
+        p_birthday_person_user_id: birthdayPersonId,
+        p_date_options: dateOptions,
+        p_invited_user_ids: selectedFriendIds,
       })
-
-      if (usePoll) {
-        const validDates = pollDates.filter(d => d.date)
-        if (validDates.length > 0) {
-          const { error: optErr } = await supabase.from('event_date_options').insert(
-            validDates.map(d => ({
-              event_id: eventData.id,
-              proposed_date: d.date,
-              proposed_time: d.time || null,
-            }))
-          )
-          if (optErr) console.error('Error inserting date options:', optErr)
-        }
-      }
-
-      if (selectedFriendIds.length > 0) {
-        const { error: rsvpErr } = await supabase.rpc('invite_friends_to_event', {
-          p_event_id: eventData.id,
-          p_user_ids: selectedFriendIds
-        })
-        if (rsvpErr) console.error('Error inviting friends:', rsvpErr)
-      }
+      if (error) throw error
 
       setCreatedEvent(eventData)
     } catch (err) {
