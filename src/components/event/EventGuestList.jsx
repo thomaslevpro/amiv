@@ -1,11 +1,12 @@
 import { CheckCircle2, Clock, XCircle } from 'lucide-react'
+import PlusOneRequest from '../PlusOneRequest'
 import { getAvatarColor } from './eventUtils'
 
 const rsvpStatusColor = { going: '#34C759', declined: '#FF3B30', pending: '#FF9500' }
 const rsvpStatusLabel = { going: 'Confirmé', declined: 'Décliné', pending: 'En attente' }
 const guestResponseIcon = { yes: <CheckCircle2 size={16} className="text-green-500" />, no: <XCircle size={16} className="text-red-500" />, maybe: '🤔' }
 
-export default function EventGuestList({ participants, guestRsvps, eventGuests, canManage, userId, invitedIds, onInvite, onAddFriend, embedded = false }) {
+export default function EventGuestList({ participants, guestRsvps, eventGuests, canManage, userId, invitedIds, onInvite, onAddFriend, myRsvp, currentUserName, eventId, embedded = false }) {
   void invitedIds
   void onInvite
 
@@ -48,6 +49,17 @@ export default function EventGuestList({ participants, guestRsvps, eventGuests, 
                   {chipLabel}
                 </div>
               </div>
+              {isCurrentUser && myRsvp?.id && (
+                <PlusOneRequest
+                  rsvpId={myRsvp.id}
+                  table="rsvps"
+                  currentStatus={myRsvp.plus_one_status || 'none'}
+                  currentName={myRsvp.plus_one_name || ''}
+                  eventId={eventId}
+                  requesterName={currentUserName}
+                  variant="compact"
+                />
+              )}
               {!isCurrentUser && (
                 <div onClick={() => !btnDisabled && onAddFriend(guest.invitee_id)} style={{ padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: btnDisabled ? 'default' : 'pointer', background: btnBg, color: btnColor, flexShrink: 0, whiteSpace: 'nowrap' }}>
                   {btnLabel}

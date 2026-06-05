@@ -241,8 +241,9 @@ export default function useEventDetail(event, onBack) {
 
   async function handleRsvp(status) {
     if (!userId || loading) return
+    const rsvpStatusValue = status === 'maybe' ? 'pending' : status
     setLoading(true)
-    const invitationStatus = status === 'going' ? 'accepted' : status === 'not_going' ? 'declined' : status
+    const invitationStatus = rsvpStatusValue === 'going' ? 'accepted' : rsvpStatusValue === 'declined' ? 'declined' : 'pending'
     const orParts = [`invited_user_id.eq.${userId}`]
     if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
 
@@ -255,12 +256,12 @@ export default function useEventDetail(event, onBack) {
       if (updErr) console.error('UPDATE invitation error:', updErr)
     }
 
-    const { data, error } = await supabase.from('rsvps').upsert({ event_id: event.id, user_id: userId, status }, { onConflict: 'event_id,user_id' }).select('id, status, plus_one_requested, plus_one_status, plus_one_name, plus_one_message').maybeSingle()
+    const { data, error } = await supabase.from('rsvps').upsert({ event_id: event.id, user_id: userId, status: rsvpStatusValue }, { onConflict: 'event_id,user_id' }).select('id, status, plus_one_requested, plus_one_status, plus_one_name, plus_one_message').maybeSingle()
     if (!error) {
-      setRsvpStatus(data?.status ?? status)
-      setMyRsvp(data ?? { ...myRsvp, status })
+      setRsvpStatus(data?.status ?? rsvpStatusValue)
+      setMyRsvp(data ?? { ...myRsvp, status: rsvpStatusValue })
       showToast('Réponse enregistrée ✓')
-      if (status === 'going' && event.user_id && event.user_id !== userId) {
+      if (rsvpStatusValue === 'going' && event.user_id && event.user_id !== userId) {
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
         const name = profile?.name ?? 'Quelqu\'un'
         await supabase.from('notifications').insert({ user_id: event.user_id, type: 'rsvp_received', title: `${name} participe à ${event.name}`, body: 'Nouvelle réponse à votre événement', data: { event_id: event.id, sender_id: userId } })

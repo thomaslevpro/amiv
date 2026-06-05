@@ -21,6 +21,17 @@ const inputStyle = {
   background: '#fff',
 }
 
+const compactPanelStyle = {
+  position: 'absolute',
+  top: 'calc(100% + 8px)',
+  right: 0,
+  width: 260,
+  zIndex: 20,
+  ...CARD,
+  marginBottom: 0,
+  boxShadow: '0 14px 34px rgba(0,0,0,0.18)',
+}
+
 function Badge({ tone, children }) {
   const colors = {
     amber: ['rgba(255,149,0,0.12)', 'var(--orange)'],
@@ -96,6 +107,71 @@ export default function PlusOneRequest({
   }
 
   if (!rsvpId || !eventId) return null
+
+  if (variant === 'compact') {
+    return (
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        {open && (
+          <div style={compactPanelStyle}>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input
+                value={name}
+                onChange={event => setName(event.target.value)}
+                placeholder="Prénom du +1"
+                required
+                style={inputStyle}
+              />
+              <textarea
+                value={message}
+                onChange={event => setMessage(event.target.value.slice(0, 200))}
+                placeholder="Message pour l'organisateur"
+                maxLength={200}
+                rows={3}
+                style={{ ...inputStyle, resize: 'none' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <button type="button" onClick={() => { setOpen(false); setError('') }} style={{ color: 'var(--gray1)', fontSize: 13, fontWeight: 700, padding: '9px 0' }}>
+                  Annuler
+                </button>
+                <button type="submit" disabled={saving || !name.trim()} style={{ borderRadius: 12, padding: '9px 12px', background: 'var(--gradient)', color: '#fff', fontSize: 13, fontWeight: 800, opacity: saving || !name.trim() ? 0.55 : 1 }}>
+                  {saving ? 'Envoi...' : 'Envoyer'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: error ? 'var(--red)' : 'var(--gray1)', fontSize: 11, fontWeight: 600 }}>
+                <span>{error || requesterName || ''}</span>
+                <span>{message.length}/200</span>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {status === 'none' && (
+          <button type="button" onClick={() => setOpen(true)} style={{ border: 'none', borderRadius: 20, padding: '6px 10px', background: '#F5F5F5', color: '#1C1C1E', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <UserPlus size={14} strokeWidth={2} color="#8E8E93" />
+            Demander un +1
+          </button>
+        )}
+
+        {status === 'pending' && (
+          <button type="button" onClick={handleCancel} disabled={saving} style={{ border: 'none', borderRadius: 20, padding: '6px 10px', background: 'rgba(255,149,0,0.12)', color: 'var(--orange)', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', opacity: saving ? 0.55 : 1 }}>
+            +1 en attente
+          </button>
+        )}
+
+        {status === 'accepted' && (
+          <div style={{ borderRadius: 20, padding: '6px 10px', background: 'rgba(52,199,89,0.12)', color: 'var(--green)', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+            +1 accepté
+          </div>
+        )}
+
+        {status === 'declined' && (
+          <button type="button" onClick={() => setOpen(true)} style={{ border: 'none', borderRadius: 20, padding: '6px 10px', background: 'rgba(255,59,48,0.10)', color: 'var(--red)', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
+            Redemander +1
+          </button>
+        )}
+      </div>
+    )
+  }
 
   if (open || status === 'none') {
     return (

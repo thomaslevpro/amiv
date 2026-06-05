@@ -7,7 +7,6 @@ import EventGuestList from '../components/event/EventGuestList'
 import EventHero from '../components/event/EventHero'
 import EventInfoCard from '../components/event/EventInfoCard'
 import EventInviteSection from '../components/event/EventInviteSection'
-import EventRsvpButtons from '../components/event/EventRsvpButtons'
 import EventStatsRow from '../components/event/EventStatsRow'
 import { getAvatarColor } from '../components/event/eventUtils'
 import PlusOneReviewList from '../components/PlusOneReviewList'
@@ -30,7 +29,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     eventForMessages, handleRsvp, handleDateVote, handleConfirmDate, handleEditOpen,
     toggleBirthdayPerson, handleEditSubmit, handleHeroCoverChange, handleDeleteEvent,
     handleInviteFriend, handleAddFriend, handleOpenCoOrgModal, handleAddCoOrganizer,
-    handleAddToCalendar, handleCopyLink, setEditing,
+    handleCopyLink, setEditing,
   } = detail
 
   const displayDescription = eventOverrides.description ?? event.description
@@ -64,7 +63,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden' }}>
-      <EventHero event={heroEvent} eventOverrides={eventOverrides} canManage={canManage} onBack={onBack} onEdit={handleEditOpen} onCoverChange={handleHeroCoverChange} coverInputRef={coverInputRef} />
+      <EventHero event={heroEvent} eventOverrides={eventOverrides} canManage={canManage} rsvpStatus={rsvpStatus} loading={loading} onBack={onBack} onEdit={handleEditOpen} onCoverChange={handleHeroCoverChange} coverInputRef={coverInputRef} onRsvp={handleRsvp} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
         {canManage && <EventStatsRow rsvpStats={rsvpStats} />}
@@ -113,8 +112,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           <EventGuestList participants={participants} guestRsvps={guestRsvps} eventGuests={eventGuests} canManage={canManage} userId={userId} invitedIds={invitedIds} onInvite={handleInviteFriend} onAddFriend={handleAddFriend} />
         ) : (
           <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-            <EventGuestList participants={participants} guestRsvps={guestRsvps} eventGuests={eventGuests} canManage={canManage} userId={userId} invitedIds={invitedIds} onInvite={handleInviteFriend} onAddFriend={handleAddFriend} embedded />
-            <EventRsvpButtons rsvpStatus={rsvpStatus} myRsvp={myRsvp} loading={loading} currentUserName={currentUserName} eventId={event.id} onRsvp={handleRsvp} onAddToCalendar={handleAddToCalendar} embedded />
+            <EventGuestList participants={participants} guestRsvps={guestRsvps} eventGuests={eventGuests} canManage={canManage} userId={userId} invitedIds={invitedIds} onInvite={handleInviteFriend} onAddFriend={handleAddFriend} myRsvp={myRsvp} currentUserName={currentUserName} eventId={event.id} embedded />
           </div>
         )}
         {isPollActive && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}

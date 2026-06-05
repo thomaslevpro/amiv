@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ChevronLeft, Cake } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -32,7 +33,19 @@ function countdownDays(dateStr) {
   return diff >= 0 ? diff : null
 }
 
-export default function EventHero({ event, eventOverrides, canManage, onBack, onEdit }) {
+const rsvpOptions = [
+  { status: 'going', label: "✓ J'y serai !" },
+  { status: 'pending', label: 'Peut-être' },
+  { status: 'declined', label: 'Non' },
+]
+
+function rsvpLabel(status) {
+  const normalizedStatus = status === 'maybe' ? 'pending' : status
+  return rsvpOptions.find(option => option.status === normalizedStatus)?.label || "J'y serai"
+}
+
+export default function EventHero({ event, eventOverrides, canManage, rsvpStatus, loading, onBack, onEdit, onRsvp }) {
+  const [showRsvpMenu, setShowRsvpMenu] = useState(false)
   const displayName = eventOverrides.name ?? event.name
   const displayDate = eventOverrides.date ?? event.date
   const isPollActive = event.__isPollActive
@@ -46,6 +59,13 @@ export default function EventHero({ event, eventOverrides, canManage, onBack, on
       ? rawCoverImage
       : supabase.storage.from('event-covers').getPublicUrl(rawCoverImage).data.publicUrl
     : null
+  const showRsvpButton = !canManage && countdown !== null && typeof onRsvp === 'function'
+
+  function handleRsvpChoice(status) {
+    if (loading) return
+    onRsvp(status)
+    setShowRsvpMenu(false)
+  }
 
   return (
     <div style={{
@@ -53,7 +73,7 @@ export default function EventHero({ event, eventOverrides, canManage, onBack, on
       height: coverUrl ? '38vh' : 'auto',
       minHeight: coverUrl ? 180 : 'auto',
       flexShrink: 0,
-      overflow: 'hidden',
+      overflow: 'visible',
       background: coverUrl ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
       ...(coverUrl ? {} : { padding: '58px 20px 24px', textAlign: 'center', color: '#fff' }),
     }}>
@@ -89,6 +109,32 @@ export default function EventHero({ event, eventOverrides, canManage, onBack, on
             {countdown !== null && (
               <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 700, color: '#e055aa' }}>
                 J-{countdown}
+              </div>
+            )}
+            {showRsvpButton && (
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setShowRsvpMenu(prev => !prev)}
+                  style={{ border: 'none', background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 800, color: '#1C1C1E', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.65 : 1, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', whiteSpace: 'nowrap' }}
+                >
+                  {rsvpLabel(rsvpStatus)}
+                </button>
+                {showRsvpMenu && (
+                  <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 196, background: '#fff', borderRadius: 16, padding: 8, boxShadow: '0 14px 34px rgba(0,0,0,0.22)', zIndex: 1001 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#8E8E93', padding: '4px 8px 8px' }}>Votre réponse</div>
+                    {rsvpOptions.map(option => {
+                      const active = (rsvpStatus === 'maybe' ? 'pending' : rsvpStatus) === option.status
+                      return (
+                        <button key={option.status} type="button" disabled={loading} onClick={() => handleRsvpChoice(option.status)} style={{ width: '100%', minHeight: 40, border: 'none', borderRadius: active ? 14 : 12, padding: '10px 12px', background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5', color: active ? '#fff' : '#1C1C1E', fontSize: 13, fontWeight: 800, textAlign: 'left', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {option.status === 'declined' && <span style={{ fontSize: 18, lineHeight: 0.8, fontWeight: 500 }}>×</span>}
+                          {option.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
