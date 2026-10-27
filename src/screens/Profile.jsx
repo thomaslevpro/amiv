@@ -48,9 +48,8 @@ const CARD_SHADOW = '0 1px 8px rgba(0,0,0,0.07)'
 
 async function fetchProfile(user) {
   const { data, error } = await supabase
-    .from('profiles')
+    .rpc('get_my_profile')
     .select('name, first_name, email, avatar_url, created_at, birthday, username, share_token, notif_birthdays, notif_invitations, notif_messages')
-    .eq('id', user.id)
     .maybeSingle()
 
   if (error) throw error

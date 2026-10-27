@@ -88,9 +88,8 @@ export function useHomeData(userId, userEmail) {
     }
 
     supabase
-      .from('profiles')
+      .rpc('get_my_profile')
       .select('first_name, name, email, avatar_url')
-      .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
         setProfileName(data?.first_name || data?.name || data?.email?.split('@')[0] || '')
@@ -161,7 +160,7 @@ export function useHomeData(userId, userEmail) {
         if (rsvpUserIds.length > 0) {
           const { data: profiles } = await supabase
             .from('profiles')
-            .select('id, name, first_name, avatar_url, email')
+            .select('id, name, first_name, avatar_url')
             .in('id', rsvpUserIds)
           profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
         }

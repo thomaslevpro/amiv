@@ -34,9 +34,7 @@ async function loadFriends(currentUserId) {
   )
 
   const { data: profiles, error: profilesError } = await supabase
-    .from('profiles')
-    .select('id, first_name, name, avatar_url, birthday')
-    .in('id', friendIds)
+    .rpc('get_profiles_with_birthday', { p_user_ids: friendIds })
 
   if (profilesError) throw profilesError
 

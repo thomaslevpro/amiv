@@ -17,7 +17,7 @@ export async function isOrganizer(eventId) {
 export async function getOrganizers(eventId) {
   const { data, error } = await supabase
     .from('event_organizers')
-    .select(`role, profile:user_id (id, first_name, name, email, avatar_url, username)`)
+    .select(`role, profile:user_id (id, first_name, name, avatar_url, username)`)
     .eq('event_id', eventId)
     .order('created_at')
 
@@ -34,9 +34,8 @@ export async function addCoOrganizerById(eventId, userId) {
 
 export async function addCoOrganizer(eventId, email) {
   const { data: profile, error } = await supabase
-    .from('profiles')
+    .rpc('search_profiles', { p_query: email })
     .select('id')
-    .eq('email', email)
     .maybeSingle()
 
   if (error || !profile) throw new Error('Aucun compte Amiv trouvé pour cet email')

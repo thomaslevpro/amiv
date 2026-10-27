@@ -12,9 +12,8 @@ export default function OnboardingProfile({ userId, onNext }) {
 
   useEffect(() => {
     supabase
-      .from('profiles')
+      .rpc('get_my_profile')
       .select('first_name, birthday, avatar_url, name')
-      .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.first_name) setFirstName(data.first_name)

@@ -176,10 +176,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey)
-  const { data, error } = await supabase
-    .from('calendar_feed_items')
-    .select('*')
-    .eq('calendar_token', normalizedToken)
+  // RPC security definer : seul le flux de ce token est renvoyé (la vue n'est pas exposée)
+  const { data, error } = await supabase.rpc('get_calendar_feed', { p_token: normalizedToken })
 
   if (error) {
     res.status(500).send('Impossible de générer le calendrier.')

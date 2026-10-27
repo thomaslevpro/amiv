@@ -39,19 +39,19 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
     if (friendIds.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, first_name, name, email, avatar_url')
+        .select('id, first_name, name, avatar_url')
         .in('id', friendIds)
       friendProfiles = profiles ?? []
     }
 
     const { data: invites } = await supabase
       .from('invitations')
-      .select('invited_email, status')
+      .select('invited_user_id, status')
       .eq('event_id', eventId)
       .eq('invited_by', user.id)
 
     const inviteMap = {}
-    ;(invites ?? []).forEach(inv => { inviteMap[inv.invited_email] = inv.status })
+    ;(invites ?? []).forEach(inv => { inviteMap[inv.invited_user_id] = inv.status })
 
     setFriends(friendProfiles)
     setInvitations(inviteMap)
@@ -63,11 +63,11 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
     setTimeout(onClose, 280)
   }
 
-  function toggleSelect(email) {
+  function toggleSelect(friendId) {
     setSelected(prev => {
       const next = new Set(prev)
-      if (next.has(email)) next.delete(email)
-      else next.add(email)
+      if (next.has(friendId)) next.delete(friendId)
+      else next.add(friendId)
       return next
     })
   }
@@ -78,9 +78,9 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSending(false); return }
 
-    const rows = [...selected].map(email => ({
+    const rows = [...selected].map(friendId => ({
       event_id: eventId,
-      invited_email: email,
+      invited_user_id: friendId,
       invited_by: user.id,
       status: 'pending',
     }))
@@ -95,7 +95,7 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
     setSending(false)
   }
 
-  const allAlreadyInvited = friends.length > 0 && friends.every(f => invitations[f.email])
+  const allAlreadyInvited = friends.length > 0 && friends.every(f => invitations[f.id])
   const canInvite = selected.size > 0
 
   return (
@@ -146,15 +146,15 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
             </div>
           ) : (
             friends.map(friend => {
-              const status = invitations[friend.email]
+              const status = invitations[friend.id]
               const isSelectable = !status
-              const isSelected = selected.has(friend.email)
+              const isSelected = selected.has(friend.id)
               const displayName = friend.first_name || friend.name || 'Ami'
 
               return (
                 <div
                   key={friend.id}
-                  onClick={() => isSelectable && toggleSelect(friend.email)}
+                  onClick={() => isSelectable && toggleSelect(friend.id)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '11px 0',

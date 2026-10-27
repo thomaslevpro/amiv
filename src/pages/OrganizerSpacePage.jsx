@@ -507,15 +507,9 @@ export default function OrganizerSpacePage() {
       ...taskRows.map(item => item.assigned_to),
       ...inviteRows.map(invitation => invitation.invited_user_id),
     ].filter(Boolean)
-    const emails = inviteRows.map(invitation => invitation.invited_email).filter(Boolean)
-    const [profilesByIdRes, profilesByEmailRes] = await Promise.all([
-      profileIds.length ? supabase.from('profiles').select('id, first_name, name, email, avatar_url').in('id', [...new Set(profileIds)]) : Promise.resolve({ data: [] }),
-      emails.length ? supabase.from('profiles').select('id, first_name, name, email, avatar_url').in('email', [...new Set(emails)]) : Promise.resolve({ data: [] }),
-    ])
-
-    const profiles = [...(profilesByIdRes.data || []), ...(profilesByEmailRes.data || [])]
-    const byId = Object.fromEntries(profiles.map(profile => [profile.id, profile]))
-    const byEmail = Object.fromEntries(profiles.filter(profile => profile.email).map(profile => [profile.email, profile]))
+    // Les emails des profils ne sont pas lisibles : rattachement par invited_user_id uniquement
+    const profilesByIdRes = await (profileIds.length ? supabase.from('profiles').select('id, first_name, name, avatar_url').in('id', [...new Set(profileIds)]) : Promise.resolve({ data: [] }))
+    const byId = Object.fromEntries((profilesByIdRes.data || []).map(profile => [profile.id, profile]))
 
     setEvent({ ...eventRes.data, budget_total: Number(eventRes.data.budget_total || 0) })
     setBudgetDraft(eventRes.data.budget_total ? String(eventRes.data.budget_total) : '')
@@ -527,11 +521,11 @@ export default function OrganizerSpacePage() {
     setExpenses((expensesRes.data || []).map(expense => ({ ...expense, category: expense.category || 'other' })))
     setInvitations(inviteRows.map(invitation => ({
       ...invitation,
-      profile: byId[invitation.invited_user_id] || byEmail[invitation.invited_email] || null,
+      profile: byId[invitation.invited_user_id] || null,
     })))
     setAcceptedGuests(inviteRows
       .filter(invitation => invitation.status === 'accepted')
-      .map(invitation => byId[invitation.invited_user_id] || byEmail[invitation.invited_email])
+      .map(invitation => byId[invitation.invited_user_id])
       .filter(Boolean))
     setLoading(false)
   }, [eventId, navigate])

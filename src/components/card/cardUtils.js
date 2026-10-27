@@ -33,13 +33,13 @@ export async function enrichMessagesWithProfiles(supabase, rows) {
 
   let profileRes = await supabase
     .from('profiles')
-    .select('id, full_name, first_name, name, email, avatar_url')
+    .select('id, full_name, first_name, name, avatar_url')
     .in('id', userIds)
 
   if (profileRes.error) {
     profileRes = await supabase
       .from('profiles')
-      .select('id, first_name, name, email, avatar_url')
+      .select('id, first_name, name, avatar_url')
       .in('id', userIds)
   }
 

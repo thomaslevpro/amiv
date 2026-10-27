@@ -168,9 +168,8 @@ function MainApp() {
   useEffect(() => {
     if (!session || onboardingCompleted !== null) return
     supabase
-      .from('profiles')
+      .rpc('get_my_profile')
       .select('onboarding_completed, username')
-      .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
         if (error) captureSupabaseError(error, { operation: 'load_profile_onboarding_state' })

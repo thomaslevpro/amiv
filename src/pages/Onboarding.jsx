@@ -22,9 +22,8 @@ export default function OnboardingFlow({ session, onComplete }) {
 
   useEffect(() => {
     supabase
-      .from('profiles')
+      .rpc('get_my_profile')
       .select('onboarding_step')
-      .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
         setStep(data?.onboarding_step ?? 0)
@@ -33,7 +32,7 @@ export default function OnboardingFlow({ session, onComplete }) {
 
   // Slides → Profile: mark step=2 in DB so a refresh shows profile form, not slides
   const handleSlidesNext = async () => {
-    await supabase.from('profiles').upsert({ id: userId, onboarding_step: 2 })
+    await supabase.from('profiles').update({ onboarding_step: 2 }).eq('id', userId)
     setStep(2)
   }
 

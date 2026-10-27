@@ -106,7 +106,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
           username: nextUsername,
         })
         .eq('id', user.id)
-        .select('id, first_name, name, email, avatar_url, created_at, birthday, username')
+        .select('id, first_name, name, avatar_url, username')
         .maybeSingle()
 
       if (updateError?.code === '23505') {

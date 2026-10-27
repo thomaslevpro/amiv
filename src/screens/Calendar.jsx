@@ -422,7 +422,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     if (userIds.length > 0) {
       const { data: rsvpProfiles } = await supabase
         .from('profiles')
-        .select('id, name, first_name, avatar_url, email')
+        .select('id, name, first_name, avatar_url')
         .in('id', userIds)
       profileMap = Object.fromEntries((rsvpProfiles ?? []).map(row => [row.id, row]))
     }

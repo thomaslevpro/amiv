@@ -191,13 +191,13 @@ export default function GroupCard({ eventId, eventDate, isOrganizer }) {
     if (userIds.length > 0) {
       let profilesRes = await supabase
         .from('profiles')
-        .select('id, full_name, name, email')
+        .select('id, full_name, name')
         .in('id', userIds)
 
       if (profilesRes.error) {
         profilesRes = await supabase
           .from('profiles')
-          .select('id, name, email')
+          .select('id, name')
           .in('id', userIds)
       }
 

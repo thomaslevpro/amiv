@@ -70,17 +70,7 @@ function buildMessagesWithReactions(messages = [], reactions = []) {
 async function fetchProfilesByIds(userIds) {
   if (userIds.length === 0) return {}
 
-  let profileRes = await supabase
-    .from('profiles')
-    .select('id, first_name, name, avatar_url, birthday')
-    .in('id', userIds)
-
-  if (profileRes.error) {
-    profileRes = await supabase
-      .from('profiles')
-      .select('id, first_name, name, avatar_url, birthday')
-      .in('id', userIds)
-  }
+  const profileRes = await supabase.rpc('get_profiles_with_birthday', { p_user_ids: userIds })
 
   if (profileRes.error) {
     console.error('[CardContribute] profiles error:', profileRes.error)

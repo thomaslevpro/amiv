@@ -177,7 +177,7 @@ export function isConversationHidden(conversation, hiddenConversations) {
 
 export async function fetchProfilesByIds(ids) {
   if (!ids.length) return []
-  const { data } = await supabase.from('profiles').select('id, name, first_name, avatar_url, email').in('id', ids)
+  const { data } = await supabase.from('profiles').select('id, name, first_name, avatar_url').in('id', ids)
   return data ?? []
 }
 

@@ -21,7 +21,7 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('profiles').select('name, first_name, birthday, avatar_url, username').eq('id', user.id).maybeSingle()
+      const { data } = await supabase.rpc('get_my_profile').select('name, first_name, birthday, avatar_url, username').maybeSingle()
       if (data?.name) setName(data.name)
       else if (data?.first_name) setName(data.first_name)
       if (data?.birthday) setBirthday(data.birthday)
@@ -64,15 +64,13 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
         avatar_url = urlData.publicUrl
       }
 
-      const { error: upsertErr } = await supabase.from('profiles').upsert({
-        id: user.id,
+      const { error: upsertErr } = await supabase.from('profiles').update({
         name: name.trim(),
         first_name: name.trim(),
-        email: user.email,
         birthday: birthday || null,
         avatar_url: avatar_url ?? null,
         username: username.trim() || null,
-      })
+      }).eq('id', user.id)
       if (upsertErr?.code === '23505') {
         setError('Ce pseudo est déjà pris')
         return

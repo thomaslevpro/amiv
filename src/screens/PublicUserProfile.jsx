@@ -50,10 +50,7 @@ export default function PublicUserProfile() {
       const [{ data: authData }, profileRes] = await Promise.all([
         supabase.auth.getSession(),
         supabase
-          .from('profiles')
-          .select('id, first_name, name, avatar_url, username')
-          .eq('username', username)
-          .not('username', 'is', null)
+          .rpc('get_public_profile', { p_username: username })
           .maybeSingle(),
       ])
 

@@ -32,12 +32,10 @@ export async function searchUsers(query, currentUserId) {
       .map(f => [f.addressee_id, { friendshipId: f.id, status: 'pending_sent' }])
   )
 
-  const safeSearch = search.replace(/[(),]/g, ' ')
+  // search_profiles : pseudo / nom (partiel) ou email exact, sans exposer les emails
   let profilesQuery = supabase
-    .from('profiles')
+    .rpc('search_profiles', { p_query: search })
     .select('id, name, first_name, username, avatar_url')
-    .or(`username.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`)
-    .neq('id', currentUserId)
     .limit(10)
 
   if (excludedIds.length > 0) {

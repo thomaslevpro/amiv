@@ -104,9 +104,7 @@ export default function DirectFriendProfileSheet({ friend, currentUserId, onClos
       setErrorMessage('')
       const [profileRes, friendshipRes] = await Promise.all([
         supabase
-          .from('profiles')
-          .select('id, first_name, name, avatar_url, birthday')
-          .eq('id', friendId)
+          .rpc('get_profiles_with_birthday', { p_user_ids: [friendId] })
           .maybeSingle(),
         supabase
           .from('friendships')

@@ -256,7 +256,7 @@ export default function AllEvents({ onBack, onEventClick }) {
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, name, first_name, avatar_url, email')
+          .select('id, name, first_name, avatar_url')
           .in('id', userIds)
         profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
       }
