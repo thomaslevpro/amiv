@@ -246,6 +246,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
   const [showFriendProfile, setShowFriendProfile] = useState(false)
   const [isCloseFriend, setIsCloseFriend] = useState(friend?.is_close_friend === true || friend?.isCloseFriend === true)
   const bottomRef = useRef(null)
+  const inputRef = useRef(null)
   const longPressRef = useRef(null)
   const messageIdsRef = useRef(new Set())
   const otherUserId = friendId(friend)
@@ -435,6 +436,8 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       isOptimistic: true,
     }
     setInput('')
+    // Garde le clavier ouvert pour enchaîner (focus synchrone : iOS l'exige dans le geste)
+    if (document.activeElement !== inputRef.current) inputRef.current?.focus()
     setMessages(prev => [...prev, optimistic])
     const { error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
@@ -688,9 +691,15 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       {/* Input */}
       <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
         <input
+          ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSend()}
+          onKeyDown={e => {
+            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+            e.preventDefault()
+            handleSend()
+          }}
+          enterKeyHint="send"
           placeholder="Message..."
           style={{
             flex: 1, minWidth: 0, padding: '10px 14px', borderRadius: 20, background: BG,
@@ -700,6 +709,9 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
         <button
           type="button"
           aria-label="Envoyer"
+          // Empêche le bouton de voler le focus à l'input (sinon le clavier se ferme)
+          onPointerDown={e => e.preventDefault()}
+          onMouseDown={e => e.preventDefault()}
           onClick={handleSend}
           style={{
             width: 36, height: 36,

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Calendar as CalendarIcon, ChevronLeft, Lock, MapPin, MessageCircle, MoreHorizontal, Send } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { formatEventHeaderDate, profileDisplayName } from './utils'
@@ -25,6 +26,14 @@ export default function MessageThread({
   guestLeaderIds = new Set(),
   closeFriendIds = new Set(),
 }) {
+  const inputRef = useRef(null)
+
+  function handleSend() {
+    // Garde le clavier ouvert pour enchaîner (focus synchrone : iOS l'exige dans le geste)
+    if (input.trim() && document.activeElement !== inputRef.current) inputRef.current?.focus()
+    send()
+  }
+
   const rsvpPill = myRsvpStatus === 'going'
     ? { label: 'Présent ✓', bg: 'rgba(52,199,89,0.22)', color: '#fff' }
     : myRsvpStatus === 'declined'
@@ -146,13 +155,19 @@ export default function MessageThread({
 
       <div style={{ padding: '10px 14px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 9, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
         <input
+          ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
+          onKeyDown={e => {
+            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+            e.preventDefault()
+            handleSend()
+          }}
+          enterKeyHint="send"
           placeholder="Message..."
           style={{ flex: 1, minWidth: 0, padding: '10px 16px', borderRadius: 20, background: BG, fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: FONT }}
         />
-        <button type="button" aria-label="Envoyer" onClick={send} style={{ width: 32, height: 32, background: input.trim() ? GRADIENT : '#D1D1D6', borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() ? 'pointer' : 'default', transition: 'background 0.15s', flexShrink: 0, padding: 0 }}>
+        <button type="button" aria-label="Envoyer" onPointerDown={e => e.preventDefault()} onMouseDown={e => e.preventDefault()} onClick={handleSend} style={{ width: 32, height: 32, background: input.trim() ? GRADIENT : '#D1D1D6', borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() ? 'pointer' : 'default', transition: 'background 0.15s', flexShrink: 0, padding: 0 }}>
           <Send size={14} color={WHITE} fill={WHITE} strokeWidth={2.2} />
         </button>
       </div>
