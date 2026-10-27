@@ -150,13 +150,13 @@ function Avatar({ name, url, size = 28, isCloseFriend = false }) {
   )
 }
 
-function EmojiPicker({ onSelect }) {
+function EmojiPicker({ onSelect, isMine }) {
   return (
     <div style={{
       position: 'absolute',
-      left: '50%',
+      left: isMine ? 'auto' : 0,
+      right: isMine ? 0 : 'auto',
       bottom: 'calc(100% + 8px)',
-      transform: 'translateX(-50%)',
       zIndex: 5,
       display: 'flex',
       alignItems: 'center',
@@ -633,7 +633,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
                   }}
                 >
                   {activePicker === msg.id && !msg.isOptimistic && (
-                    <EmojiPicker onSelect={emoji => toggleReaction(msg.id, emoji)} />
+                    <EmojiPicker isMine={isMine} onSelect={emoji => toggleReaction(msg.id, emoji)} />
                   )}
                   <div
                     onMouseDown={() => !msg.isOptimistic && startLongPress(msg.id)}
@@ -693,7 +693,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           onKeyDown={e => e.key === 'Enter' && handleSend()}
           placeholder="Message..."
           style={{
-            flex: 1, padding: '10px 14px', borderRadius: 20, background: BG,
+            flex: 1, minWidth: 0, padding: '10px 14px', borderRadius: 20, background: BG,
             fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: FONT,
           }}
         />

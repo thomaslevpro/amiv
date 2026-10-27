@@ -9,6 +9,12 @@ export const APP_URL = 'https://amiv.app'
 
 export function initNative() {
   if (!isNative) return
+  // iOS zoome au focus de tout input < 16px, ce qui élargit la page et fait
+  // sortir le header de l'écran. On fige l'échelle (app native, pas de pinch).
+  document.querySelector('meta[name="viewport"]')?.setAttribute(
+    'content',
+    'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+  )
   // Style.Light = texte sombre, pour fond clair
   StatusBar.setStyle({ style: Style.Light }).catch(() => {})
   StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {})

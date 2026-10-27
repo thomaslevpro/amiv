@@ -128,7 +128,7 @@ export default function MessageThread({
                 )}
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7, maxWidth: '78%' }}>
                   {!isMine && (showAvatar ? <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} isCloseFriend={closeFriendIds.has(msg.profile?.id)} /> : <div style={{ width: 28, flexShrink: 0 }} />)}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', minWidth: 0 }}>
                     <div style={{ padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : BLACK, fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)' }}>
                       {msg.content}
                     </div>
@@ -150,7 +150,7 @@ export default function MessageThread({
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
           placeholder="Message..."
-          style={{ flex: 1, padding: '10px 16px', borderRadius: 20, background: BG, fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: FONT }}
+          style={{ flex: 1, minWidth: 0, padding: '10px 16px', borderRadius: 20, background: BG, fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: FONT }}
         />
         <button type="button" aria-label="Envoyer" onClick={send} style={{ width: 32, height: 32, background: input.trim() ? GRADIENT : '#D1D1D6', borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() ? 'pointer' : 'default', transition: 'background 0.15s', flexShrink: 0, padding: 0 }}>
           <Send size={14} color={WHITE} fill={WHITE} strokeWidth={2.2} />

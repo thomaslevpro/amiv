@@ -9,6 +9,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   ios: {
     contentInset: 'never',
+    // Empêche WKWebView de faire défiler le document au focus d'un input :
+    // seuls les conteneurs overflow: auto scrollent.
+    scrollEnabled: false,
   },
   plugins: {
     Keyboard: {
