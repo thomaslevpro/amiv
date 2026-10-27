@@ -595,7 +595,7 @@ export default function Create({ onBack, session, initialData = null }) {
             <div style={{ fontSize: 14, color: '#8E8E93' }}>Partage le lien pour inviter tes amis</div>
             <div
               onClick={async () => {
-                await navigator.clipboard.writeText(`https://amiv.app/invite/${createdEvent.share_token}`)
+                await navigator.clipboard.writeText(`https://amiv.app/invite/${createdEvent.invite_token}`)
                 setCopied(true)
                 setTimeout(() => setCopied(false), 2000)
               }}

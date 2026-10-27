@@ -8,19 +8,6 @@ function assertTable(table) {
   }
 }
 
-async function getRequesterName(row, table, fallbackName) {
-  if (table === 'guest_rsvps') return row?.guest_name || fallbackName || 'Un invité'
-  if (!row?.user_id) return fallbackName || 'Un invité'
-
-  const { data } = await supabase
-    .from('profiles')
-    .select('first_name, name')
-    .eq('id', row.user_id)
-    .maybeSingle()
-
-  return data?.first_name || data?.name || fallbackName || 'Un invité'
-}
-
 export function usePlusOne() {
   async function requestPlusOne({ rsvpId, table, name, message }) {
     assertTable(table)
@@ -48,36 +35,11 @@ export function usePlusOne() {
     if (updateError) throw updateError
     if (!updatedRsvp?.event_id) throw new Error('Événement introuvable pour cette demande')
 
-    const { data: event, error: eventError } = await supabase
-      .from('events')
-      .select('id, user_id')
-      .eq('id', updatedRsvp.event_id)
-      .maybeSingle()
-
-    if (eventError) throw eventError
-
-    if (event?.user_id) {
-      const requesterName = await getRequesterName(updatedRsvp, table, plusOneName)
-      const { error: notificationError } = await supabase.from('notifications').insert({
-        user_id: event.user_id,
-        type: 'plus_one_request',
-        title: `${requesterName} veut amener un +1`,
-        body: plusOneMessage,
-        data: {
-          event_id: event.id,
-          rsvp_id: rsvpId,
-          table,
-          requester_name: requesterName,
-        },
-      })
-
-      if (notificationError) throw notificationError
-    }
-
+    // Notification à l'organisateur : trigger notify_plus_one_change
     return updatedRsvp
   }
 
-  async function respondPlusOne({ rsvpId, table, status, eventId, inviteeUserId }) {
+  async function respondPlusOne({ rsvpId, table, status }) {
     assertTable(table)
     if (!['accepted', 'declined'].includes(status)) throw new Error('Réponse +1 invalide')
 
@@ -90,18 +52,7 @@ export function usePlusOne() {
 
     if (updateError) throw updateError
 
-    if (inviteeUserId) {
-      const { error: notificationError } = await supabase.from('notifications').insert({
-        user_id: inviteeUserId,
-        type: 'plus_one_response',
-        title: status === 'accepted' ? '🎉 +1 accepté !' : '+1 refusé',
-        body: null,
-        data: { event_id: eventId, status },
-      })
-
-      if (notificationError) throw notificationError
-    }
-
+    // Notification à l'invité : trigger notify_plus_one_change
     return updatedRsvp
   }
 

@@ -25,6 +25,7 @@ export default function useEventDetail(event, onBack) {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', date: '', description: '', location: '' })
   const [birthdayPersonId, setBirthdayPersonId] = useState(event?.birthday_person_user_id ?? null)
+  const [birthdayPersonName, setBirthdayPersonName] = useState(null)
   const [saving, setSaving] = useState(false)
   const [coverFile, setCoverFile] = useState(null)
   const [coverPreview, setCoverPreview] = useState(null)
@@ -211,6 +212,18 @@ export default function useEventDetail(event, onBack) {
   }, [event?.id])
 
   useEffect(() => {
+    if (!birthdayPersonId) {
+      setBirthdayPersonName(null)
+      return undefined
+    }
+    let cancelled = false
+    supabase.from('profiles').select('first_name, name').eq('id', birthdayPersonId).maybeSingle().then(({ data }) => {
+      if (!cancelled) setBirthdayPersonName(data?.first_name || data?.name?.split(' ')[0] || null)
+    })
+    return () => { cancelled = true }
+  }, [birthdayPersonId])
+
+  useEffect(() => {
     if (!event?.id || !userId) {
       setChatUnreadCount(0)
       return undefined
@@ -284,11 +297,6 @@ export default function useEventDetail(event, onBack) {
       setMyRsvp(data ?? { ...myRsvp, status: rsvpStatusValue })
       showToast('Réponse enregistrée ✓')
       refreshSecretSpaceAccess()
-      if (rsvpStatusValue === 'going' && event.user_id && event.user_id !== userId) {
-        const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
-        const name = profile?.name ?? 'Quelqu\'un'
-        await supabase.from('notifications').insert({ user_id: event.user_id, type: 'rsvp_received', title: `${name} participe à ${event.name}`, body: 'Nouvelle réponse à votre événement', data: { event_id: event.id, sender_id: userId } })
-      }
     } else {
       captureSupabaseError(error, { operation: 'upsert_rsvp' })
       track('rsvp_update_failed', {
@@ -554,6 +562,7 @@ export default function useEventDetail(event, onBack) {
     rsvpStats,
     participants,
     organizerName,
+    birthdayPersonName,
     eventGuests,
     isInvitedGuest,
     canAccessSecretSpace,

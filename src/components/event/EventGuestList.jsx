@@ -27,9 +27,11 @@ export default function EventGuestList({ participants, guestRsvps, eventGuests, 
         {visibleEventGuests.map(guest => {
           const isCurrentUser = guest.invitee_id === userId
           const guestName = isCurrentUser ? 'Moi' : guest.full_name
-          const chipBg = guest.rsvp_status === 'confirmed' ? 'rgba(52,199,89,0.10)' : guest.rsvp_status === 'declined' ? 'rgba(255,59,48,0.10)' : 'rgba(142,142,147,0.12)'
-          const chipColor = guest.rsvp_status === 'confirmed' ? '#34C759' : guest.rsvp_status === 'declined' ? '#FF3B30' : '#8E8E93'
-          const chipLabel = guest.rsvp_status === 'confirmed' ? 'Confirmé' : guest.rsvp_status === 'declined' ? 'Décliné' : 'En attente'
+          // rsvp_status = invitations.status (get_event_guests) : accepted / declined / pending / maybe
+          const isConfirmed = guest.rsvp_status === 'accepted'
+          const chipBg = isConfirmed ? 'rgba(52,199,89,0.10)' : guest.rsvp_status === 'declined' ? 'rgba(255,59,48,0.10)' : 'rgba(142,142,147,0.12)'
+          const chipColor = isConfirmed ? '#34C759' : guest.rsvp_status === 'declined' ? '#FF3B30' : '#8E8E93'
+          const chipLabel = isConfirmed ? 'Confirmé' : guest.rsvp_status === 'declined' ? 'Décliné' : 'En attente'
           const btnDisabled = guest.is_friend || guest.friend_request_sent
           const btnBg = guest.is_friend ? 'rgba(52,199,89,0.10)' : '#F5F5F5'
           const btnColor = guest.is_friend ? '#34C759' : guest.friend_request_sent ? '#8E8E93' : '#1C1C1E'

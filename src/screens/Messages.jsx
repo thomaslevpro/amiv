@@ -368,12 +368,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       event_id: event.id,
       is_secret: isSecret,
     })
-    if (isSecret) return
-    const { error: notifErr } = await supabase.rpc('notify_message_recipients', { p_event_id: event.id, p_sender_id: userId, p_title: `Nouveau message dans ${event.name ?? 'un événement'}`, p_body: content.length > 40 ? content.slice(0, 40) + '…' : content })
-    if (notifErr) {
-      console.error('[Notif] rpc error:', notifErr)
-      captureSupabaseError(notifErr, { operation: 'notify_message_recipients' })
-    }
+    // Notifications créées par le trigger notify_event_message
   }
 
   if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} deleteEventConversation={deleteEventConversation} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />

@@ -34,7 +34,6 @@ export default function PublicUserProfile() {
   const { username } = useParams()
   const navigate = useNavigate()
   const [session, setSession] = useState(null)
-  const [currentProfile, setCurrentProfile] = useState(null)
   const [profile, setProfile] = useState(null)
   const [friendship, setFriendship] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -72,24 +71,14 @@ export default function PublicUserProfile() {
       setProfile(profileRes.data ?? null)
 
       if (currentSession?.user?.id && profileRes.data?.id && currentSession.user.id !== profileRes.data.id) {
-        const [friendshipRes, currentProfileRes] = await Promise.all([
-          supabase
-            .from('friendships')
-            .select('id, status, requester_id, addressee_id')
-            .or(`and(requester_id.eq.${currentSession.user.id},addressee_id.eq.${profileRes.data.id}),and(requester_id.eq.${profileRes.data.id},addressee_id.eq.${currentSession.user.id})`)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from('profiles')
-            .select('first_name, name')
-            .eq('id', currentSession.user.id)
-            .maybeSingle(),
-        ])
-        if (!cancelled) {
-          setFriendship(friendshipRes.data ?? null)
-          setCurrentProfile(currentProfileRes.data ?? null)
-        }
+        const friendshipRes = await supabase
+          .from('friendships')
+          .select('id, status, requester_id, addressee_id')
+          .or(`and(requester_id.eq.${currentSession.user.id},addressee_id.eq.${profileRes.data.id}),and(requester_id.eq.${profileRes.data.id},addressee_id.eq.${currentSession.user.id})`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (!cancelled) setFriendship(friendshipRes.data ?? null)
       }
 
       if (!cancelled) setLoading(false)
@@ -132,16 +121,8 @@ export default function PublicUserProfile() {
         .select('id, status, requester_id, addressee_id')
         .single()
 
+      // Notification créée par le trigger notify_friend_request
       if (friendshipError) throw friendshipError
-
-      const requesterFirstName = currentProfile?.first_name || currentProfile?.name || session.user.user_metadata?.first_name || 'Quelqu’un'
-      await supabase.from('notifications').insert({
-        user_id: profile.id,
-        type: 'friend_request',
-        title: "Nouvelle demande d'ami",
-        body: `${requesterFirstName} veut t'ajouter`,
-        data: { requester_id: session.user.id, sender_id: session.user.id, friendship_id: data.id },
-      })
 
       setFriendship(data)
       showToast(`Demande envoyée à ${profile.first_name || 'ton amiv'}`)

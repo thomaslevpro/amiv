@@ -23,7 +23,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     guestRsvps, toast, editing, editForm, setEditForm, birthdayPersonId, saving,
     coverPreview, setCoverFile, setCoverPreview, eventOverrides, showDeleteModal,
     setShowDeleteModal, deleting, friends, invitedIds, copySuccess, dateOptions,
-    myVotes, allVoteCounts, confirmingDate, rsvpStats, participants, organizerName,
+    myVotes, allVoteCounts, confirmingDate, rsvpStats, participants, birthdayPersonName,
     eventGuests, canAccessSecretSpace, chatUnreadCount, organizers, showCoOrgModal,
     setShowCoOrgModal, coOrgSubmitting, coOrgError, confirmedParticipants, coOrgLoading,
     eventForMessages, handleRsvp, handleDateVote, handleConfirmDate, handleEditOpen,
@@ -92,7 +92,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Espace secret</div>
                 <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Cadeaux · Cagnotte · Carte</div>
-                {organizerName && <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 6, padding: '3px 10px', borderRadius: 20, background: 'rgba(224,85,170,0.08)', border: '1px solid rgba(224,85,170,0.20)', fontSize: 10, fontWeight: 600, color: '#993556' }}>🔒 Caché de {organizerName}</div>}
+                {birthdayPersonName && <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 6, padding: '3px 10px', borderRadius: 20, background: 'rgba(224,85,170,0.08)', border: '1px solid rgba(224,85,170,0.20)', fontSize: 10, fontWeight: 600, color: '#993556' }}>🔒 Caché de {birthdayPersonName}</div>}
               </div>
               <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>

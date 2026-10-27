@@ -287,7 +287,7 @@ export default function DispoCalendar({
             .from('rsvps')
             .select('events!inner(id, name, emoji, date, type, user_id)')
             .eq('user_id', userId)
-            .eq('status', 'confirmed')
+            .eq('status', 'going')
             .not('events.date', 'is', null)
             .neq('events.user_id', userId),
         ])

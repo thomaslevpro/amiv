@@ -48,8 +48,6 @@ export default function PlusOneReviewList({ eventId, isOrganizer }) {
         rsvpId: request.id,
         table: request.table,
         status,
-        eventId,
-        inviteeUserId: request.inviteeUserId,
       })
       setRequests(prev => prev.filter(item => item.key !== request.key))
     } catch (error) {

@@ -573,7 +573,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
   }
 
   async function shareEvent(event) {
-    const token = event.invite_token || event.share_token
+    const token = event.invite_token
     const url = token ? `${APP_URL}/invite/${token}` : `${APP_URL}/events/${event.id}`
     const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
     if (navigator.share) {
@@ -583,9 +583,11 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
     }
   }
 
-  async function handleRsvp(item, status) {
+  async function handleRsvp(item, uiStatus) {
     if (!currentUser?.id) return
-    const invitationStatus = status === 'yes' ? 'accepted' : status === 'no' ? 'declined' : 'maybe'
+    const invitationStatus = uiStatus === 'yes' ? 'accepted' : uiStatus === 'no' ? 'declined' : 'maybe'
+    // rsvps_status_check : going / declined / invited / pending
+    const status = uiStatus === 'yes' ? 'going' : uiStatus === 'no' ? 'declined' : 'pending'
 
     const { data: inv } = await supabase
       .from('invitations')

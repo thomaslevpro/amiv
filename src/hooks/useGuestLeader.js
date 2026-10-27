@@ -3,10 +3,6 @@ import { supabase } from '../lib/supabase'
 
 const APPROVED_RSVP_STATUSES = ['going', 'yes', 'accepted', 'confirmed']
 
-function displayFirstName(profile, fallback = 'Quelqu’un') {
-  return profile?.first_name || profile?.name?.split(' ')?.[0] || fallback
-}
-
 function normalizeOrganizer(row) {
   return {
     id: row.id,
@@ -135,13 +131,6 @@ export function useGuestLeader(eventId) {
   )
   const isConfirmedGuest = APPROVED_RSVP_STATUSES.includes(rsvpStatus)
 
-  const insertNotification = useCallback(async notification => {
-    const { error: notificationError } = await supabase
-      .from('notifications')
-      .insert({ ...notification, read: false })
-    if (notificationError) throw notificationError
-  }, [])
-
   const applyAsGuestLeader = useCallback(async () => {
     if (!eventId || !currentUser?.id || !event) throw new Error('Événement introuvable.')
     if (isGuestLeader) throw new Error('Tu es déjà coordinateur de cet anniversaire.')
@@ -158,12 +147,6 @@ export function useGuestLeader(eventId) {
     if ((existingRows ?? []).some(row => row.status === 'pending')) throw new Error('Ta demande est déjà en attente.')
     if ((existingRows ?? []).some(row => row.status === 'approved')) throw new Error('Tu es déjà coordinateur de cet anniversaire.')
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('first_name, name')
-      .eq('id', currentUser.id)
-      .maybeSingle()
-
     const { error: insertError } = await supabase
       .from('event_organizers')
       .insert({
@@ -175,17 +158,9 @@ export function useGuestLeader(eventId) {
 
     if (insertError) throw insertError
 
-    const name = displayFirstName(profile, 'Quelqu’un')
-    await insertNotification({
-      user_id: event.user_id,
-      type: 'guest_leader_request',
-      title: `${name} veut coordonner un anniversaire`,
-      body: `${name} souhaite coordonner l'espace secret de ${event.name}`,
-      data: { event_id: eventId, sender_id: currentUser.id },
-    })
-
+    // Notifications guest_leader_* : trigger notify_guest_leader_change
     await load()
-  }, [currentUser?.id, event, eventId, hasPendingRequest, insertNotification, isGuestLeader, load])
+  }, [currentUser?.id, event, eventId, hasPendingRequest, isGuestLeader, load])
 
   const approveCandidate = useCallback(async userId => {
     if (!eventId || !event || !currentUser?.id) throw new Error('Événement introuvable.')
@@ -201,16 +176,8 @@ export function useGuestLeader(eventId) {
 
     if (updateError) throw updateError
 
-    await insertNotification({
-      user_id: userId,
-      type: 'guest_leader_approved',
-      title: 'Tu es coordinateur ! ✦',
-      body: `L'organisateur t'a confirmé comme coordinateur de ${event.name}`,
-      data: { event_id: eventId, sender_id: currentUser.id },
-    })
-
     await load()
-  }, [currentUser?.id, event, eventId, insertNotification, load])
+  }, [currentUser?.id, event, eventId, load])
 
   const rejectCandidate = useCallback(async userId => {
     if (!eventId || !event || !currentUser?.id) throw new Error('Événement introuvable.')
@@ -226,16 +193,8 @@ export function useGuestLeader(eventId) {
 
     if (updateError) throw updateError
 
-    await insertNotification({
-      user_id: userId,
-      type: 'guest_leader_rejected',
-      title: 'Demande de coordination',
-      body: `Ta demande pour ${event.name} n'a pas été retenue`,
-      data: { event_id: eventId, sender_id: currentUser.id },
-    })
-
     await load()
-  }, [currentUser?.id, event, eventId, insertNotification, load])
+  }, [currentUser?.id, event, eventId, load])
 
   return {
     guestLeaders,

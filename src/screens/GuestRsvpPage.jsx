@@ -38,13 +38,11 @@ export default function GuestRsvpPage({ token }) {
   const [submitError, setSubmitError] = useState(null)
 
   useEffect(() => {
-    supabase.functions.invoke('submit-guest-rsvp', {
-      body: { action: 'get_event', token },
-    }).then(({ data, error: err }) => {
-      if (err || data?.error) {
+    supabase.rpc('get_event_by_share_token', { p_token: token }).maybeSingle().then(({ data, error: err }) => {
+      if (err || !data) {
         setError('Événement introuvable.')
       } else {
-        setEvent(data.event)
+        setEvent(data)
         setOrganizerName(data.organizer_name)
         setConfirmedCount(data.confirmed_count ?? 0)
       }
