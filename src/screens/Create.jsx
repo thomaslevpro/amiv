@@ -185,6 +185,7 @@ export default function Create({ onBack, session, initialData = null }) {
         p_invited_user_ids: selectedFriendIds,
       })
       if (error) throw error
+      if (!eventData?.id) throw new Error("L'événement n'a pas pu être créé. Réessaie.")
 
       track('event_created', {
         ...eventProperties,
