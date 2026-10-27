@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Calendar as CalendarIcon, ChevronLeft, Lock, MapPin, MessageCircle, MoreHorizontal, Send } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
-import { formatEventHeaderDate, profileDisplayName } from './utils'
+import { DELETED_USER_LABEL, formatEventHeaderDate, profileDisplayName } from './utils'
 import { Avatar } from './MessageUI'
 
 function formatTime(ts) {
@@ -121,7 +121,7 @@ export default function MessageThread({
               )
             }
             const { message: msg, isMine, compactTop, showName, showAvatar } = row
-            const senderName = profileDisplayName(msg.profile)
+            const senderName = msg.user_id ? profileDisplayName(msg.profile) : DELETED_USER_LABEL
             const showCoordinatorBadge = isSecret && guestLeaderIds.has(msg.profile?.id) && !isMine
             return (
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: compactTop ? 2 : 10 }}>

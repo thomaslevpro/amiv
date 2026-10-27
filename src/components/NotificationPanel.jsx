@@ -77,6 +77,10 @@ function Avatar({ notification }) {
     <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FFF5F0', display: 'grid', placeItems: 'center', fontSize: 23 }}>
       🎂
     </div>
+  ) : notification.data?.cancelled ? (
+    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F5F5F5', display: 'grid', placeItems: 'center', fontSize: 21 }}>
+      🗓️
+    </div>
   ) : sender?.avatar_url ? (
     <img src={sender.avatar_url} alt={displayName(sender)} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
   ) : notification.type === 'message_received' && !sender ? (
@@ -378,6 +382,8 @@ export default function NotificationPanel({
   }
 
   function handleNavigate(notification) {
+    // Événement annulé (organisateur supprimé) : il n'existe plus, on affiche juste le message
+    if (notification.data?.cancelled) return
     if (notification.type === 'message_received' && notification.data?.event_id) {
       onClose?.()
       onMessagesOpen?.({ id: notification.data.event_id })

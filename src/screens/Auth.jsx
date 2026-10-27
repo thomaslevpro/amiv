@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Capacitor } from '@capacitor/core'
-import { supabase, AUTH_CALLBACK_URL } from '../lib/supabase'
+import { supabase, AUTH_CALLBACK_URL, AUTH_RESET_URL } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 
@@ -13,6 +13,8 @@ export default function Auth({ initialIsLogin = false }) {
   const [success, setSuccess] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [resendDone, setResendDone] = useState(false)
+  const [forgotMode, setForgotMode] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   const handle = async () => {
     setLoading(true)
@@ -44,6 +46,33 @@ export default function Auth({ initialIsLogin = false }) {
       setError(e.message)
     }
     setLoading(false)
+  }
+
+  const handleResetRequest = async () => {
+    if (!email.trim()) {
+      setError('Entre ton adresse email.')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: AUTH_RESET_URL })
+      if (error) throw error
+      track('password_reset_requested')
+      setResetSent(true)
+    } catch (e) {
+      captureSupabaseError(e, { operation: 'reset_password_request' })
+      setError(e.status === 429
+        ? 'Trop de demandes. Réessaie dans une minute.'
+        : "Impossible d'envoyer l'email. Vérifie ton adresse et réessaie.")
+    }
+    setLoading(false)
+  }
+
+  const leaveForgotMode = () => {
+    setForgotMode(false)
+    setResetSent(false)
+    setError(null)
   }
 
   const handleResend = async () => {
@@ -102,6 +131,21 @@ export default function Auth({ initialIsLogin = false }) {
     </div>
   )
 
+  if (resetSent) return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: 32, textAlign: 'center' }}>
+      <div style={{ fontSize: 52, marginBottom: 16 }}>🔑</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>Vérifie tes emails !</div>
+      <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 8 }}>Si un compte existe pour <strong>{email.trim()}</strong>, un lien pour choisir un nouveau mot de passe vient de lui être envoyé.</div>
+      <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: Capacitor.isNativePlatform() ? 12 : 32 }}>Pense à vérifier tes spams.</div>
+      {Capacitor.isNativePlatform() && (
+        <div style={{ fontSize: 14, color: '#1C1C1E', fontWeight: 600, marginBottom: 32 }}>Ouvre le lien reçu par email, puis reviens ici pour te connecter.</div>
+      )}
+      <div onClick={() => { leaveForgotMode(); setPassword('') }} style={{ fontSize: 13, color: '#e055aa', fontWeight: 600, marginTop: 14, cursor: 'pointer' }}>
+        Retour à la connexion
+      </div>
+    </div>
+  )
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
@@ -114,7 +158,12 @@ export default function Auth({ initialIsLogin = false }) {
 
         {/* Form */}
         <div style={{ width: '100%', maxWidth: 340 }}>
-          {/* Toggle */}
+          {forgotMode ? (
+            <div style={{ marginBottom: 24, textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#1C1C1E', marginBottom: 6 }}>Mot de passe oublié</div>
+              <div style={{ fontSize: 13, color: '#8E8E93' }}>Entre ton email, on t'envoie un lien pour en choisir un nouveau.</div>
+            </div>
+          ) : (
           <div style={{ display: 'flex', background: '#F5F5F5', borderRadius: 12, padding: 4, marginBottom: 24 }}>
             {['Connexion', 'Inscription'].map((t, i) => (
               <div key={i} onClick={() => { setIsLogin(i === 0); setError(null) }} style={{
@@ -129,6 +178,7 @@ export default function Auth({ initialIsLogin = false }) {
               </div>
             ))}
           </div>
+          )}
 
           {/* Email */}
           <div style={{ background: '#F5F5F5', borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
@@ -138,11 +188,13 @@ export default function Auth({ initialIsLogin = false }) {
               placeholder="ton@email.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => forgotMode && e.key === 'Enter' && handleResetRequest()}
               style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: 15, color: '#1C1C1E', fontFamily: 'inherit' }}
             />
           </div>
 
           {/* Password */}
+          {!forgotMode && (
           <div style={{ background: '#F5F5F5', borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#8E8E93', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Mot de passe</div>
             <input
@@ -154,6 +206,13 @@ export default function Auth({ initialIsLogin = false }) {
               style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: 15, color: '#1C1C1E', fontFamily: 'inherit' }}
             />
           </div>
+          )}
+
+          {isLogin && !forgotMode && (
+            <div onClick={() => { setForgotMode(true); setError(null) }} style={{ fontSize: 13, color: '#e055aa', fontWeight: 600, textAlign: 'right', margin: '2px 4px 10px', cursor: 'pointer' }}>
+              Mot de passe oublié ?
+            </div>
+          )}
 
           {/* Error */}
           {error && (
@@ -163,7 +222,7 @@ export default function Auth({ initialIsLogin = false }) {
           )}
 
           {/* Submit */}
-          <div onClick={handle} style={{
+          <div onClick={forgotMode ? handleResetRequest : handle} style={{
             width: '100%', padding: 16, marginTop: 6,
             background: loading ? '#F5F5F5' : 'linear-gradient(135deg,#e055aa,#f5a623)',
             color: loading ? '#8E8E93' : '#fff',
@@ -171,8 +230,14 @@ export default function Auth({ initialIsLogin = false }) {
             textAlign: 'center', cursor: loading ? 'not-allowed' : 'pointer',
             transition: 'all 0.15s',
           }}>
-            {loading ? 'Chargement...' : isLogin ? 'Se connecter' : "S'inscrire"}
+            {loading ? 'Chargement...' : forgotMode ? 'Envoyer le lien' : isLogin ? 'Se connecter' : "S'inscrire"}
           </div>
+
+          {forgotMode && (
+            <div onClick={leaveForgotMode} style={{ fontSize: 13, color: '#8E8E93', textAlign: 'center', marginTop: 16, cursor: 'pointer' }}>
+              Retour à la connexion
+            </div>
+          )}
         </div>
       </div>
     </div>

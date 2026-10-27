@@ -60,20 +60,33 @@ function normalizeEventType(payload: AuthEmailPayload) {
   return rawType?.toLowerCase().replace(/[\s_-]+/g, '')
 }
 
-function buildAuthUrl(payload: AuthEmailPayload) {
+const RECOVERY_TYPES = ['recovery', 'passwordreset', 'resetpassword', 'passwordrecovery']
+const AUTH_CALLBACK_URL = 'https://amiv.app/auth/callback'
+const AUTH_RESET_URL = 'https://amiv.app/auth/reset'
+
+function buildAuthUrl(payload: AuthEmailPayload, eventType: string) {
   const email_data = payload.email_data
 
   if (!SUPABASE_URL || !email_data?.token_hash) return null
 
   const verifyUrl = new URL(`${SUPABASE_URL}/auth/v1/verify`)
+  const isRecovery = RECOVERY_TYPES.includes(eventType)
 
-  verifyUrl.searchParams.set('type', 'email')
+  // Le reset de mot de passe doit être vérifié en type "recovery" pour que le
+  // client reçoive l'événement PASSWORD_RECOVERY sur /auth/reset.
+  verifyUrl.searchParams.set('type', isRecovery ? 'recovery' : 'email')
   verifyUrl.searchParams.set('token', email_data.token_hash)
-  verifyUrl.searchParams.set('redirect_to', 'https://amiv.app/auth/callback')
+  verifyUrl.searchParams.set('redirect_to', isRecovery ? AUTH_RESET_URL : AUTH_CALLBACK_URL)
 
   const confirmationUrl = verifyUrl.toString()
 
   return confirmationUrl
+}
+
+// jean.dupont@gmail.com → je***@gmail.com (jamais d'adresse ni de jeton dans les logs)
+function maskEmail(email: string) {
+  const [local, domain] = email.split('@')
+  return `${local.slice(0, 2)}***@${domain ?? ''}`
 }
 
 function escapeHtml(value: string) {
@@ -108,7 +121,7 @@ function getEmailContent(eventType: string, authUrl: string): EmailContent | nul
     }
   }
 
-  if (['recovery', 'passwordreset', 'resetpassword', 'passwordrecovery'].includes(eventType)) {
+  if (RECOVERY_TYPES.includes(eventType)) {
     return {
       subject: 'Réinitialise ton mot de passe Amiv',
       html: `
@@ -144,7 +157,6 @@ Deno.serve(async (req) => {
 
   try {
     payload = await req.json()
-    console.log('PAYLOAD_DEBUG:', JSON.stringify(payload, null, 2))
   } catch {
     return json({ error: 'Invalid JSON' }, 400)
   }
@@ -155,9 +167,8 @@ Deno.serve(async (req) => {
   if (!email) return json({ error: 'Missing email' }, 400)
   if (!eventType) return json({ error: 'Missing event type' }, 400)
 
-  const authUrl = buildAuthUrl(payload)
+  const authUrl = buildAuthUrl(payload, eventType)
   if (!authUrl) return json({ error: 'Missing token' }, 400)
-  console.log('VERIFY_URL:', authUrl)
 
   const content = getEmailContent(eventType, authUrl)
   if (!content) return json({ error: `Unsupported email type: ${eventType}` }, 400)
@@ -179,8 +190,10 @@ Deno.serve(async (req) => {
 
   if (!resendResponse.ok) {
     const resendError = await resendResponse.text()
+    console.error('auth email failed', { type: eventType, to: maskEmail(email), status: resendResponse.status })
     return json({ error: 'Failed to send email', details: resendError }, 502)
   }
 
+  console.log('auth email sent', { type: eventType, to: maskEmail(email) })
   return json({ success: true })
 })

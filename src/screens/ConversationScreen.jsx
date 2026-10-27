@@ -250,6 +250,8 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
   const longPressRef = useRef(null)
   const messageIdsRef = useRef(new Set())
   const otherUserId = friendId(friend)
+  // Sans autre participant, l'interlocuteur a supprimé son compte
+  const isDeletedUser = !otherUserId
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -560,12 +562,13 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           type="button"
           aria-label={`Voir le profil de ${otherName}`}
           onClick={() => setShowFriendProfile(true)}
+          disabled={isDeletedUser}
           style={{
             border: 'none',
             background: 'transparent',
             padding: 0,
             margin: 0,
-            cursor: 'pointer',
+            cursor: isDeletedUser ? 'default' : 'pointer',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
@@ -581,7 +584,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
             {otherName}
           </div>
           <div style={{ marginTop: 1, fontSize: 12, color: GRAY, fontWeight: 500 }}>
-            {presence}
+            {isDeletedUser ? 'Compte supprimé' : presence}
           </div>
         </div>
 
@@ -689,6 +692,11 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       </div>
 
       {/* Input */}
+      {isDeletedUser ? (
+        <div style={{ padding: '14px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)', textAlign: 'center', fontSize: 13, color: GRAY }}>
+          Cette personne a supprimé son compte.
+        </div>
+      ) : (
       <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
         <input
           ref={inputRef}
@@ -727,7 +735,8 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           <Send size={16} color={WHITE} fill={WHITE} strokeWidth={2.2} />
         </button>
       </div>
-      {showFriendProfile && (
+      )}
+      {showFriendProfile && !isDeletedUser && (
         <DirectFriendProfileSheet
           friend={friend}
           currentUserId={currentUserId}

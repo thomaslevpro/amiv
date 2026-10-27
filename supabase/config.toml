@@ -47,7 +47,8 @@ site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = [
   "https://127.0.0.1:3000",
   "http://127.0.0.1:3000/auth/callback",
-  "https://amiv.app/auth/callback"
+  "https://amiv.app/auth/callback",
+  "https://amiv.app/auth/reset"
 ]
 jwt_expiry = 3600
 enable_refresh_token_rotation = true
@@ -86,3 +87,8 @@ verify_jwt = false
 enabled = true
 port = 54327
 backend = "postgres"
+
+# Le JWT est vérifié dans la fonction via auth.getUser (identité de l'appelant).
+[functions.delete-account]
+enabled = true
+verify_jwt = false

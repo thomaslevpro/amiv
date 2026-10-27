@@ -13,6 +13,7 @@ import AddAmivModal from './components/AddAmivModal'
 import OnboardingFlow from './pages/Onboarding'
 import Auth from './screens/Auth'
 import AuthCallback from './screens/AuthCallback'
+import AuthReset from './screens/AuthReset'
 import Home from './screens/Home'
 import Calendar from './screens/Calendar'
 import Messages from './screens/Messages'
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/events/:id" element={<EventPage />} />
         <Route path="/u/:username" element={<PublicUserProfile />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/auth/reset" element={<AuthReset />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>

@@ -20,6 +20,9 @@ export function friendFirstName(friend, fallback = 'Ami') {
   return friend?.friend_username || fallback
 }
 
+// Auteur d'un message dont le compte a été supprimé (user_id / sender_id à NULL)
+export const DELETED_USER_LABEL = 'Utilisateur supprimé'
+
 export function directProfileDisplayName(profile) {
   return profile?.first_name || profile?.name || profile?.email || 'Utilisateur'
 }

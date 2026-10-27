@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AtSign, Trash2, X } from 'lucide-react'
+import { AtSign, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const inputStyle = {
@@ -39,7 +39,6 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
   const [birthday, setBirthday] = useState('')
   const [email, setEmail] = useState('')
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState(null)
   const [username, setUsername] = useState('')
   const [usernameInitial, setUsernameInitial] = useState('')
@@ -178,23 +177,6 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
         setUsernameStatus('taken')
       }
     }, 500)
-  }
-
-  async function handleDeleteAccount() {
-    const confirmed = window.confirm('Supprimer définitivement ton compte ? Cette action est irréversible.')
-    if (!confirmed) return
-
-    setDeleting(true)
-    setError(null)
-
-    try {
-      const { error: deleteError } = await supabase.rpc('delete_user')
-      if (deleteError) throw deleteError
-    } catch (err) {
-      setError(err.message ?? 'Impossible de supprimer le compte.')
-    } finally {
-      setDeleting(false)
-    }
   }
 
   return (
@@ -366,34 +348,6 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
             }}
           >
             {saving ? 'Enregistrement...' : 'Enregistrer'}
-          </button>
-
-          <div style={{ height: 8 }} />
-
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={handleDeleteAccount}
-            style={{
-              width: '100%',
-              padding: 14,
-              borderRadius: 16,
-              border: '1.5px solid #FF3B30',
-              background: 'transparent',
-              color: '#FF3B30',
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: deleting ? 'default' : 'pointer',
-              fontFamily: 'inherit',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              opacity: deleting ? 0.5 : 1,
-            }}
-          >
-            <Trash2 size={16} strokeWidth={2} color="#FF3B30" />
-            <span>Supprimer mon compte</span>
           </button>
         </form>
       </div>

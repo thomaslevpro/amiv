@@ -15,6 +15,7 @@ import {
   Pencil,
   QrCode,
   Share2,
+  Trash2,
   UserCheck,
   Users,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ import { supabase } from '../lib/supabase'
 import { deleteCalendarToken, getOrCreateCalendarToken } from '../lib/calendarSync'
 import EditProfileModal from '../components/profile/EditProfileModal'
 import ChangePasswordModal from '../components/profile/ChangePasswordModal'
+import DeleteAccountModal from '../components/profile/DeleteAccountModal'
 import AmivQrModal from '../components/profile/AmivQrModal'
 import FriendsListModal from '../components/profile/FriendsListModal'
 
@@ -197,6 +199,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [error, setError] = useState(null)
   const [showEditProfile, setShowEditProfile] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [showFriendsList, setShowFriendsList] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
@@ -760,6 +763,13 @@ export default function Profile({ session, onCalendarClick }) {
               <div style={{ flex: 1, fontSize: 14, color: COLORS.text, fontWeight: 600 }}>Se déconnecter</div>
               <ChevronRight size={16} strokeWidth={1.7} color={COLORS.hint} />
             </button>
+            <button type="button" onClick={() => setShowDeleteAccount(true)} style={{ width: '100%', border: 'none', borderTop: '0.5px solid rgba(0,0,0,0.07)', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+              <IconBubble background="rgba(255,59,48,0.08)">
+                <Trash2 size={18} strokeWidth={1.7} color={COLORS.destructive} />
+              </IconBubble>
+              <div style={{ flex: 1, fontSize: 14, color: COLORS.destructive, fontWeight: 600 }}>Supprimer mon compte</div>
+              <ChevronRight size={16} strokeWidth={1.7} color={COLORS.hint} />
+            </button>
           </div>
 
           <div style={{ textAlign: 'center', fontSize: 11, color: COLORS.hint, fontWeight: 500, padding: '10px 0 32px' }}>
@@ -783,6 +793,10 @@ export default function Profile({ session, onCalendarClick }) {
       <ChangePasswordModal
         isOpen={showChangePassword}
         onClose={() => setShowChangePassword(false)}
+      />
+      <DeleteAccountModal
+        isOpen={showDeleteAccount}
+        onClose={() => setShowDeleteAccount(false)}
       />
       <AmivQrModal
         isOpen={showQrModal}

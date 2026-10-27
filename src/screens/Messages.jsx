@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ConversationList from '../components/messages/ConversationList'
 import MessageThread from '../components/messages/MessageThread'
 import { typeEmoji } from '../components/messages/constants'
-import { buildEventMessageRows, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
+import { buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -225,7 +225,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (participantsError) myParticipants = (await supabase.from('direct_conversation_participants').select('conversation_id, direct_conversations(created_at)').eq('user_id', userId)).data
     const convIds = (myParticipants ?? []).map(row => row.conversation_id)
     if (!convIds.length) return []
-    const [{ data: otherParticipants }, { data: directMessages }] = await Promise.all([supabase.rpc('get_conversation_other_participants', { conv_ids: convIds }), supabase.from('direct_messages').select('id, conversation_id, content, created_at, sender_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(500)])
+    const [{ data: otherParticipants, error: otherParticipantsError }, { data: directMessages }] = await Promise.all([supabase.rpc('get_conversation_other_participants', { conv_ids: convIds }), supabase.from('direct_messages').select('id, conversation_id, content, created_at, sender_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(500)])
     const otherByConv = {}
     ;(otherParticipants ?? []).forEach(row => { otherByConv[row.conversation_id] = row.other_user_id })
     const profiles = await fetchProfilesByIds([...new Set(Object.values(otherByConv).filter(Boolean))])
@@ -238,7 +238,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       const otherUserId = otherByConv[conversationId]
       const profile = profileById[otherUserId] ?? null
       const friend = friendById[otherUserId]
-      const displayName = directProfileDisplayName(profile)
+      // Plus d'autre participant : il a supprimé son compte
+      const displayName = !otherUserId && !otherParticipantsError ? DELETED_USER_LABEL : directProfileDisplayName(profile)
       const createdAt = participantByConv[conversationId]?.direct_conversations?.created_at
       const isCloseFriend = friend?.is_close_friend === true
       return {
