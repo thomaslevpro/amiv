@@ -36,6 +36,12 @@ export default function GuestRsvpPage({ token }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  const [sessionUser, setSessionUser] = useState(null)
+  const [joinedEventId, setJoinedEventId] = useState(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSessionUser(data.session?.user ?? null))
+  }, [])
 
   useEffect(() => {
     supabase.rpc('get_event_by_share_token', { p_token: token }).maybeSingle().then(({ data, error: err }) => {
@@ -54,6 +60,21 @@ export default function GuestRsvpPage({ token }) {
     e.preventDefault()
     setSubmitting(true)
     setSubmitError(null)
+
+    // Compte Amiv : invitation + RSVP liés au compte (l'événement apparaît dans l'app)
+    if (sessionUser) {
+      const status = form.response === 'yes' ? 'going' : form.response === 'no' ? 'declined' : 'pending'
+      const { data: eventId, error: err } = await supabase.rpc('accept_invite_by_token', { p_token: token, p_status: status })
+      if (err) {
+        setSubmitError('Une erreur est survenue. Réessayez.')
+      } else {
+        setJoinedEventId(eventId)
+        setSubmitted(true)
+      }
+      setSubmitting(false)
+      return
+    }
+
     const { data, error: err } = await supabase.functions.invoke('submit-guest-rsvp', {
       body: {
         action: 'submit',
@@ -142,6 +163,15 @@ export default function GuestRsvpPage({ token }) {
                 ? 'L\'organisateur a été notifié de ta réponse.'
                 : 'Ton absence a été notée.'}
             </div>
+            {joinedEventId && (
+              <button
+                type="button"
+                onClick={() => window.location.assign(`/events/${joinedEventId}`)}
+                style={{ marginTop: 16, padding: '12px 18px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}
+              >
+                Voir l'événement
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
@@ -149,28 +179,32 @@ export default function GuestRsvpPage({ token }) {
               Répondre à l'invitation
             </div>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Ton prénom</div>
-                <input
-                  type="text"
-                  placeholder="Ex: Sophie"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  required
-                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Ton email</div>
-                <input
-                  type="email"
-                  placeholder="ton@email.com"
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  required
-                  style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
-                />
-              </div>
+              {!sessionUser && (
+                <>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Ton prénom</div>
+                    <input
+                      type="text"
+                      placeholder="Ex: Sophie"
+                      value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      required
+                      style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Ton email</div>
+                    <input
+                      type="email"
+                      placeholder="ton@email.com"
+                      value={form.email}
+                      onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      required
+                      style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '10px 12px', fontSize: 14, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 8 }}>Ta réponse</div>
                 <div style={{ display: 'flex', gap: 8 }}>

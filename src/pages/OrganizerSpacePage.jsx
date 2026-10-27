@@ -7,8 +7,8 @@ import CoOrganizers from '../components/CoOrganizers'
 import InviteFriendsSheet from '../components/InviteFriendsSheet'
 
 const GRAD = 'linear-gradient(135deg, #e055aa, #f5a623)'
-const PENDING_STATUSES = ['pending', 'invited']
-const WAITING_STATUSES = ['pending', 'invited', 'reminded']
+// Invitations sans réponse (les mêmes que remind_invitations accepte de relancer)
+const PENDING_STATUSES = ['pending', 'invited', 'maybe']
 const AVATAR_COLORS = ['#FBBF9A', '#B5CAF0', '#C5E8C5', '#F9DDB3', '#E2C9F0', '#F0C5C5']
 
 const TASK_CATEGORIES = [
@@ -103,6 +103,13 @@ function relativeSince(value, fallback = 'Invité récemment') {
   return `Invité il y a ${days} jours`
 }
 
+function remindedSince(value) {
+  const days = daysAgo(value)
+  if (!days) return 'Relancé aujourd’hui'
+  if (days === 1) return 'Relancé hier'
+  return `Relancé il y a ${days} jours`
+}
+
 function profileName(profile, email = '') {
   const full = [profile?.first_name, profile?.name].filter(Boolean).join(' ').trim()
   return full || profile?.name || email?.split('@')[0] || 'Invité'
@@ -145,7 +152,7 @@ function groupByCategory(rows, categories, field) {
 function invitationStatus(invitation) {
   if (invitation.status === 'accepted') return { label: '✓ Oui', color: '#34C759' }
   if (invitation.status === 'declined') return { label: '✕ Non', color: '#FF3B30' }
-  if (invitation.status === 'reminded') return { label: '↩ Relancé', color: '#FF9500' }
+  if (invitation.reminded_at && PENDING_STATUSES.includes(invitation.status)) return { label: '↩ Relancé', color: '#FF9500' }
   return { label: '— En attente', color: '#AEAEB2' }
 }
 
@@ -477,7 +484,7 @@ export default function OrganizerSpacePage() {
       .order('created_at', { ascending: true })
     const invitationsQuery = supabase
       .from('invitations')
-      .select('id, event_id, invited_email, invited_user_id, status, invited_by, created_at, updated_at')
+      .select('id, event_id, invited_email, invited_user_id, status, invited_by, created_at, reminded_at')
       .eq('event_id', eventId)
       .order('created_at', { ascending: true })
 
@@ -552,12 +559,12 @@ export default function OrganizerSpacePage() {
   const budgetFill = budgetProgress >= 80 ? '#FF3B30' : budgetProgress >= 50 ? '#FF9500' : '#34C759'
   const groupedExpenses = useMemo(() => groupByCategory(expenses, EXPENSE_CATEGORIES, 'amount'), [expenses])
   const confirmed = invitations.filter(invitation => invitation.status === 'accepted')
-  const waiting = invitations.filter(invitation => WAITING_STATUSES.includes(invitation.status))
+  const waiting = invitations.filter(invitation => PENDING_STATUSES.includes(invitation.status))
   const declined = invitations.filter(invitation => invitation.status === 'declined')
   const pendingForReminder = invitations.filter(invitation => PENDING_STATUSES.includes(invitation.status))
-  const lastReminder = invitations.filter(invitation => invitation.status === 'reminded' && invitation.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0]
+  const lastReminder = invitations.filter(invitation => invitation.reminded_at).sort((a, b) => new Date(b.reminded_at) - new Date(a.reminded_at))[0]
   const oldestPending = pendingForReminder.slice().sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))[0]
-  const reminderDays = daysAgo(lastReminder?.updated_at || oldestPending?.created_at)
+  const reminderDays = daysAgo(lastReminder?.reminded_at || oldestPending?.created_at)
 
   async function toggleItem(item) {
     const nextDone = !item.done
@@ -664,29 +671,19 @@ export default function OrganizerSpacePage() {
 
   async function sendReminder(selectedInvitations, message) {
     const ids = selectedInvitations.map(invitation => invitation.id)
-    const recipients = selectedInvitations
-      .map(invitation => ({
-        invitation_id: invitation.id,
-        email: invitation.invited_email || invitation.profile?.email,
-        first_name: firstName(invitation.profile, invitation.invited_email),
-      }))
-      .filter(recipient => recipient.email)
-
-    const { error } = await supabase.functions.invoke('send-reminder', {
-      body: { event_id: eventId, invitation_ids: ids, message, event: { id: eventId, name: event.name, date: event.date }, recipients },
-    })
+    // Notification in-app (les invités par email sans compte Amiv ne sont pas notifiés)
+    const { data: notifiedCount, error } = await supabase.rpc('remind_invitations', { p_invitation_ids: ids, p_message: message })
     if (error) {
       showToast('Relance non envoyée', 'error')
       return false
     }
     const now = new Date().toISOString()
-    const { error: updateError } = await supabase.from('invitations').update({ status: 'reminded', updated_at: now }).in('id', ids)
-    if (updateError) {
-      showToast('Relance envoyée, statut non mis à jour', 'error')
-      return false
-    }
-    setInvitations(prev => prev.map(invitation => ids.includes(invitation.id) ? { ...invitation, status: 'reminded', updated_at: now } : invitation))
-    showToast(`Relance envoyée à ${ids.length} personnes ✓`)
+    setInvitations(prev => prev.map(invitation => ids.includes(invitation.id) ? { ...invitation, reminded_at: now } : invitation))
+    const count = notifiedCount ?? 0
+    const skipped = ids.length - count
+    showToast(skipped > 0
+      ? `Relance envoyée à ${count} personne${count > 1 ? 's' : ''} (${skipped} sans compte Amiv)`
+      : `Relance envoyée à ${count} personne${count > 1 ? 's' : ''} ✓`)
     return true
   }
 
@@ -855,7 +852,7 @@ function GuestGroup({ title, rows }) {
             <Avatar profile={invitation.profile} email={email} />
             <div>
               <strong>{profileName(invitation.profile, email)}</strong>
-              <small>{email || (invitation.status === 'reminded' ? 'Relancé hier' : relativeSince(invitation.created_at))}</small>
+              <small>{email || (invitation.reminded_at ? remindedSince(invitation.reminded_at) : relativeSince(invitation.created_at))}</small>
             </div>
             <em style={{ color: status.color }}>{status.label}</em>
           </div>
