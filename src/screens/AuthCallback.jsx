@@ -37,5 +37,5 @@ export default function AuthCallback() {
     finishAuth()
   }, [navigate])
 
-  return <div>Confirmation de ton email...</div>
+  return <div style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>Confirmation de ton email...</div>
 }

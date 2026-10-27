@@ -686,7 +686,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       </div>
 
       {/* Input */}
-      <div style={{ padding: '10px 16px 20px', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+      <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { Capacitor } from '@capacitor/core'
+import { supabase, AUTH_CALLBACK_URL } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 
@@ -27,7 +28,7 @@ export default function Auth({ initialIsLogin = false }) {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: AUTH_CALLBACK_URL,
           },
         })
         if (error) throw error
@@ -52,7 +53,7 @@ export default function Auth({ initialIsLogin = false }) {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: AUTH_CALLBACK_URL },
       })
       if (error) throw error
       setResendDone(true)
@@ -67,7 +68,10 @@ export default function Auth({ initialIsLogin = false }) {
       <div style={{ fontSize: 52, marginBottom: 16 }}>📬</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>Vérifie tes emails !</div>
       <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 8 }}>Un lien de confirmation t'a été envoyé à <strong>{email}</strong></div>
-      <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: 32 }}>Pense à vérifier tes spams.</div>
+      <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: Capacitor.isNativePlatform() ? 12 : 32 }}>Pense à vérifier tes spams.</div>
+      {Capacitor.isNativePlatform() && (
+        <div style={{ fontSize: 14, color: '#1C1C1E', fontWeight: 600, marginBottom: 32 }}>Confirme ton email, puis reviens ici pour te connecter.</div>
+      )}
       {resendDone && (
         <div style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 16 }}>
           ✓ Email renvoyé !
@@ -90,6 +94,11 @@ export default function Auth({ initialIsLogin = false }) {
       <div onClick={() => { setSuccess(false); setEmail(''); setPassword('') }} style={{ fontSize: 13, color: '#8E8E93', marginTop: 14, cursor: 'pointer' }}>
         Utiliser un autre email
       </div>
+      {Capacitor.isNativePlatform() && (
+        <div onClick={() => { setSuccess(false); setIsLogin(true); setPassword('') }} style={{ fontSize: 13, color: '#e055aa', fontWeight: 600, marginTop: 14, cursor: 'pointer' }}>
+          Me connecter
+        </div>
+      )}
     </div>
   )
 

@@ -4,9 +4,11 @@ import App from './App.jsx'
 import './index.css'
 import { initAnalytics } from './lib/analytics'
 import { initMonitoring, Sentry } from './lib/monitoring'
+import { initNative } from './lib/native'
 
 initMonitoring()
 initAnalytics()
+initNative()
 
 function ErrorFallback({ resetError }) {
   return (

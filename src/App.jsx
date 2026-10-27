@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { App as CapacitorApp } from '@capacitor/app'
 import { supabase } from './lib/supabase'
+import { isNative, parseDeepLink } from './lib/native'
 import { identifyUser, resetAnalyticsUser, track } from './lib/analytics'
 import { captureSupabaseError, clearMonitoringUser, setMonitoringUser } from './lib/monitoring'
 import { useNotifications } from './hooks/useNotifications'
@@ -35,6 +37,7 @@ import UsernamePrompt from './components/UsernamePrompt'
 export default function App() {
   return (
     <BrowserRouter>
+      {isNative && <NativeDeepLinks />}
       <Routes>
         <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
         <Route path="/events/:id/manage" element={<OrganizerSpacePage />} />
@@ -46,6 +49,43 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   )
+}
+
+// Deep links natifs (amiv://… et futurs Universal Links https://amiv.app/…)
+function NativeDeepLinks() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const listener = CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+      const link = parseDeepLink(url)
+      if (!link) return
+
+      const accessToken = link.params.get('access_token')
+      const refreshToken = link.params.get('refresh_token')
+      const code = link.params.get('code')
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        if (error) captureSupabaseError(error, { operation: 'deep_link_set_session' })
+        navigate('/', { replace: true })
+        return
+      }
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) captureSupabaseError(error, { operation: 'deep_link_exchange_code' })
+        navigate('/', { replace: true })
+        return
+      }
+      if (link.path === '/auth/callback') {
+        navigate('/', { replace: true })
+        return
+      }
+      navigate(link.path + link.search)
+    })
+    return () => { listener.then(l => l.remove()) }
+  }, [navigate])
+
+  return null
 }
 
 function MainApp() {

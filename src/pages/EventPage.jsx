@@ -16,11 +16,13 @@ export default function EventPage() {
   if (!event) return null
 
   return (
-    <EventDetail
-      event={event}
-      onBack={() => navigate('/')}
-      onChat={() => {}}
-      onMessagesClick={() => {}}
-    />
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <EventDetail
+        event={event}
+        onBack={() => navigate('/')}
+        onChat={() => {}}
+        onMessagesClick={() => {}}
+      />
+    </div>
   )
 }

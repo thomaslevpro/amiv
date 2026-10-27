@@ -593,7 +593,7 @@ export default function SecretSpacePage() {
 
   if (errorMessage && !event) {
     return (
-      <div style={{ minHeight: '100dvh', background: COLORS.bg, padding: 16 }}>
+      <div style={{ minHeight: '100dvh', background: COLORS.bg, padding: 16, paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))' }}>
         <button type="button" onClick={() => navigate(eventDetailPath, { replace: true })} style={{ color: '#007AFF', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Retour</button>
         <EmptyCard>{errorMessage}</EmptyCard>
       </div>
@@ -609,7 +609,7 @@ export default function SecretSpacePage() {
             50% { transform: scale(1.15); opacity: 0.78; box-shadow: 0 0 0 7px rgba(245,166,35,0); }
           }
         `}</style>
-        <header style={{ position: 'relative', overflow: 'hidden', background: '#1c1c1e', padding: '16px 16px 18px' }}>
+        <header style={{ position: 'relative', overflow: 'hidden', background: '#1c1c1e', padding: 'calc(16px + env(safe-area-inset-top, 0px)) 16px 18px' }}>
           <div style={{ position: 'absolute', top: -68, right: -62, width: 184, height: 184, borderRadius: '50%', background: 'radial-gradient(circle, rgba(224,85,170,0.35) 0%, rgba(224,85,170,0.16) 38%, rgba(224,85,170,0) 70%)', pointerEvents: 'none' }} />
 
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>

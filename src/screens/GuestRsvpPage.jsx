@@ -100,7 +100,7 @@ export default function GuestRsvpPage({ token }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', minHeight: '100dvh' }}>
       {/* Hero header */}
-      <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: '60px 20px 32px', textAlign: 'center', color: '#fff', flexShrink: 0 }}>
+      <div style={{ background: 'linear-gradient(135deg,#e055aa,#f5a623)', padding: 'calc(60px + env(safe-area-inset-top, 0px)) 20px 32px', textAlign: 'center', color: '#fff', flexShrink: 0 }}>
         <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.5, marginBottom: 20, opacity: 0.95 }}>Amiv</div>
         <div style={{ fontSize: 52, marginBottom: 10 }}>{emoji}</div>
         <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.4, marginBottom: 6 }}>{event.name}</div>

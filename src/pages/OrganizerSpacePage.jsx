@@ -891,7 +891,7 @@ const styles = `
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   overflow-y: auto;
 }
-.organizer-shell { max-width: 560px; margin: 0 auto; padding: 14px 16px 34px; }
+.organizer-shell { max-width: 560px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 34px; }
 .org-header { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; align-items: center; gap: 10px; margin-bottom: 14px; }
 .org-header button { width: 32px; height: 32px; border-radius: 50%; background: var(--white); box-shadow: var(--shadow-sm); color: var(--black); display: flex; align-items: center; justify-content: center; }
 .org-header h1 { font-size: 18px; font-weight: 700; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -155,7 +155,7 @@ export default function PublicUserProfile() {
   return (
     <div style={{ minHeight: '100dvh', background: COLORS.page, display: 'flex', justifyContent: 'center', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>
       <div style={{ width: '100%', maxWidth: 430, minHeight: '100dvh', background: COLORS.page, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ background: COLORS.gradient, padding: '74px 20px 88px', color: '#fff', textAlign: 'center', borderRadius: '0 0 28px 28px' }}>
+        <div style={{ background: COLORS.gradient, padding: 'calc(74px + env(safe-area-inset-top, 0px)) 20px 88px', color: '#fff', textAlign: 'center', borderRadius: '0 0 28px 28px' }}>
           <div style={{ width: 106, height: 106, borderRadius: '50%', margin: '0 auto 16px', background: 'rgba(255,255,255,0.25)', border: '3px solid rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt={getDisplayName(profile)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
