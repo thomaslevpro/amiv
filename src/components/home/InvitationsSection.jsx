@@ -59,7 +59,7 @@ async function handleDeclineInvitation({ eventId, userId, userEmail, onUpdate })
   if (!error) onUpdate?.()
 }
 
-export default function InvitationsSection({ invitations, userId, userEmail, onUpdate }) {
+export default function InvitationsSection({ invitations, userId, userEmail, onUpdate, title = 'INVITATIONS EN ATTENTE' }) {
   if (invitations.length === 0) return null
 
   return (
@@ -72,7 +72,7 @@ export default function InvitationsSection({ invitations, userId, userEmail, onU
           textTransform: 'uppercase',
           color: 'var(--gray1)',
         }}>
-          INVITATIONS EN ATTENTE
+          {title}
         </span>
         <span style={{
           width: 24,

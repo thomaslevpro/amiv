@@ -389,6 +389,12 @@ export default function SecretSpacePage() {
       throw new Error('Cet espace est caché jusqu’au jour J.')
     }
 
+    const { data: canAccess, error: accessError } = await supabase.rpc('can_access_secret_space', { p_event_id: eventId })
+    if (accessError) throw accessError
+    if (!canAccess) {
+      throw new Error('L’espace secret est réservé aux invités ayant accepté l’invitation et aux organisateurs.')
+    }
+
     let birthdayProfile = null
     if (data.birthday_person_user_id) {
       const { data: profileData, error: profileError } = await supabase

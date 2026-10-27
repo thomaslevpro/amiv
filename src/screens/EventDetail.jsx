@@ -24,7 +24,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     coverPreview, setCoverFile, setCoverPreview, eventOverrides, showDeleteModal,
     setShowDeleteModal, deleting, friends, invitedIds, copySuccess, dateOptions,
     myVotes, allVoteCounts, confirmingDate, rsvpStats, participants, organizerName,
-    eventGuests, isInvitedGuest, chatUnreadCount, organizers, showCoOrgModal,
+    eventGuests, canAccessSecretSpace, chatUnreadCount, organizers, showCoOrgModal,
     setShowCoOrgModal, coOrgSubmitting, coOrgError, confirmedParticipants, coOrgLoading,
     eventForMessages, handleRsvp, handleDateVote, handleConfirmDate, handleEditOpen,
     toggleBirthdayPerson, handleEditSubmit, handleHeroCoverChange, handleDeleteEvent,
@@ -37,6 +37,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const pollClosed = eventOverrides.poll_closed ?? event.poll_closed ?? false
   const isPollActive = dateOptions.length > 0 && !pollClosed
   const heroEvent = { ...event, __isPollActive: isPollActive }
+  const isBirthdayEvent = event.type === 'Anniversaire' || !!birthdayPersonId
   void onMessagesClick
 
   function renderChatBanner() {
@@ -82,7 +83,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
         {renderChatBanner()}
 
-        {!canManage && isInvitedGuest && event.type === 'Anniversaire' && (
+        {canAccessSecretSpace && isBirthdayEvent && (
           <div style={{ marginBottom: 14 }}>
             <div onClick={() => navigate(`/events/${event.id}/secret-space`)} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
               <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: 'rgba(224,85,170,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

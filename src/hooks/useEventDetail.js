@@ -43,6 +43,7 @@ export default function useEventDetail(event, onBack) {
   const [organizerName, setOrganizerName] = useState(null)
   const [eventGuests, setEventGuests] = useState([])
   const [isInvitedGuest, setIsInvitedGuest] = useState(false)
+  const [canAccessSecretSpace, setCanAccessSecretSpace] = useState(false)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
   const [organizers, setOrganizers] = useState([])
   const [showCoOrgModal, setShowCoOrgModal] = useState(false)
@@ -95,6 +96,7 @@ export default function useEventDetail(event, onBack) {
     setOrganizers([])
     setEventGuests([])
     setIsInvitedGuest(false)
+    setCanAccessSecretSpace(false)
     setFriends([])
     setInvitedIds(new Set())
     setBirthdayPersonId(event?.birthday_person_user_id ?? null)
@@ -129,6 +131,7 @@ export default function useEventDetail(event, onBack) {
 
       const { data: isGuestResult } = await supabase.rpc('is_invited_to_event', { p_event_id: event.id, p_user_id: user.id })
       setIsInvitedGuest(!!isGuestResult)
+      refreshSecretSpaceAccess()
       setRsvpStatus(rsvpRes.data?.status ?? null)
       setMyRsvp(rsvpRes.data ?? null)
 
@@ -242,6 +245,12 @@ export default function useEventDetail(event, onBack) {
     }
   }, [event?.id, userId])
 
+  async function refreshSecretSpaceAccess() {
+    const { data, error } = await supabase.rpc('can_access_secret_space', { p_event_id: event.id })
+    if (error) captureSupabaseError(error, { operation: 'can_access_secret_space' })
+    setCanAccessSecretSpace(!!data)
+  }
+
   async function handleRsvp(status) {
     if (!userId || loading) return
     const rsvpStatusValue = status === 'maybe' ? 'pending' : status
@@ -274,6 +283,7 @@ export default function useEventDetail(event, onBack) {
       setRsvpStatus(data?.status ?? rsvpStatusValue)
       setMyRsvp(data ?? { ...myRsvp, status: rsvpStatusValue })
       showToast('Réponse enregistrée ✓')
+      refreshSecretSpaceAccess()
       if (rsvpStatusValue === 'going' && event.user_id && event.user_id !== userId) {
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', userId).maybeSingle()
         const name = profile?.name ?? 'Quelqu\'un'
@@ -456,9 +466,18 @@ export default function useEventDetail(event, onBack) {
     setShowCoOrgModal(true)
     setCoOrgLoading(true)
     const orgIds = new Set(organizers.map(o => o.profile?.id).filter(Boolean))
-    const { data: rsvpsData } = await supabase.from('rsvps').select('user_id, profile:user_id (id, first_name, name, avatar_url)').eq('event_id', event.id).eq('status', 'going')
-    const participants = (rsvpsData || []).filter(r => r.profile && !orgIds.has(r.profile.id)).map(r => r.profile)
-    setConfirmedParticipants(participants)
+    // rsvps.user_id référence auth.users : pas d'embed possible vers profiles
+    const { data: rsvpsData, error: rsvpsError } = await supabase.from('rsvps').select('user_id').eq('event_id', event.id).eq('status', 'going')
+    const candidateIds = (rsvpsData || []).map(r => r.user_id).filter(id => id && !orgIds.has(id))
+    const { data: profilesData, error: profilesError } = candidateIds.length > 0
+      ? await supabase.from('profiles').select('id, first_name, name, avatar_url').in('id', candidateIds)
+      : { data: [], error: null }
+    const loadError = rsvpsError || profilesError
+    if (loadError) {
+      captureSupabaseError(loadError, { operation: 'select_co_organizer_candidates' })
+      setCoOrgError('Impossible de charger les participants')
+    }
+    setConfirmedParticipants(profilesData || [])
     setCoOrgLoading(false)
   }
 
@@ -537,6 +556,7 @@ export default function useEventDetail(event, onBack) {
     organizerName,
     eventGuests,
     isInvitedGuest,
+    canAccessSecretSpace,
     chatUnreadCount,
     organizers,
     showCoOrgModal,

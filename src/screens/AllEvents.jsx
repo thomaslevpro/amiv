@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import InvitationsSection from '../components/home/InvitationsSection'
+import { fetchPendingInvitations, getInviteeResponse } from '../hooks/useHomeData'
 
 const TITLE_GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 
@@ -200,52 +202,83 @@ function EventCard({ event, onClick }) {
 
 export default function AllEvents({ onBack, onEventClick }) {
   const [events, setEvents] = useState([])
+  const [invitations, setInvitations] = useState([])
+  const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchAll() {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('date', { ascending: true })
-      if (!error) {
-        const eventIds = (data ?? []).map(event => event.id).filter(Boolean)
-        let rsvpRows = []
-        let profilesById = {}
-        if (eventIds.length > 0) {
-          const { data: rsvps } = await supabase
-            .from('rsvps')
-            .select('event_id, user_id, status')
-            .in('event_id', eventIds)
-          rsvpRows = rsvps ?? []
-          const userIds = [...new Set(rsvpRows.map(row => row.user_id).filter(Boolean))]
-          if (userIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from('profiles')
-              .select('id, name, first_name, avatar_url, email')
-              .in('id', userIds)
-            profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
-          }
-        }
+  const fetchAll = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+    setCurrentUser(user)
 
-        setEvents((data ?? []).map(event => {
-          const eventRsvps = rsvpRows.filter(row => row.event_id === event.id)
-          const mine = eventRsvps.find(row => row.user_id === user?.id)
-          const isOrganizer = event.user_id === user?.id
-          return {
-            ...event,
-            isOrganizer,
-            myStatus: isOrganizer ? 'going' : mine?.status,
-            rsvpStats: countStatuses(eventRsvps),
-            memberProfiles: eventRsvps.map(row => profilesById[row.user_id]).filter(Boolean),
-          }
-        }))
-      }
+    const [eventsRes, myInvitationsRes, myRsvpsRes, myOrganizerRes, pendingInvitations] = await Promise.all([
+      supabase.from('events').select('*').order('date', { ascending: true }),
+      supabase.from('invitations').select('event_id, status').eq('invited_user_id', user.id),
+      supabase.from('rsvps').select('event_id, status').eq('user_id', user.id),
+      supabase.from('event_organizers').select('event_id, role, status').eq('user_id', user.id),
+      fetchPendingInvitations(user.id),
+    ])
+    if (pendingInvitations) setInvitations(pendingInvitations)
+    if (eventsRes.error) {
+      console.error('Erreur événements :', eventsRes.error)
       setLoading(false)
+      return
     }
-    fetchAll()
+    if (myInvitationsRes.error) console.error('Erreur invitations :', myInvitationsRes.error)
+    if (myRsvpsRes.error) console.error('Erreur rsvps :', myRsvpsRes.error)
+    if (myOrganizerRes.error) console.error('Erreur organisateurs :', myOrganizerRes.error)
+
+    // Seulement les événements organisés ou acceptés : les invitations en attente ont
+    // leur propre section, les refusées disparaissent.
+    const myInvitationsByEventId = Object.fromEntries((myInvitationsRes.data ?? []).map(row => [row.event_id, row]))
+    const myRsvpsByEventId = Object.fromEntries((myRsvpsRes.data ?? []).map(row => [row.event_id, row]))
+    const organizedEventIds = new Set((myOrganizerRes.data ?? [])
+      .filter(row => ['owner', 'co_organizer'].includes(row.role) && row.status === 'approved')
+      .map(row => row.event_id))
+    const visibleEvents = (eventsRes.data ?? []).filter(event => {
+      if (event.user_id === user.id || organizedEventIds.has(event.id)) return true
+      const invitation = myInvitationsByEventId[event.id]
+      const rsvp = myRsvpsByEventId[event.id]
+      if (!invitation && !rsvp) return false
+      return getInviteeResponse(invitation, rsvp) === 'going'
+    })
+
+    const eventIds = visibleEvents.map(event => event.id).filter(Boolean)
+    let rsvpRows = []
+    let profilesById = {}
+    if (eventIds.length > 0) {
+      const { data: rsvps } = await supabase
+        .from('rsvps')
+        .select('event_id, user_id, status')
+        .in('event_id', eventIds)
+      rsvpRows = rsvps ?? []
+      const userIds = [...new Set(rsvpRows.map(row => row.user_id).filter(Boolean))]
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, name, first_name, avatar_url, email')
+          .in('id', userIds)
+        profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
+      }
+    }
+
+    setEvents(visibleEvents.map(event => {
+      const eventRsvps = rsvpRows.filter(row => row.event_id === event.id)
+      const isOrganizer = event.user_id === user.id || organizedEventIds.has(event.id)
+      return {
+        ...event,
+        isOrganizer,
+        myStatus: 'going',
+        rsvpStats: countStatuses(eventRsvps),
+        memberProfiles: eventRsvps.map(row => profilesById[row.user_id]).filter(Boolean),
+      }
+    }))
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    fetchAll()
+  }, [fetchAll])
 
   const upcoming = events.filter(e => !e.date || new Date(e.date) >= new Date())
   const past = events.filter(e => e.date && new Date(e.date) < new Date())
@@ -268,12 +301,17 @@ export default function AllEvents({ onBack, onEventClick }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 90px' }}>
         {loading ? (
           <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, paddingTop: 40 }}>Chargement…</div>
-        ) : events.length === 0 ? (
+        ) : events.length === 0 && invitations.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#8E8E93', fontSize: 14, paddingTop: 40 }}>
             Aucun événement pour l'instant
           </div>
         ) : (
           <>
+            {invitations.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <InvitationsSection title="Invitations" invitations={invitations} userId={currentUser?.id} userEmail={currentUser?.email} onUpdate={fetchAll} />
+              </div>
+            )}
             {upcoming.length > 0 && (
               <>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 10 }}>
