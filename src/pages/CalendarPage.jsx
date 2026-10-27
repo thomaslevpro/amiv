@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
+import { APP_URL } from '../lib/native'
 import EventCard from '../components/EventCard'
 
 const formatDate = (d) => d.toISOString().split('T')[0]
@@ -481,7 +482,7 @@ export default function CalendarPage({ navigate = () => {} }) {
   }, [navigate])
 
   const shareEvent = useCallback(async (event) => {
-    const url = `${window.location.origin}/events/${event.id}`
+    const url = `${APP_URL}/events/${event.id}`
     const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
     if (navigator.share) {
       navigator.share({ title: event.name || 'Amiv', text, url }).catch(() => {})

@@ -3,11 +3,21 @@ import { StatusBar, Style } from '@capacitor/status-bar'
 
 export const isNative = Capacitor.isNativePlatform()
 
+// Domaine public pour les liens partagés (sur natif, window.location.origin
+// vaut capacitor://localhost).
+export const APP_URL = 'https://amiv.app'
+
 export function initNative() {
   if (!isNative) return
   // Style.Light = texte sombre, pour fond clair
   StatusBar.setStyle({ style: Style.Light }).catch(() => {})
   StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {})
+}
+
+// dark = texte clair, pour fond sombre
+export function setStatusBarDark(dark) {
+  if (!isNative) return
+  StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }).catch(() => {})
 }
 
 // amiv://auth/callback#… → { path: '/auth/callback', params }

@@ -7,6 +7,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { APP_URL } from '../lib/native'
 import EventCard from '../components/EventCard'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
@@ -573,7 +574,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
 
   async function shareEvent(event) {
     const token = event.invite_token || event.share_token
-    const url = token ? `${window.location.origin}/invite/${token}` : `${window.location.origin}/events/${event.id}`
+    const url = token ? `${APP_URL}/invite/${token}` : `${APP_URL}/events/${event.id}`
     const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
     if (navigator.share) {
       navigator.share({ title: event.name || 'Amiv', text, url }).catch(() => {})

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ExternalLink, Gift, Image, Plus, Sparkles, Upload, Users, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { setStatusBarDark } from '../lib/native'
 import GuestLeaderBanner from '../components/GuestLeaderBanner'
 import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
 import { useGuestLeader } from '../hooks/useGuestLeader'
@@ -224,6 +225,11 @@ export default function SecretSpacePage() {
   const eventDetailPath = `/events/${eventId}`
   const memoryFileInputRef = useRef(null)
   const [event, setEvent] = useState(null)
+
+  useEffect(() => {
+    setStatusBarDark(true)
+    return () => setStatusBarDark(false)
+  }, [])
   const [currentUserId, setCurrentUserId] = useState(null)
   const [activeTab, setActiveTab] = useState('flashback')
   const [loading, setLoading] = useState(true)

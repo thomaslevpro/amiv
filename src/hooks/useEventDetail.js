@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { APP_URL } from '../lib/native'
 import { addCoOrganizerById, isOrganizer } from '../lib/organizers'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
@@ -61,7 +62,7 @@ export default function useEventDetail(event, onBack) {
   }
 
   function handleShare() {
-    const url = `${window.location.origin}/invite/${event.invite_token}`
+    const url = `${APP_URL}/invite/${event.invite_token}`
     const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
     if (navigator.share) {
       navigator.share({ title: event.name, text, url })
