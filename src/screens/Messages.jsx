@@ -8,6 +8,8 @@ import { useGuestLeader } from '../hooks/useGuestLeader'
 import { findOrCreateDirectConversation } from '../lib/conversations'
 import { getFriends } from '../lib/friendships'
 import { supabase } from '../lib/supabase'
+import { track } from '../lib/analytics'
+import { captureSupabaseError } from '../lib/monitoring'
 
 export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead }) {
   const [messages, setMessages] = useState([]), [input, setInput] = useState('')
@@ -20,6 +22,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [hiddenConversations, setHiddenConversations] = useState({})
   const [closeFriendIds, setCloseFriendIds] = useState(() => new Set())
   const [hiddenEventIds, setHiddenEventIds] = useState(() => (typeof window === 'undefined' ? new Set() : new Set(Object.keys(window.localStorage).filter(k => k.startsWith('hidden_event_')).map(k => k.slice('hidden_event_'.length)))))
+  const [deletedEventConversationIds, setDeletedEventConversationIds] = useState(() => (typeof window === 'undefined' ? new Set() : new Set(Object.keys(window.localStorage).filter(k => k.startsWith('deleted_event_conversation_')).map(k => k.slice('deleted_event_conversation_'.length)))))
   const bottomRef = useRef(null)
   const appOpenedAtRef = useRef(null)
   const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
@@ -267,6 +270,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const inboxConversations = conversations.filter(conv => !isConversationHidden(conv, hiddenConversations))
   const visibleConversations = inboxConversations.filter(conv => {
     if (conv.kind === 'event' && hiddenEventIds.has(String(conv.eventId))) return false
+    if (conv.kind === 'event' && deletedEventConversationIds.has(String(conv.eventId))) return false
     if (activeTab === 'events') return conv.kind === 'event'
     if (activeTab === 'directs') return conv.kind === 'direct'
     if (activeTab === 'unread') return conv.unreadCount > 0
@@ -293,6 +297,24 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   function hideEventCard(eventId) {
     window.localStorage.setItem(`hidden_event_${eventId}`, '1')
     setHiddenEventIds(prev => new Set([...prev, String(eventId)]))
+  }
+  async function deleteEventConversation(conversation) {
+    if (!conversation?.eventId) return
+    const confirmed = window.confirm('Supprimer définitivement cette conversation ? Tous les messages général et secret de cet événement seront supprimés.')
+    if (!confirmed) return
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('event_id', conversation.eventId)
+    if (error) {
+      console.error('[Messages] delete event conversation error:', error)
+      window.alert("Impossible de supprimer cette conversation pour le moment.")
+      return
+    }
+    hideEventCard(conversation.eventId)
+    window.localStorage.setItem(`deleted_event_conversation_${conversation.eventId}`, '1')
+    setDeletedEventConversationIds(prev => new Set([...prev, String(conversation.eventId)]))
+    setConversations(prev => prev.filter(conv => conv.id !== conversation.id))
   }
   function showAllHiddenEvents() {
     Object.keys(window.localStorage).filter(k => k.startsWith('hidden_event_')).forEach(k => window.localStorage.removeItem(k))
@@ -329,12 +351,30 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     setInput('')
     setMessages(prev => [...prev, optimistic])
     const { error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content, is_secret: isSecret })
-    if (error) { setMessages(prev => prev.filter(message => message.id !== optimistic.id)); console.log('Erreur Supabase:', JSON.stringify(error)); return }
+    if (error) {
+      setMessages(prev => prev.filter(message => message.id !== optimistic.id))
+      console.log('Erreur Supabase:', JSON.stringify(error))
+      captureSupabaseError(error, { operation: 'send_event_message' })
+      track('message_send_failed', {
+        event_id: event.id,
+        is_secret: isSecret,
+        error_code: error.code,
+        error_status: error.status,
+      })
+      return
+    }
+    track('message_sent', {
+      event_id: event.id,
+      is_secret: isSecret,
+    })
     if (isSecret) return
     const { error: notifErr } = await supabase.rpc('notify_message_recipients', { p_event_id: event.id, p_sender_id: userId, p_title: `Nouveau message dans ${event.name ?? 'un événement'}`, p_body: content.length > 40 ? content.slice(0, 40) + '…' : content })
-    if (notifErr) console.error('[Notif] rpc error:', notifErr)
+    if (notifErr) {
+      console.error('[Notif] rpc error:', notifErr)
+      captureSupabaseError(notifErr, { operation: 'notify_message_recipients' })
+    }
   }
 
-  if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
+  if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} deleteEventConversation={deleteEventConversation} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
   return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} />
 }

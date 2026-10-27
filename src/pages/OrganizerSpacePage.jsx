@@ -432,6 +432,7 @@ function ChecklistItem({ item, index, onToggle, onDelete }) {
 export default function OrganizerSpacePage() {
   const { id: eventId } = useParams()
   const navigate = useNavigate()
+  const eventDetailPath = `/events/${eventId}`
   const [activeTab, setActiveTab] = useState('checklist')
   const [event, setEvent] = useState(null)
   const [currentUserId, setCurrentUserId] = useState(null)
@@ -696,7 +697,7 @@ export default function OrganizerSpacePage() {
       <style>{styles}</style>
       <div className="organizer-shell">
         <header className="org-header">
-          <button type="button" aria-label="Retour" onClick={() => navigate(-1)}><ChevronLeft size={22} /></button>
+          <button type="button" aria-label="Retour" onClick={() => navigate(eventDetailPath, { replace: true })}><ChevronLeft size={22} /></button>
           <h1>{event.name}</h1>
         </header>
 

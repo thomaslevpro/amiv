@@ -221,6 +221,7 @@ function EmptyCard({ children }) {
 export default function SecretSpacePage() {
   const { id: eventId } = useParams()
   const navigate = useNavigate()
+  const eventDetailPath = `/events/${eventId}`
   const memoryFileInputRef = useRef(null)
   const [event, setEvent] = useState(null)
   const [currentUserId, setCurrentUserId] = useState(null)
@@ -593,7 +594,7 @@ export default function SecretSpacePage() {
   if (errorMessage && !event) {
     return (
       <div style={{ minHeight: '100dvh', background: COLORS.bg, padding: 16 }}>
-        <button type="button" onClick={() => navigate(-1)} style={{ color: '#007AFF', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Retour</button>
+        <button type="button" onClick={() => navigate(eventDetailPath, { replace: true })} style={{ color: '#007AFF', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Retour</button>
         <EmptyCard>{errorMessage}</EmptyCard>
       </div>
     )
@@ -612,7 +613,7 @@ export default function SecretSpacePage() {
           <div style={{ position: 'absolute', top: -68, right: -62, width: 184, height: 184, borderRadius: '50%', background: 'radial-gradient(circle, rgba(224,85,170,0.35) 0%, rgba(224,85,170,0.16) 38%, rgba(224,85,170,0) 70%)', pointerEvents: 'none' }} />
 
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button type="button" aria-label="Retour" onClick={() => navigate(-1)} style={{ width: 34, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.10)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <button type="button" aria-label="Retour" onClick={() => navigate(eventDetailPath, { replace: true })} style={{ width: 34, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.10)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <ChevronLeft size={23} />
             </button>
             <div style={{ minWidth: 0, flex: 1, color: 'rgba(255,255,255,0.68)', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

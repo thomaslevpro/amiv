@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Cake, PartyPopper, CookingPot, Coffee, Pencil, CalendarDays, MapPin, FileText, Link } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
+import { track } from '../lib/analytics'
+import { captureSupabaseError } from '../lib/monitoring'
 
 const types = [
   <><Cake size={13} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Anniversaire</>,
@@ -151,6 +153,14 @@ export default function Create({ onBack, session, initialData = null }) {
       return
     }
     setLoading(true)
+    const eventProperties = {
+      event_type: typeValues[type],
+      has_date_poll: usePoll,
+      invited_count: selectedFriendIds.length,
+      has_cover_image: Boolean(coverImage),
+      has_birthday_person: Boolean(birthdayPersonId),
+    }
+    track('event_create_started', eventProperties)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non connecté.')
@@ -176,9 +186,19 @@ export default function Create({ onBack, session, initialData = null }) {
       })
       if (error) throw error
 
+      track('event_created', {
+        ...eventProperties,
+        event_id: eventData?.id,
+      })
       setCreatedEvent(eventData)
     } catch (err) {
       console.error('Erreur lors de la création de l\'événement :', err)
+      captureSupabaseError(err, { operation: 'create_event_with_owner' })
+      track('event_create_failed', {
+        ...eventProperties,
+        error_code: err.code,
+        error_status: err.status,
+      })
       setError(err.message || 'Une erreur est survenue. Réessaie.')
     } finally {
       setLoading(false)

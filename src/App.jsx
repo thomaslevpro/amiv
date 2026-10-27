@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { supabase } from './lib/supabase'
+import { identifyUser, resetAnalyticsUser, track } from './lib/analytics'
+import { captureSupabaseError, clearMonitoringUser, setMonitoringUser } from './lib/monitoring'
 import { useNotifications } from './hooks/useNotifications'
 import { useUnreadCounts } from './hooks/useUnreadCounts'
 import BottomNav from './components/BottomNav'
@@ -68,6 +70,7 @@ function MainApp() {
   const [directConv, setDirectConv] = useState(null)
   const [createInitialData, setCreateInitialData] = useState(null)
   const [editProfileFocus, setEditProfileFocus] = useState(null)
+  const appLoadedTracked = useRef(false)
   const { notifications, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
   const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
@@ -81,14 +84,31 @@ function MainApp() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
+      if (session?.user?.id) {
+        identifyUser(session.user.id)
+        setMonitoringUser(session.user.id)
+      }
+      if (!appLoadedTracked.current) {
+        track('app_loaded', {
+          authenticated: Boolean(session),
+          path: window.location.pathname,
+        })
+        appLoadedTracked.current = true
+      }
       setLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (!session) {
+        if (_event === 'SIGNED_OUT') track('logout')
+        resetAnalyticsUser()
+        clearMonitoringUser()
         setOnboardingCompleted(null)
         setHasUsername(null)
       } else if (_event === 'SIGNED_IN') {
+        identifyUser(session.user.id)
+        setMonitoringUser(session.user.id)
+        track('login_succeeded')
         const path = window.location.pathname
         const redirect = new URLSearchParams(window.location.search).get('redirect')
         if (redirect?.startsWith('/') && !redirect.startsWith('//')) {
@@ -110,7 +130,8 @@ function MainApp() {
       .select('onboarding_completed, username')
       .eq('id', session.user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) captureSupabaseError(error, { operation: 'load_profile_onboarding_state' })
         setOnboardingCompleted(data?.onboarding_completed === true)
         setHasUsername(!!data?.username)
       })
@@ -122,7 +143,8 @@ function MainApp() {
     pendingEventId.current = null
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!UUID_REGEX.test(id)) return
-    supabase.from('events').select('*').eq('id', id).maybeSingle().then(({ data }) => {
+    supabase.from('events').select('*').eq('id', id).maybeSingle().then(({ data, error }) => {
+      if (error) captureSupabaseError(error, { operation: 'load_pending_event' })
       if (data) {
         setSelectedEvent(data)
         setScreen('eventDetail')
@@ -140,11 +162,12 @@ function MainApp() {
   )
 
   if (!session) return <Auth initialIsLogin={authInitLogin} />
-  if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => { setOnboardingCompleted(true); setHasUsername(true) }} />
+  if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => { track('onboarding_completed'); setOnboardingCompleted(true); setHasUsername(true) }} />
   if (!hasUsername) return <UsernamePrompt session={session} onComplete={() => setHasUsername(true)} />
 
   const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
   const handleTabChange = (newTab) => {
+    track('tab_changed', { tab: newTab })
     setTab(newTab)
     setScreen(newTab)
     setSelectedEvent(null)
@@ -152,11 +175,13 @@ function MainApp() {
     setDirectConv(null)
   }
   const handleNotifEventClick = async (partialEvent) => {
-    const { data } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
+    const { data, error } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
+    if (error) captureSupabaseError(error, { operation: 'load_notification_event' })
     if (data) { setSelectedEvent(data); setScreen('eventDetail') }
   }
   const handleNotifMessageClick = async (partialEvent) => {
-    const { data } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
+    const { data, error } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
+    if (error) captureSupabaseError(error, { operation: 'load_notification_message_event' })
     if (data) { setSelectedEvent(data); setScreen('messages') }
   }
   const handleCreateFromDispo = (post) => {

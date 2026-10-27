@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { addCoOrganizerById, isOrganizer } from '../lib/organizers'
+import { track } from '../lib/analytics'
+import { captureSupabaseError } from '../lib/monitoring'
 
 function readSeen(key) {
   if (typeof window === 'undefined') return 0
@@ -248,16 +250,26 @@ export default function useEventDetail(event, onBack) {
     if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
 
     const { data: inv, error: selErr } = await supabase.from('invitations').select('id').eq('event_id', event.id).or(orParts.join(',')).maybeSingle()
-    if (selErr) console.error('SELECT invitation error:', selErr)
+    if (selErr) {
+      console.error('SELECT invitation error:', selErr)
+      captureSupabaseError(selErr, { operation: 'select_invitation_for_rsvp' })
+    }
     if (!inv) {
       console.warn('Invitation introuvable — userId:', userId, '/ event.id:', event.id)
     } else {
       const { error: updErr } = await supabase.from('invitations').update({ status: invitationStatus }).eq('id', inv.id)
-      if (updErr) console.error('UPDATE invitation error:', updErr)
+      if (updErr) {
+        console.error('UPDATE invitation error:', updErr)
+        captureSupabaseError(updErr, { operation: 'update_invitation_rsvp_status' })
+      }
     }
 
     const { data, error } = await supabase.from('rsvps').upsert({ event_id: event.id, user_id: userId, status: rsvpStatusValue }, { onConflict: 'event_id,user_id' }).select('id, status, plus_one_requested, plus_one_status, plus_one_name, plus_one_message').maybeSingle()
     if (!error) {
+      track('rsvp_updated', {
+        event_id: event.id,
+        status: rsvpStatusValue,
+      })
       setRsvpStatus(data?.status ?? rsvpStatusValue)
       setMyRsvp(data ?? { ...myRsvp, status: rsvpStatusValue })
       showToast('Réponse enregistrée ✓')
@@ -266,6 +278,14 @@ export default function useEventDetail(event, onBack) {
         const name = profile?.name ?? 'Quelqu\'un'
         await supabase.from('notifications').insert({ user_id: event.user_id, type: 'rsvp_received', title: `${name} participe à ${event.name}`, body: 'Nouvelle réponse à votre événement', data: { event_id: event.id, sender_id: userId } })
       }
+    } else {
+      captureSupabaseError(error, { operation: 'upsert_rsvp' })
+      track('rsvp_update_failed', {
+        event_id: event.id,
+        status: rsvpStatusValue,
+        error_code: error.code,
+        error_status: error.status,
+      })
     }
     setLoading(false)
   }
@@ -321,6 +341,13 @@ export default function useEventDetail(event, onBack) {
       console.log('Upload result:', { uploadError, uploadData })
       if (uploadError) {
         console.log('Upload error details:', JSON.stringify(uploadError))
+        captureSupabaseError(uploadError, { operation: 'upload_event_cover' })
+        track('event_update_failed', {
+          event_id: event.id,
+          reason: 'cover_upload',
+          error_code: uploadError.code,
+          error_status: uploadError.status,
+        })
         showToast('Erreur upload photo')
         setSaving(false)
         return
@@ -330,9 +357,23 @@ export default function useEventDetail(event, onBack) {
 
     const { error } = await supabase.from('events').update({ name: editForm.name, date: editForm.date || null, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: birthdayPersonId }).eq('id', event.id)
     if (!error) {
+      track('event_updated', {
+        event_id: event.id,
+        changed_cover_image: Boolean(coverFile),
+        has_date: Boolean(editForm.date),
+        has_birthday_person: Boolean(birthdayPersonId),
+      })
       setEventOverrides(prev => ({ ...prev, name: editForm.name, date: editForm.date, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: birthdayPersonId }))
       setEditing(false)
       showToast('Événement modifié !')
+    } else {
+      captureSupabaseError(error, { operation: 'update_event' })
+      track('event_update_failed', {
+        event_id: event.id,
+        reason: 'event_update',
+        error_code: error.code,
+        error_status: error.status,
+      })
     }
     setSaving(false)
   }
@@ -347,6 +388,7 @@ export default function useEventDetail(event, onBack) {
     console.log('Upload result:', { uploadError, uploadData })
     if (uploadError) {
       console.log('Upload error details:', JSON.stringify(uploadError))
+      captureSupabaseError(uploadError, { operation: 'upload_event_hero_cover' })
       showToast('Erreur upload photo')
       e.target.value = ''
       return
@@ -354,9 +396,20 @@ export default function useEventDetail(event, onBack) {
 
     const { error } = await supabase.from('events').update({ cover_image: filePath }).eq('id', event.id)
     if (!error) {
+      track('event_updated', {
+        event_id: event.id,
+        changed_cover_image: true,
+      })
       setEventOverrides(prev => ({ ...prev, cover_image: filePath }))
       showToast('Photo de couverture modifiée !')
     } else {
+      captureSupabaseError(error, { operation: 'update_event_hero_cover' })
+      track('event_update_failed', {
+        event_id: event.id,
+        reason: 'hero_cover_update',
+        error_code: error.code,
+        error_status: error.status,
+      })
       showToast('Erreur upload photo')
     }
     e.target.value = ''
@@ -366,10 +419,17 @@ export default function useEventDetail(event, onBack) {
     setDeleting(true)
     const { error } = await supabase.from('events').delete().eq('id', event.id)
     if (error) {
+      captureSupabaseError(error, { operation: 'delete_event' })
+      track('event_delete_failed', {
+        event_id: event.id,
+        error_code: error.code,
+        error_status: error.status,
+      })
       showToast('Erreur lors de la suppression')
       setDeleting(false)
       setShowDeleteModal(false)
     } else {
+      track('event_deleted', { event_id: event.id })
       onBack?.()
     }
   }

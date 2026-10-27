@@ -35,6 +35,7 @@ export default function ConversationList({
   unreadByConversation,
   handleConversationTap,
   hideEventCard,
+  deleteEventConversation,
   hideConversation,
   showNewMessage,
   setShowNewMessage,
@@ -199,6 +200,7 @@ export default function ConversationList({
                     conversation={conv}
                     onOpenChannel={secretChannel => handleConversationTap(conv, secretChannel)}
                     onHide={() => hideEventCard(conv.eventId)}
+                    onDelete={() => deleteEventConversation(conv)}
                     currentUserId={effectiveUserId}
                   />
                 ) : (

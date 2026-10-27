@@ -6,6 +6,7 @@ import OnboardingUsername from '../components/onboarding/OnboardingUsername'
 import OnboardingBirthday from '../components/onboarding/OnboardingBirthday'
 import OnboardingNotifications from '../components/onboarding/OnboardingNotifications'
 import OnboardingDone from '../components/onboarding/OnboardingDone'
+import { captureSupabaseError } from '../lib/monitoring'
 
 // step mapping:
 //   0–1  → slides (welcome)
@@ -49,10 +50,14 @@ export default function OnboardingFlow({ session, onComplete }) {
 
   // Done: persist completion
   const handleDoneComplete = async () => {
-    await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ onboarding_completed: true, onboarding_step: 6 })
       .eq('id', userId)
+    if (error) {
+      captureSupabaseError(error, { operation: 'complete_onboarding' })
+      return
+    }
     onComplete()
   }
 

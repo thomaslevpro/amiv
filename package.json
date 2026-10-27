@@ -9,15 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/react": "^10.70.0",
     "@supabase/supabase-js": "^2.104.1",
     "dayjs": "^1.11.20",
     "lucide-react": "^1.14.0",
+    "posthog-js": "^1.418.5",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
+    "@sentry/vite-plugin": "^5.4.0",
     "@vitejs/plugin-react": "^4.2.1",
     "sharp": "^0.34.5",
     "vite": "^5.1.4"

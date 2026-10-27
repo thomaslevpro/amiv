@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { track } from '../lib/analytics'
+import { captureSupabaseError } from '../lib/monitoring'
 
 export default function Auth({ initialIsLogin = false }) {
   const [email, setEmail] = useState('')
@@ -20,6 +22,7 @@ export default function Auth({ initialIsLogin = false }) {
         if (error) throw error
         // App.jsx détecte SIGNED_IN via son onAuthStateChange — rien à faire ici
       } else {
+        track('signup_started')
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -28,9 +31,15 @@ export default function Auth({ initialIsLogin = false }) {
           },
         })
         if (error) throw error
+        track('signup_completed')
         setSuccess(true)
       }
     } catch (e) {
+      captureSupabaseError(e, { operation: isLogin ? 'sign_in' : 'sign_up' })
+      track(isLogin ? 'login_failed' : 'signup_failed', {
+        error_code: e.code,
+        error_status: e.status,
+      })
       setError(e.message)
     }
     setLoading(false)

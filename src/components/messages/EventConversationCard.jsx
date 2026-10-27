@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Calendar as CalendarIcon, CalendarFold, EyeOff, Lock, MessageCircle, MoreHorizontal } from 'lucide-react'
+import { Calendar as CalendarIcon, CalendarFold, EyeOff, Lock, MessageCircle, MoreHorizontal, Trash2 } from 'lucide-react'
 import { BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { formatEventDateTime, previewMessage } from './utils'
 
@@ -69,7 +69,7 @@ function ChannelPreview({ type, message, unreadCount = 0, onClick, isOrganizer =
   )
 }
 
-export default function EventConversationCard({ conversation, onOpenChannel, onHide, currentUserId }) {
+export default function EventConversationCard({ conversation, onOpenChannel, onHide, onDelete, currentUserId }) {
   const [showMenu, setShowMenu] = useState(false)
   const menuContainerRef = useRef(null)
   const event = conversation.event ?? {}
@@ -115,7 +115,7 @@ export default function EventConversationCard({ conversation, onOpenChannel, onH
           <MoreHorizontal size={18} color={GRAY1} strokeWidth={2} />
         </button>
         {showMenu && (
-          <div style={{ position: 'absolute', top: 32, right: 0, zIndex: 50, background: WHITE, borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.12)', border: '0.5px solid rgba(0,0,0,0.08)', padding: '4px 0', minWidth: 180 }}>
+          <div style={{ position: 'absolute', top: 32, right: 0, zIndex: 50, background: WHITE, borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.12)', border: '0.5px solid rgba(0,0,0,0.08)', padding: '4px 0', minWidth: 210, overflow: 'hidden' }}>
             <button
               type="button"
               onClick={e => { e.stopPropagation(); setShowMenu(false); onHide?.() }}
@@ -123,6 +123,15 @@ export default function EventConversationCard({ conversation, onOpenChannel, onH
             >
               <EyeOff size={15} strokeWidth={2} color="#FF3B30" />
               Masquer la conversation
+            </button>
+            <div style={{ height: 0.5, background: 'rgba(0,0,0,0.08)', marginLeft: 41 }} />
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); setShowMenu(false); onDelete?.() }}
+              style={{ width: '100%', border: 'none', background: 'transparent', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#FF3B30', fontWeight: 600, cursor: 'pointer', fontFamily: FONT, textAlign: 'left' }}
+            >
+              <Trash2 size={15} strokeWidth={2} color="#FF3B30" />
+              Supprimer définitivement
             </button>
           </div>
         )}
