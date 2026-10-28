@@ -3,7 +3,10 @@
 -- calendar_tokens × events / birthdays), non modifiable. Le flux agenda est
 -- dérivé des tables sources, et calendar_tokens est supprimé en cascade avec
 -- l'utilisateur (auth.users → profiles → calendar_tokens, ON DELETE CASCADE).
--- Fonction identique à 20261027120000_account_deletion, sans cette ligne.
+-- Le transfert ne se fait qu'à un co-organisateur approuvé (même règle que
+-- is_event_organizer) : un co-organisateur en attente ou refusé ne doit pas
+-- devenir propriétaire.
+-- Fonction identique à 20261027120000_account_deletion, à ces deux différences près.
 
 create or replace function public.prepare_account_deletion(p_user_id uuid)
 returns jsonb
@@ -33,6 +36,7 @@ begin
     from public.event_organizers o
     where o.event_id = v_event.id
       and o.role = 'co_organizer'
+      and o.status = 'approved'
       and o.user_id <> p_user_id
     order by o.created_at
     limit 1;
