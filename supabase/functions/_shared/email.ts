@@ -13,6 +13,7 @@ export type EmailContent = {
   subject: string
   html: string
   text: string
+  replyTo?: string
 }
 
 export function json(data: unknown, status = 200) {
@@ -38,19 +39,21 @@ export function escapeHtml(value: string) {
     .replace(/"/g, '&quot;')
 }
 
-export async function sendEmail(to: string, content: EmailContent) {
+export async function sendEmail(to: string, content: EmailContent, signal?: AbortSignal) {
   return await fetch(RESEND_EMAILS_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
+    ...(signal ? { signal } : {}),
     body: JSON.stringify({
       from: SENDER,
       to,
       subject: content.subject,
       html: content.html,
       text: content.text,
+      ...(content.replyTo ? { reply_to: content.replyTo } : {}),
     }),
   })
 }
