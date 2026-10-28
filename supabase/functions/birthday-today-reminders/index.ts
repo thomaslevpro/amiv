@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.104.1'
+import { isCronRequest } from '../_shared/cron.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -23,6 +24,7 @@ function json(data: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: corsHeaders })
+  if (!isCronRequest(req)) return json({ error: 'Unauthorized' }, 401)
 
   const requestId = crypto.randomUUID()
   console.log('[birthday-today-reminders] start', {

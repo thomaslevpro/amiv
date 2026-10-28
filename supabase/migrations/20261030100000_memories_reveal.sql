@@ -11,11 +11,19 @@
 -- révélation et évite les doublons de notification. Il n'intervient pas dans
 -- l'accès.
 --
+-- Les souvenirs sont collectifs : toute personne ayant accès à l'espace
+-- secret lit tous les souvenirs de l'événement (auparavant, un invité ne
+-- voyait que les siens).
+--
 -- memory-images : le bucket utilisé par SecretSpacePage n'existait pas (envoi
 -- de photo en échec). Il est créé privé ; les images sont lues par URL signée
--- et suivent la même règle que les lignes : contributeur ou organisateur ayant
--- accès à l'espace secret, ou personne fêtée une fois le jour atteint.
--- Chemin : <event_id>/<user_id>/<fichier>.
+-- et suivent la même règle que les lignes : accès à l'espace secret, ou
+-- personne fêtée une fois le jour atteint. Envoi et suppression : dans son
+-- propre dossier uniquement. Chemin : <event_id>/<user_id>/<fichier>.
+--
+-- Crons reveal-memories et birthday-today-reminders : ils envoient le header
+-- x-cron-secret, lu dans Vault (secret « cron_secret », créé hors migration) ;
+-- les fonctions le comparent à leur secret CRON_SECRET et répondent 401 sinon.
 
 -- ── Révélation ─────────────────────────────────────────────────────────────
 alter table public.events add column if not exists memories_revealed_at timestamptz;
@@ -47,6 +55,11 @@ $$;
 
 revoke all on function public.can_view_revealed_memories(uuid) from public, anon;
 grant execute on function public.can_view_revealed_memories(uuid) to authenticated;
+
+drop policy if exists "Espace secret : lecture souvenirs" on public.collective_memories;
+create policy "Espace secret : lecture souvenirs"
+  on public.collective_memories for select to authenticated
+  using (public.can_access_secret_space(event_id));
 
 drop policy if exists "Personne fêtée : souvenirs révélés" on public.collective_memories;
 create policy "Personne fêtée : souvenirs révélés"
@@ -87,13 +100,7 @@ create policy "Souvenirs : lecture d'image"
   using (
     bucket_id = 'memory-images'
     and (
-      (
-        public.can_access_secret_space(public.memory_image_event_id(name))
-        and (
-          split_part(name, '/', 2) = auth.uid()::text
-          or public.is_event_organizer(public.memory_image_event_id(name))
-        )
-      )
+      public.can_access_secret_space(public.memory_image_event_id(name))
       or public.can_view_revealed_memories(public.memory_image_event_id(name))
     )
   );
@@ -185,8 +192,9 @@ $$;
 revoke all on function public.reveal_due_memories() from public, anon, authenticated;
 grant execute on function public.reveal_due_memories() to service_role;
 
--- ── Cron ───────────────────────────────────────────────────────────────────
--- 06:00 UTC, soit 7 h ou 8 h à Paris. L'accès ne dépend pas de ce job.
+-- ── Crons ──────────────────────────────────────────────────────────────────
+-- reveal-memories : 06:00 UTC, soit 7 h ou 8 h à Paris. L'accès ne dépend
+-- pas de ce job. birthday-today-reminders : inchangé, plus le header.
 select cron.unschedule('reveal-memories')
 where exists (select 1 from cron.job where jobname = 'reveal-memories');
 
@@ -199,7 +207,28 @@ select cron.schedule(
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'apikey', 'sb_publishable_FNAFgult5S2iSkXXd2SgKQ_aX8Z3eIK',
-      'Authorization', 'Bearer sb_publishable_FNAFgult5S2iSkXXd2SgKQ_aX8Z3eIK'
+      'Authorization', 'Bearer sb_publishable_FNAFgult5S2iSkXXd2SgKQ_aX8Z3eIK',
+      'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
+
+select cron.unschedule('birthday-today-reminders')
+where exists (select 1 from cron.job where jobname = 'birthday-today-reminders');
+
+select cron.schedule(
+  'birthday-today-reminders',
+  '0 8 * * *',
+  $$
+  select net.http_post(
+    url := 'https://kftzfljdewojxhxcuxnd.supabase.co/functions/v1/birthday-today-reminders',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'apikey', 'sb_publishable_FNAFgult5S2iSkXXd2SgKQ_aX8Z3eIK',
+      'Authorization', 'Bearer sb_publishable_FNAFgult5S2iSkXXd2SgKQ_aX8Z3eIK',
+      'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
     ),
     body := '{}'::jsonb
   );

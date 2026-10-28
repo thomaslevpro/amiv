@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.104.1'
+import { isCronRequest } from '../_shared/cron.ts'
 
 // Déclenchée chaque jour par le cron reveal-memories. L'accès de la personne
 // fêtée aux souvenirs dépend de la date en base (RLS), pas de cette fonction :
@@ -20,6 +21,7 @@ function json(data: unknown, status = 200) {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
+  if (!isCronRequest(req)) return json({ error: 'Unauthorized' }, 401)
 
   const requestId = crypto.randomUUID()
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
