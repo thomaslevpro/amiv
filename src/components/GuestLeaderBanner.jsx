@@ -70,7 +70,7 @@ export default function GuestLeaderBanner({
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 15, color: COLORS.text, fontWeight: 900 }}>Coordonner cet anniversaire ?</div>
-        <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600, marginTop: 3 }}>Aide l'organisateur : relances, cagnotte, chat</div>
+        <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 600, marginTop: 3 }}>Aide l'organisateur : relances, chat</div>
       </div>
       <button
         type="button"

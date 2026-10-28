@@ -75,6 +75,11 @@ verify_jwt = false
 enabled = true
 verify_jwt = false
 
+# Le JWT est vérifié dans la fonction via auth.getUser (identité de l'appelant).
+[functions.app-email]
+enabled = true
+verify_jwt = false
+
 [functions.birthday-today-reminders]
 enabled = true
 verify_jwt = false

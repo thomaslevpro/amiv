@@ -23,7 +23,7 @@ export async function submitReport({ targetType, targetId, reason, comment }) {
     throw error
   }
   if (!error) {
-    supabase.functions.invoke('send-email', { body: { action: 'report_created' } })
+    supabase.functions.invoke('app-email', { body: { action: 'report_created' } })
       .then(({ error: invokeError }) => {
         if (invokeError) console.error('[safety] report email failed', invokeError)
       })

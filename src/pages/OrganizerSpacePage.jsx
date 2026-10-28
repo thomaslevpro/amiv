@@ -455,6 +455,8 @@ export default function OrganizerSpacePage() {
   const [showInviteSheet, setShowInviteSheet] = useState(false)
   const [editingBudget, setEditingBudget] = useState(false)
   const [budgetDraft, setBudgetDraft] = useState('')
+  // Le budget vit dans event_budgets (jamais lisible par la personne fêtée)
+  const hasBudgetRowRef = useRef(false)
   const [toast, setToast] = useState(null)
 
   const loadOrganizerData = useCallback(async () => {
@@ -469,8 +471,13 @@ export default function OrganizerSpacePage() {
 
     const eventQuery = supabase
       .from('events')
-      .select('id, name, emoji, user_id, date, location, type, budget_total')
+      .select('id, name, emoji, user_id, date, location, type')
       .eq('id', eventId)
+      .maybeSingle()
+    const budgetQuery = supabase
+      .from('event_budgets')
+      .select('total')
+      .eq('event_id', eventId)
       .maybeSingle()
     const itemsQuery = supabase
       .from('checklist_items')
@@ -488,8 +495,9 @@ export default function OrganizerSpacePage() {
       .eq('event_id', eventId)
       .order('created_at', { ascending: true })
 
-    const [eventRes, itemsRes, expensesRes, invitationsRes, userCanManage] = await Promise.all([
+    const [eventRes, budgetRes, itemsRes, expensesRes, invitationsRes, userCanManage] = await Promise.all([
       eventQuery,
+      budgetQuery,
       itemsQuery,
       expensesQuery,
       invitationsQuery,
@@ -511,8 +519,10 @@ export default function OrganizerSpacePage() {
     const profilesByIdRes = await (profileIds.length ? supabase.from('profiles').select('id, first_name, name, avatar_url').in('id', [...new Set(profileIds)]) : Promise.resolve({ data: [] }))
     const byId = Object.fromEntries((profilesByIdRes.data || []).map(profile => [profile.id, profile]))
 
-    setEvent({ ...eventRes.data, budget_total: Number(eventRes.data.budget_total || 0) })
-    setBudgetDraft(eventRes.data.budget_total ? String(eventRes.data.budget_total) : '')
+    const loadedBudget = Number(budgetRes.data?.total || 0)
+    hasBudgetRowRef.current = !!budgetRes.data
+    setEvent({ ...eventRes.data, budget_total: loadedBudget })
+    setBudgetDraft(loadedBudget ? String(loadedBudget) : '')
     setItems(taskRows.map(item => ({
       ...item,
       category: item.category || 'other',
@@ -628,7 +638,10 @@ export default function OrganizerSpacePage() {
     const next = parseAmount(budgetDraft)
     setEditingBudget(false)
     setEvent(prev => ({ ...prev, budget_total: next }))
-    const { error } = await supabase.from('events').update({ budget_total: next }).eq('id', eventId)
+    const { error } = hasBudgetRowRef.current
+      ? await supabase.from('event_budgets').update({ total: next }).eq('event_id', eventId)
+      : await supabase.from('event_budgets').insert({ event_id: eventId, total: next })
+    if (!error) hasBudgetRowRef.current = true
     if (error) {
       setEvent(prev => ({ ...prev, budget_total: previous }))
       setBudgetDraft(previous ? String(previous) : '')
@@ -675,7 +688,7 @@ export default function OrganizerSpacePage() {
     const emailIds = selectedInvitations.filter(invitation => !invitation.invited_user_id && invitation.invited_email).map(invitation => invitation.id)
     let emailedCount = 0
     if (emailIds.length) {
-      const { data, error: emailError } = await supabase.functions.invoke('send-email', {
+      const { data, error: emailError } = await supabase.functions.invoke('app-email', {
         body: { action: 'invitation_reminder', invitation_ids: emailIds, message },
       })
       if (emailError) console.error('[OrganizerSpace] reminder email error:', emailError)
