@@ -44,7 +44,9 @@ type AuthEmailPayload = {
 
 // Appels depuis l'app (JWT utilisateur), distincts du hook d'auth
 type AppPayload = {
-  action: 'report_created'
+  action: 'report_created' | 'invitation_reminder'
+  invitation_ids?: string[]
+  message?: string
 }
 
 type EmailContent = {
@@ -266,6 +268,110 @@ async function handleReportCreated(userId: string) {
   return json({ success: true, sent })
 }
 
+const INVITE_URL = 'https://amiv.app/invite'
+const REMINDER_EMAIL_INTERVAL_MS = 12 * 60 * 60 * 1000
+const REMINDER_FRESHNESS_MS = 10 * 60 * 1000
+
+function formatEventDate(value: string | null) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' })
+}
+
+function getReminderEmailContent(event: { name: string; date: string | null }, organizerName: string, message: string | null, inviteUrl: string): EmailContent {
+  const eventName = event.name || 'un événement'
+  const date = formatEventDate(event.date)
+  const intro = `${organizerName} attend ta réponse pour ${eventName}${date ? ` (${date})` : ''}.`
+  const safeUrl = escapeHtml(inviteUrl)
+
+  return {
+    subject: `Petit rappel : ${eventName}`,
+    html: `
+      <div style="margin:0;padding:32px 16px;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
+        <div style="max-width:480px;margin:0 auto;padding:40px;background:#fff;border-radius:20px;box-shadow:0 2px 16px rgba(0,0,0,0.08);text-align:center;">
+          <div style="font-size:32px;font-weight:800;line-height:1;background:linear-gradient(135deg,#e055aa,#f5a623);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;margin-bottom:28px;">Amiv</div>
+          <h1 style="margin:0 0 14px;color:#1C1C1E;font-size:22px;font-weight:700;line-height:1.25;">Petit rappel 🎉</h1>
+          <p style="margin:0;color:#8E8E93;font-size:15px;line-height:1.6;">${escapeHtml(intro)}</p>
+          ${message ? `<p style="margin:18px 0 0;padding:14px 16px;background:#F5F5F5;border-radius:12px;color:#1C1C1E;font-size:15px;line-height:1.5;white-space:pre-wrap;text-align:left;">${escapeHtml(message)}</p>` : ''}
+          <a href="${safeUrl}" style="display:inline-block;margin:24px 0;padding:14px 32px;border-radius:12px;background:linear-gradient(135deg,#e055aa,#f5a623);color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Répondre à l'invitation</a>
+          <p style="margin:0 0 8px;color:#8E8E93;font-size:12px;line-height:1.5;">Si le bouton ne fonctionne pas, copie ce lien dans ton navigateur :</p>
+          <p style="margin:0;color:#8E8E93;font-size:12px;line-height:1.5;word-break:break-all;">${safeUrl}</p>
+        </div>
+      </div>
+    `,
+    text: `${intro}${message ? `\n\n${message}` : ''}\n\nRéponds à l'invitation : ${inviteUrl}`,
+  }
+}
+
+// Relance par email des invités sans compte Amiv. N'envoie que pour des
+// invitations que l'appelant organise et qui viennent d'être relancées via
+// remind_invitations (reminded_at récent), au plus une fois toutes les 12 h
+// par invitation (reminder_emailed_at). Les invités ayant un compte
+// reçoivent déjà la notification in-app.
+async function handleInvitationReminder(userId: string, payload: AppPayload) {
+  const ids = (payload.invitation_ids ?? []).filter(id => typeof id === 'string').slice(0, 200)
+  if (!ids.length) return json({ success: true, sent: 0 })
+  const message = typeof payload.message === 'string' ? payload.message.trim().slice(0, 300) || null : null
+
+  const admin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+
+  const now = Date.now()
+  const { data: invitations, error } = await admin
+    .from('invitations')
+    .update({ reminder_emailed_at: new Date(now).toISOString() })
+    .in('id', ids)
+    .is('invited_user_id', null)
+    .not('invited_email', 'is', null)
+    .in('status', ['pending', 'maybe'])
+    .gte('reminded_at', new Date(now - REMINDER_FRESHNESS_MS).toISOString())
+    .or(`reminder_emailed_at.is.null,reminder_emailed_at.lt.${new Date(now - REMINDER_EMAIL_INTERVAL_MS).toISOString()}`)
+    .select('id, event_id, invited_email, reminder_emailed_at')
+
+  if (error) {
+    console.error('reminder claim failed', error)
+    return json({ error: 'Failed to load invitations' }, 500)
+  }
+  if (!invitations?.length) return json({ success: true, sent: 0 })
+
+  const eventIds = [...new Set(invitations.map(invitation => invitation.event_id))]
+  const [{ data: events }, { data: organizerRows }, { data: profile }, { data: accounts }] = await Promise.all([
+    admin.from('events').select('id, name, date, user_id, invite_token').in('id', eventIds),
+    admin.from('event_organizers').select('event_id').in('event_id', eventIds).eq('user_id', userId).in('role', ['owner', 'co_organizer']).eq('status', 'approved'),
+    admin.from('profiles').select('first_name, name').eq('id', userId).maybeSingle(),
+    admin.from('profiles').select('email').in('email', invitations.map(invitation => invitation.invited_email)),
+  ])
+
+  const organizedEventIds = new Set([
+    ...(events ?? []).filter(event => event.user_id === userId).map(event => event.id),
+    ...(organizerRows ?? []).map(row => row.event_id),
+  ])
+  const eventsById = new Map((events ?? []).map(event => [event.id, event]))
+  const accountEmails = new Set((accounts ?? []).map(account => account.email?.toLowerCase()))
+  const organizerName = profile?.first_name || profile?.name || "L'organisateur"
+
+  let sent = 0
+  for (const invitation of invitations) {
+    const event = eventsById.get(invitation.event_id)
+    const email = invitation.invited_email as string
+    const allowed = event?.invite_token && organizedEventIds.has(invitation.event_id) && !accountEmails.has(email.toLowerCase())
+    const response = allowed
+      ? await sendEmail(email, getReminderEmailContent(event!, organizerName, message, `${INVITE_URL}/${event!.invite_token}`))
+      : null
+
+    if (response?.ok) {
+      sent += 1
+      continue
+    }
+    if (response) console.error('reminder email failed', { invitation: invitation.id, to: maskEmail(email), status: response.status })
+    await admin.from('invitations').update({ reminder_emailed_at: null }).eq('id', invitation.id)
+  }
+
+  return json({ success: true, sent })
+}
+
 async function handleAppAction(req: Request, payload: AppPayload) {
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
   if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return json({ error: 'Non authentifié' }, 401)
@@ -277,6 +383,7 @@ async function handleAppAction(req: Request, payload: AppPayload) {
   if (userError || !user) return json({ error: 'Session invalide' }, 401)
 
   if (payload.action === 'report_created') return await handleReportCreated(user.id)
+  if (payload.action === 'invitation_reminder') return await handleInvitationReminder(user.id, payload)
   return json({ error: 'Unsupported action' }, 400)
 }
 

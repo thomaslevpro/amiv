@@ -7,7 +7,7 @@ import { LEGAL_URLS, openExternalUrl } from '../lib/native'
 
 const legalLinkStyle = { color: '#e055aa', fontWeight: 600, cursor: 'pointer' }
 
-export default function Auth({ initialIsLogin = false }) {
+export default function Auth({ initialIsLogin = true }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(initialIsLogin)

@@ -5,6 +5,7 @@ import { getFriends } from '../lib/friendships'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { EVENT_TYPES } from '../components/event/eventUtils'
+import { avatarInitial } from '../utils/avatar'
 
 const types = [
   <><Cake size={13} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Anniversaire</>,
@@ -38,11 +39,12 @@ function friendProfile(f) {
 }
 
 function birthdayFriendName(friend) {
+  if (friend?._isSelf) return 'Moi'
   return friend?.first_name || friend?.name || 'Ami'
 }
 
 function birthdayFriendInitial(friend) {
-  return birthdayFriendName(friend).charAt(0).toUpperCase()
+  return avatarInitial(friend, 'A')
 }
 
 function inviteeLabel(friend) {
@@ -118,7 +120,7 @@ export default function Create({ onBack, session, initialData = null }) {
       ])
 
       const allPickerProfiles = [
-        ...(selfProfile ? [{ ...selfProfile, _isSelf: true, first_name: 'Moi' }] : []),
+        ...(selfProfile ? [{ ...selfProfile, _isSelf: true }] : []),
         ...(friendProfiles || []),
       ]
 

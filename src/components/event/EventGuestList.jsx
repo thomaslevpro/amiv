@@ -1,6 +1,7 @@
 import { CheckCircle2, Clock, XCircle } from 'lucide-react'
 import PlusOneRequest from '../PlusOneRequest'
 import { getAvatarColor } from './eventUtils'
+import { avatarInitial } from '../../utils/avatar'
 
 const rsvpStatusColor = { going: '#34C759', declined: '#FF3B30', pending: '#FF9500' }
 const rsvpStatusLabel = { going: 'Confirmé', declined: 'Décliné', pending: 'En attente' }
@@ -42,7 +43,7 @@ export default function EventGuestList({ participants, guestRsvps, eventGuests, 
                 <img src={guest.avatar_url} alt={guestName} style={{ width: 36, height: 36, borderRadius: 18, objectFit: 'cover', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: 36, height: 36, borderRadius: 18, background: '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                  {(guestName || '?').charAt(0).toUpperCase()}
+                  {avatarInitial({ full_name: guest.full_name })}
                 </div>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>

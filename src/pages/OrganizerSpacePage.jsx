@@ -665,18 +665,28 @@ export default function OrganizerSpacePage() {
 
   async function sendReminder(selectedInvitations, message) {
     const ids = selectedInvitations.map(invitation => invitation.id)
-    // Notification in-app (les invités par email sans compte Amiv ne sont pas notifiés)
+    // Notification in-app pour les invités ayant un compte Amiv
     const { data: notifiedCount, error } = await supabase.rpc('remind_invitations', { p_invitation_ids: ids, p_message: message })
     if (error) {
       showToast('Relance non envoyée', 'error')
       return false
     }
+    // Email pour les invités sans compte (au plus un toutes les 12 h par invitation)
+    const emailIds = selectedInvitations.filter(invitation => !invitation.invited_user_id && invitation.invited_email).map(invitation => invitation.id)
+    let emailedCount = 0
+    if (emailIds.length) {
+      const { data, error: emailError } = await supabase.functions.invoke('send-email', {
+        body: { action: 'invitation_reminder', invitation_ids: emailIds, message },
+      })
+      if (emailError) console.error('[OrganizerSpace] reminder email error:', emailError)
+      emailedCount = data?.sent ?? 0
+    }
     const now = new Date().toISOString()
     setInvitations(prev => prev.map(invitation => ids.includes(invitation.id) ? { ...invitation, reminded_at: now } : invitation))
-    const count = notifiedCount ?? 0
+    const count = (notifiedCount ?? 0) + emailedCount
     const skipped = ids.length - count
     showToast(skipped > 0
-      ? `Relance envoyée à ${count} personne${count > 1 ? 's' : ''} (${skipped} sans compte Amiv)`
+      ? `Relance envoyée à ${count} personne${count > 1 ? 's' : ''} (${skipped} non relancée${skipped > 1 ? 's' : ''})`
       : `Relance envoyée à ${count} personne${count > 1 ? 's' : ''} ✓`)
     return true
   }

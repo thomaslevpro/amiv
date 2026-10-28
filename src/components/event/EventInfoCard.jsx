@@ -1,4 +1,5 @@
 import { MapPin } from 'lucide-react'
+import { avatarInitial } from '../../utils/avatar'
 
 export default function EventInfoCard({ displayLocation, organizers, userId, eventId, onAddCoOrg }) {
   void eventId
@@ -30,7 +31,7 @@ export default function EventInfoCard({ displayLocation, organizers, userId, eve
                     <img src={profile.avatar_url} alt={displayName} style={{ width: 28, height: 28, borderRadius: 14, objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
                     <div style={{ width: 28, height: 28, borderRadius: 14, background: owner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                      {displayName.charAt(0).toUpperCase()}
+                      {avatarInitial(profile, 'O')}
                     </div>
                   )}
                   <div style={{ minWidth: 0 }}>

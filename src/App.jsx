@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { App as CapacitorApp } from '@capacitor/app'
 import { supabase } from './lib/supabase'
@@ -13,7 +13,6 @@ import AddAmivModal from './components/AddAmivModal'
 import OnboardingFlow from './pages/Onboarding'
 import Auth from './screens/Auth'
 import AuthCallback from './screens/AuthCallback'
-import AuthReset from './screens/AuthReset'
 import Home from './screens/Home'
 import Calendar from './screens/Calendar'
 import Messages from './screens/Messages'
@@ -24,22 +23,36 @@ import DispoDetailScreen from './screens/DispoDetailScreen'
 import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
 import Profile from './screens/Profile'
-import PublicUserProfile from './screens/PublicUserProfile'
 import EditProfile from './screens/EditProfile'
 import GuestRsvpPage from './screens/GuestRsvpPage'
 import AllEvents from './screens/AllEvents'
 import ConversationScreen from './screens/ConversationScreen'
-import SecretSpacePage from './pages/SecretSpacePage'
-import OrganizerSpacePage from './pages/OrganizerSpacePage'
 import EventPage from './pages/EventPage'
 import DispoCalendarPage from './pages/DispoCalendarPage'
 import UsernamePrompt from './components/UsernamePrompt'
-import { PrivacyPage, SupportPage, TermsPage } from './pages/LegalPages'
+
+// Écrans secondaires chargés à la demande (hors premier écran)
+const SecretSpacePage = lazy(() => import('./pages/SecretSpacePage'))
+const OrganizerSpacePage = lazy(() => import('./pages/OrganizerSpacePage'))
+const PublicUserProfile = lazy(() => import('./screens/PublicUserProfile'))
+const AuthReset = lazy(() => import('./screens/AuthReset'))
+const TermsPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })))
+const PrivacyPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPage })))
+const SupportPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.SupportPage })))
+
+function SplashScreen() {
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+      <div style={{ fontSize: 48, fontWeight: 900, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Amiv</div>
+    </div>
+  )
+}
 
 export default function App() {
   return (
     <BrowserRouter>
       {isNative && <NativeDeepLinks />}
+      <Suspense fallback={<SplashScreen />}>
       <Routes>
         <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
         <Route path="/events/:id/manage" element={<OrganizerSpacePage />} />
@@ -53,6 +66,7 @@ export default function App() {
         <Route path="/support" element={<SupportPage />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }
@@ -98,7 +112,8 @@ function MainApp() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
 
-  const authInitLogin = window.location.pathname === '/login'
+  // Connexion par défaut ; /register (lien « Rejoindre Amiv ») ouvre l'inscription
+  const authInitLogin = window.location.pathname !== '/register'
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(null)
@@ -200,11 +215,7 @@ function MainApp() {
 
   const isLoading = loading || (!!session && (onboardingCompleted === null || hasUsername === null))
 
-  if (isLoading) return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
-      <div style={{ fontSize: 48, fontWeight: 900, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Amiv</div>
-    </div>
-  )
+  if (isLoading) return <SplashScreen />
 
   if (!session) return <Auth initialIsLogin={authInitLogin} />
   if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => { track('onboarding_completed'); setOnboardingCompleted(true); setHasUsername(true) }} />
