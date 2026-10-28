@@ -182,13 +182,10 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   async function fetchMessages() {
-    const { data, error } = await supabase.from('messages').select('*, profiles(id, name, first_name, avatar_url)').eq('event_id', event.id).eq('is_secret', isSecret).order('created_at', { ascending: true })
-    if (error) {
-      const fallback = await supabase.from('messages').select('*').eq('event_id', event.id).eq('is_secret', isSecret).order('created_at', { ascending: true })
-      if (fallback.error || !fallback.data) { console.error('[Messages] fetch messages error:', error, fallback.error); return }
-      setMessages(await enrichMessagesWithProfiles(fallback.data)); return
-    }
-    if (data) setMessages(await enrichMessagesWithProfiles(data))
+    // Les messages des personnes que j'ai bloquées arrivent sans contenu (is_hidden)
+    const { data, error } = await supabase.rpc('get_event_messages', { p_event_id: event.id, p_is_secret: isSecret })
+    if (error) { console.error('[Messages] fetch messages error:', error); captureSupabaseError(error, { operation: 'fetch_event_messages' }); return }
+    setMessages(await enrichMessagesWithProfiles(data ?? []))
   }
 
   async function fetchEventConversations() {
@@ -372,5 +369,5 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} deleteEventConversation={deleteEventConversation} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
-  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} />
+  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} />
 }

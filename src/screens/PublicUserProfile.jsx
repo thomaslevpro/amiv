@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { UserPlus } from 'lucide-react'
+import { MoreHorizontal, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { isBlockedByMe } from '../lib/safety'
+import { UserSafetySheet } from '../components/safety/SafetySheets'
 
 const COLORS = {
   page: '#FFFFFF',
@@ -40,6 +42,8 @@ export default function PublicUserProfile() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [showSafety, setShowSafety] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -76,6 +80,8 @@ export default function PublicUserProfile() {
           .limit(1)
           .maybeSingle()
         if (!cancelled) setFriendship(friendshipRes.data ?? null)
+        const blocked = await isBlockedByMe(profileRes.data.id)
+        if (!cancelled) setIsBlocked(blocked)
       }
 
       if (!cancelled) setLoading(false)
@@ -88,10 +94,11 @@ export default function PublicUserProfile() {
   const buttonState = useMemo(() => {
     if (!session) return { label: 'Rejoindre Amiv', disabled: false, mode: 'register' }
     if (session.user.id === profile?.id) return { label: 'C’est ton profil', disabled: true }
+    if (isBlocked) return { label: 'Utilisateur bloqué', disabled: true }
     if (friendship?.status === 'accepted') return { label: 'Déjà amis 🎉', disabled: true }
     if (friendship?.status === 'pending') return { label: 'Demande en attente', disabled: true }
     return { label: 'Ajouter en ami', disabled: false, mode: 'add' }
-  }, [friendship, profile?.id, session])
+  }, [friendship, isBlocked, profile?.id, session])
 
   function showToast(message) {
     setToast(message)
@@ -133,7 +140,17 @@ export default function PublicUserProfile() {
   return (
     <div style={{ minHeight: '100dvh', background: COLORS.page, display: 'flex', justifyContent: 'center', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>
       <div style={{ width: '100%', maxWidth: 430, minHeight: '100dvh', background: COLORS.page, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ background: COLORS.gradient, padding: 'calc(74px + env(safe-area-inset-top, 0px)) 20px 88px', color: '#fff', textAlign: 'center', borderRadius: '0 0 28px 28px' }}>
+        <div style={{ position: 'relative', background: COLORS.gradient, padding: 'calc(74px + env(safe-area-inset-top, 0px)) 20px 88px', color: '#fff', textAlign: 'center', borderRadius: '0 0 28px 28px' }}>
+          {session && profile && session.user.id !== profile.id && (
+            <button
+              type="button"
+              onClick={() => setShowSafety(true)}
+              aria-label="Plus d'options"
+              style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top, 0px))', right: 16, width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.35)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+            >
+              <MoreHorizontal size={20} strokeWidth={2.2} />
+            </button>
+          )}
           <div style={{ width: 106, height: 106, borderRadius: '50%', margin: '0 auto 16px', background: 'rgba(255,255,255,0.25)', border: '3px solid rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt={getDisplayName(profile)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -170,6 +187,18 @@ export default function PublicUserProfile() {
         </div>
       </div>
       <Toast message={toast} />
+      {showSafety && profile && (
+        <UserSafetySheet
+          userId={profile.id}
+          userName={profile.first_name || profile.username}
+          isBlocked={isBlocked}
+          onClose={() => setShowSafety(false)}
+          onBlockedChange={blocked => {
+            setIsBlocked(blocked)
+            showToast(blocked ? 'Utilisateur bloqué' : 'Utilisateur débloqué')
+          }}
+        />
+      )}
     </div>
   )
 }

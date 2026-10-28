@@ -34,6 +34,7 @@ import OrganizerSpacePage from './pages/OrganizerSpacePage'
 import EventPage from './pages/EventPage'
 import DispoCalendarPage from './pages/DispoCalendarPage'
 import UsernamePrompt from './components/UsernamePrompt'
+import { PrivacyPage, SupportPage, TermsPage } from './pages/LegalPages'
 
 export default function App() {
   return (
@@ -47,6 +48,9 @@ export default function App() {
         <Route path="/u/:username" element={<PublicUserProfile />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/reset" element={<AuthReset />} />
+        <Route path="/cgu" element={<TermsPage />} />
+        <Route path="/confidentialite" element={<PrivacyPage />} />
+        <Route path="/support" element={<SupportPage />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
     </BrowserRouter>

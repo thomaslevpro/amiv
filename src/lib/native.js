@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
+import { Browser } from '@capacitor/browser'
 
 export const isNative = Capacitor.isNativePlatform()
 
@@ -18,6 +19,21 @@ export function initNative() {
   // Style.Light = texte sombre, pour fond clair
   StatusBar.setStyle({ style: Style.Light }).catch(() => {})
   StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {})
+}
+
+export const LEGAL_URLS = {
+  terms: `${APP_URL}/cgu`,
+  privacy: `${APP_URL}/confidentialite`,
+}
+
+// Lien externe : navigateur intégré (SFSafariViewController) sur natif,
+// nouvel onglet sur le web.
+export function openExternalUrl(url) {
+  if (isNative) {
+    Browser.open({ url }).catch(() => {})
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 // dark = texte clair, pour fond sombre

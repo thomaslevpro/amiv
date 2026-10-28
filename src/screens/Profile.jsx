@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import {
   AlertCircle,
+  Ban,
   Bell,
   CalendarCheck2,
   Cake,
   ChevronRight,
   FileText,
   Key,
+  Shield,
   Copy,
   Link2,
   LogOut,
@@ -29,6 +31,8 @@ import ChangePasswordModal from '../components/profile/ChangePasswordModal'
 import DeleteAccountModal from '../components/profile/DeleteAccountModal'
 import AmivQrModal from '../components/profile/AmivQrModal'
 import FriendsListModal from '../components/profile/FriendsListModal'
+import BlockedUsersModal from '../components/profile/BlockedUsersModal'
+import { LEGAL_URLS, openExternalUrl } from '../lib/native'
 
 dayjs.locale('fr')
 
@@ -201,6 +205,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [showFriendsList, setShowFriendsList] = useState(false)
+  const [showBlockedUsers, setShowBlockedUsers] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [calendarToken, setCalendarToken] = useState(null)
   const [calendarPlatform, setCalendarPlatform] = useState(null)
@@ -434,7 +439,9 @@ export default function Profile({ session, onCalendarClick }) {
   const accountRows = [
     { icon: <UserCheck size={18} strokeWidth={1.7} color="#7c5cbf" />, bg: 'rgba(124,92,191,0.10)', label: 'Informations personnelles', desc: 'Nom, prénom, date de naissance', onClick: openEditProfile },
     { icon: <Key size={18} strokeWidth={1.7} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', label: 'Changer le mot de passe', desc: 'Modifier votre mot de passe actuel', onClick: () => setShowChangePassword(true) },
-    { icon: <FileText size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: 'CGU & Politique de confidentialité', desc: "Conditions générales d'utilisation", onClick: () => window.open('https://amiv.app/legal', '_blank') },
+    { icon: <Ban size={18} strokeWidth={1.7} color="#FF3B30" />, bg: 'rgba(255,59,48,0.08)', label: 'Utilisateurs bloqués', desc: 'Gérer les personnes que tu as bloquées', onClick: () => setShowBlockedUsers(true) },
+    { icon: <FileText size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: "Conditions d'utilisation", desc: "Règles d'utilisation d'Amiv", onClick: () => openExternalUrl(LEGAL_URLS.terms) },
+    { icon: <Shield size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: 'Politique de confidentialité', desc: 'Comment Amiv utilise tes données', onClick: () => openExternalUrl(LEGAL_URLS.privacy) },
     { icon: <AlertCircle size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Contact & signaler un bug', desc: "Écrire à l'équipe Amiv", onClick: () => window.open('mailto:contact@amiv.app?subject=Bug%20Amiv', '_blank') },
   ]
 
@@ -802,6 +809,10 @@ export default function Profile({ session, onCalendarClick }) {
         link={publicProfileLink}
         onClose={() => setShowQrModal(false)}
         onToast={showToast}
+      />
+      <BlockedUsersModal
+        isOpen={showBlockedUsers}
+        onClose={() => setShowBlockedUsers(false)}
       />
       <FriendsListModal
         isOpen={showFriendsList}

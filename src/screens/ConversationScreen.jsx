@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { ChevronLeft, Send } from 'lucide-react'
+import { ChevronLeft, Flag, MoreHorizontal, Send } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { isBlockedByMe, unblockUser } from '../lib/safety'
+import { ReportSheet, UserSafetySheet } from '../components/safety/SafetySheets'
 import DirectFriendProfileSheet from '../components/messages/DirectFriendProfileSheet'
 import { CloseFriendBadge } from '../components/messages/MessageUI'
 
@@ -150,7 +152,7 @@ function Avatar({ name, url, size = 28, isCloseFriend = false }) {
   )
 }
 
-function EmojiPicker({ onSelect, isMine }) {
+function EmojiPicker({ onSelect, isMine, onReport }) {
   return (
     <div style={{
       position: 'absolute',
@@ -189,6 +191,32 @@ function EmojiPicker({ onSelect, isMine }) {
           {emoji}
         </button>
       ))}
+      {onReport && (
+        <button
+          type="button"
+          onClick={onReport}
+          aria-label="Signaler ce message"
+          style={{
+            height: 32,
+            border: 'none',
+            borderLeft: '0.5px solid rgba(0,0,0,0.12)',
+            background: 'transparent',
+            color: '#FF3B30',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '0 4px 0 9px',
+            fontFamily: FONT,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Flag size={14} strokeWidth={2} />
+          Signaler
+        </button>
+      )}
     </div>
   )
 }
@@ -245,6 +273,10 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
   const [isDark, setIsDark] = useState(false)
   const [showFriendProfile, setShowFriendProfile] = useState(false)
   const [isCloseFriend, setIsCloseFriend] = useState(friend?.is_close_friend === true || friend?.isCloseFriend === true)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [showSafety, setShowSafety] = useState(false)
+  const [reportMessageId, setReportMessageId] = useState(null)
+  const [sendError, setSendError] = useState(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
   const longPressRef = useRef(null)
@@ -314,6 +346,13 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       .maybeSingle()
       .then(({ data }) => setOtherLastReadAt(data?.last_read_at ?? null))
   }, [conversationId, currentUserId])
+
+  useEffect(() => {
+    if (!otherUserId) return undefined
+    let cancelled = false
+    isBlockedByMe(otherUserId).then(blocked => { if (!cancelled) setIsBlocked(blocked) })
+    return () => { cancelled = true }
+  }, [otherUserId])
 
   useEffect(() => {
     setIsCloseFriend(friend?.is_close_friend === true || friend?.isCloseFriend === true)
@@ -448,6 +487,20 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
     })
     if (error) {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
+      setInput(text)
+      // Refusé en base si l'un de vous a bloqué l'autre (trigger guard_direct_message_block)
+      setSendError("Impossible d'envoyer ce message.")
+      window.setTimeout(() => setSendError(null), 2600)
+    }
+  }
+
+  async function handleUnblock() {
+    try {
+      await unblockUser(otherUserId)
+      setIsBlocked(false)
+    } catch {
+      setSendError('Impossible de débloquer pour le moment.')
+      window.setTimeout(() => setSendError(null), 2600)
     }
   }
 
@@ -588,6 +641,17 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           </div>
         </div>
 
+        {!isDeletedUser && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); setShowSafety(true) }}
+            aria-label="Plus d'options"
+            style={{ width: 34, height: 34, border: 'none', borderRadius: '50%', background: 'transparent', color: BLACK, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer', flexShrink: 0 }}
+          >
+            <MoreHorizontal size={22} strokeWidth={2} />
+          </button>
+        )}
+
       </div>
 
       {/* Messages */}
@@ -639,7 +703,11 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
                   }}
                 >
                   {activePicker === msg.id && !msg.isOptimistic && (
-                    <EmojiPicker isMine={isMine} onSelect={emoji => toggleReaction(msg.id, emoji)} />
+                    <EmojiPicker
+                      isMine={isMine}
+                      onSelect={emoji => toggleReaction(msg.id, emoji)}
+                      onReport={isMine ? null : () => { setActivePicker(null); setReportMessageId(msg.id) }}
+                    />
                   )}
                   <div
                     onMouseDown={() => !msg.isOptimistic && startLongPress(msg.id)}
@@ -691,10 +759,23 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
         <div ref={bottomRef} />
       </div>
 
+      {sendError && (
+        <div style={{ padding: '8px 16px', background: '#FFF2F1', color: '#FF3B30', fontSize: 13, fontWeight: 700, textAlign: 'center', flexShrink: 0 }}>
+          {sendError}
+        </div>
+      )}
+
       {/* Input */}
       {isDeletedUser ? (
         <div style={{ padding: '14px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)', textAlign: 'center', fontSize: 13, color: GRAY }}>
           Cette personne a supprimé son compte.
+        </div>
+      ) : isBlocked ? (
+        <div style={{ padding: '14px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)', textAlign: 'center', fontSize: 13, color: GRAY }}>
+          Tu as bloqué cette personne.{' '}
+          <button type="button" onClick={handleUnblock} style={{ border: 'none', background: 'transparent', color: '#e055aa', fontWeight: 700, fontSize: 13, padding: 0, cursor: 'pointer', fontFamily: FONT }}>
+            Débloquer
+          </button>
         </div>
       ) : (
       <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -735,6 +816,23 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           <Send size={16} color={WHITE} fill={WHITE} strokeWidth={2.2} />
         </button>
       </div>
+      )}
+      {showSafety && (
+        <UserSafetySheet
+          userId={otherUserId}
+          userName={otherName}
+          isBlocked={isBlocked}
+          onClose={() => setShowSafety(false)}
+          onBlockedChange={setIsBlocked}
+        />
+      )}
+      {reportMessageId && (
+        <ReportSheet
+          targetType="direct_message"
+          targetId={reportMessageId}
+          subjectLabel="ce message"
+          onClose={() => setReportMessageId(null)}
+        />
       )}
       {showFriendProfile && !isDeletedUser && (
         <DirectFriendProfileSheet

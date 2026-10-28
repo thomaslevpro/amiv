@@ -1,8 +1,11 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Calendar as CalendarIcon, ChevronLeft, Lock, MapPin, MessageCircle, MoreHorizontal, Send } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { DELETED_USER_LABEL, formatEventHeaderDate, profileDisplayName } from './utils'
 import { Avatar } from './MessageUI'
+import { MessageSafetySheet } from '../safety/SafetySheets'
+
+const LONG_PRESS_MS = 450
 
 function formatTime(ts) {
   const d = new Date(ts)
@@ -25,8 +28,23 @@ export default function MessageThread({
   send,
   guestLeaderIds = new Set(),
   closeFriendIds = new Set(),
+  onAuthorBlocked,
 }) {
   const inputRef = useRef(null)
+  const longPressRef = useRef(null)
+  const [actionMessage, setActionMessage] = useState(null)
+
+  function clearLongPress() {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current)
+      longPressRef.current = null
+    }
+  }
+
+  function startLongPress(msg) {
+    clearLongPress()
+    longPressRef.current = setTimeout(() => setActionMessage(msg), LONG_PRESS_MS)
+  }
 
   function handleSend() {
     // Garde le clavier ouvert pour enchaîner (focus synchrone : iOS l'exige dans le geste)
@@ -122,6 +140,7 @@ export default function MessageThread({
             }
             const { message: msg, isMine, compactTop, showName, showAvatar } = row
             const senderName = msg.user_id ? profileDisplayName(msg.profile) : DELETED_USER_LABEL
+            const canReport = !isMine && !msg.isOptimistic && !msg.is_hidden
             const showCoordinatorBadge = isSecret && guestLeaderIds.has(msg.profile?.id) && !isMine
             return (
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: compactTop ? 2 : 10 }}>
@@ -138,8 +157,18 @@ export default function MessageThread({
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7, maxWidth: '78%' }}>
                   {!isMine && (showAvatar ? <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} isCloseFriend={closeFriendIds.has(msg.profile?.id)} /> : <div style={{ width: 28, flexShrink: 0 }} />)}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', minWidth: 0 }}>
-                    <div style={{ padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : BLACK, fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)' }}>
-                      {msg.content}
+                    <div
+                      onMouseDown={() => canReport && startLongPress(msg)}
+                      onMouseUp={clearLongPress}
+                      onMouseLeave={clearLongPress}
+                      onTouchStart={() => canReport && startLongPress(msg)}
+                      onTouchEnd={clearLongPress}
+                      onTouchMove={clearLongPress}
+                      onTouchCancel={clearLongPress}
+                      onContextMenu={e => { if (canReport) { e.preventDefault(); setActionMessage(msg) } }}
+                      style={{ padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : msg.is_hidden ? GRAY1 : BLACK, fontStyle: msg.is_hidden ? 'italic' : 'normal', fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)', userSelect: canReport ? 'none' : 'auto', WebkitUserSelect: canReport ? 'none' : 'auto', WebkitTouchCallout: 'none' }}
+                    >
+                      {msg.is_hidden ? 'Message masqué' : msg.content}
                     </div>
                     <div style={{ fontSize: 10, color: GRAY1, marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>
                       {formatTime(msg.created_at)}
@@ -152,6 +181,17 @@ export default function MessageThread({
         )}
         <div ref={bottomRef} />
       </div>
+
+      {actionMessage && (
+        <MessageSafetySheet
+          targetType="event_message"
+          messageId={actionMessage.id}
+          authorId={actionMessage.user_id}
+          authorName={profileDisplayName(actionMessage.profile)}
+          onClose={() => setActionMessage(null)}
+          onBlockedChange={() => onAuthorBlocked?.()}
+        />
+      )}
 
       <div style={{ padding: '10px 14px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 9, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
         <input

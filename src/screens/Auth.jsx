@@ -3,6 +3,9 @@ import { Capacitor } from '@capacitor/core'
 import { supabase, AUTH_CALLBACK_URL, AUTH_RESET_URL } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
+import { LEGAL_URLS, openExternalUrl } from '../lib/native'
+
+const legalLinkStyle = { color: '#e055aa', fontWeight: 600, cursor: 'pointer' }
 
 export default function Auth({ initialIsLogin = false }) {
   const [email, setEmail] = useState('')
@@ -232,6 +235,15 @@ export default function Auth({ initialIsLogin = false }) {
           }}>
             {loading ? 'Chargement...' : forgotMode ? 'Envoyer le lien' : isLogin ? 'Se connecter' : "S'inscrire"}
           </div>
+
+          {!isLogin && !forgotMode && (
+            <div style={{ fontSize: 12, color: '#8E8E93', textAlign: 'center', marginTop: 14, lineHeight: 1.5 }}>
+              En créant un compte, tu acceptes les{' '}
+              <span role="link" onClick={() => openExternalUrl(LEGAL_URLS.terms)} style={legalLinkStyle}>Conditions d'utilisation</span>
+              {' '}et la{' '}
+              <span role="link" onClick={() => openExternalUrl(LEGAL_URLS.privacy)} style={legalLinkStyle}>Politique de confidentialité</span>.
+            </div>
+          )}
 
           {forgotMode && (
             <div onClick={leaveForgotMode} style={{ fontSize: 13, color: '#8E8E93', textAlign: 'center', marginTop: 16, cursor: 'pointer' }}>
