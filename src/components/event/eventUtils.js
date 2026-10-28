@@ -21,3 +21,12 @@ export function birthdayFriendName(friend) {
 export function birthdayFriendInitial(friend) {
   return birthdayFriendName(friend).charAt(0).toUpperCase()
 }
+
+export const EVENT_TYPES = ['Anniversaire', 'Soirée', 'Repas', 'Café', 'Autre']
+export const BIRTHDAY_TYPE = 'Anniversaire'
+
+// Une personne fêtée n'existe que sur un anniversaire. Exception : un ancien
+// événement d'un autre type qui en a déjà une la garde tant que son type ne change pas.
+export function keepsBirthdayPerson(nextType, currentType, birthdayPersonId) {
+  return nextType === BIRTHDAY_TYPE || (nextType === currentType && !!birthdayPersonId)
+}

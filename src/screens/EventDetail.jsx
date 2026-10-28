@@ -20,7 +20,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
   const {
     coverInputRef, rsvpStatus, myRsvp, userId, currentUserName, canManage, loading,
-    guestRsvps, toast, editing, editForm, setEditForm, birthdayPersonId, saving,
+    guestRsvps, toast, editing, editForm, setEditForm, birthdayPersonId, currentType, saving,
     coverPreview, setCoverFile, setCoverPreview, eventOverrides, showDeleteModal,
     setShowDeleteModal, deleting, friends, invitedIds, copySuccess, dateOptions,
     myVotes, allVoteCounts, confirmingDate, rsvpStats, participants, birthdayPersonName,
@@ -36,8 +36,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const displayLocation = eventOverrides.location ?? event.location
   const pollClosed = eventOverrides.poll_closed ?? event.poll_closed ?? false
   const isPollActive = dateOptions.length > 0 && !pollClosed
-  const heroEvent = { ...event, __isPollActive: isPollActive }
-  const isBirthdayEvent = event.type === 'Anniversaire' || !!birthdayPersonId
+  const heroEvent = { ...event, type: currentType, __isPollActive: isPollActive }
+  const isBirthdayEvent = currentType === 'Anniversaire' || !!birthdayPersonId
   void onMessagesClick
 
   function renderChatBanner() {
@@ -99,7 +99,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           </div>
         )}
 
-        {editing && <EventEditForm event={event} editForm={editForm} setEditForm={setEditForm} friends={friends} birthdayPersonId={birthdayPersonId} onToggleBirthdayPerson={toggleBirthdayPerson} coverPreview={coverPreview} setCoverFile={setCoverFile} setCoverPreview={setCoverPreview} saving={saving} onSubmit={handleEditSubmit} onCancel={() => setEditing(false)} />}
+        {editing && <EventEditForm event={event} editForm={editForm} setEditForm={setEditForm} friends={friends} currentType={currentType} birthdayPersonId={birthdayPersonId} birthdayPersonName={birthdayPersonName} onToggleBirthdayPerson={toggleBirthdayPerson} coverPreview={coverPreview} setCoverFile={setCoverFile} setCoverPreview={setCoverPreview} saving={saving} onSubmit={handleEditSubmit} onCancel={() => setEditing(false)} />}
         <EventInfoCard displayLocation={displayLocation} organizers={Object.assign([...organizers], { eventOwnerId: event.user_id })} userId={userId} eventId={event.id} onAddCoOrg={handleOpenCoOrgModal} />
 
         {(displayDescription || canManage) && (
@@ -118,7 +118,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
         {isPollActive && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
         {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
-        {userId && canManage && event.type === 'Anniversaire' && <div style={{ marginBottom: 14 }}><CardView eventId={event.id} currentUserId={userId} /></div>}
+        {userId && canManage && currentType === 'Anniversaire' && <div style={{ marginBottom: 14 }}><CardView eventId={event.id} currentUserId={userId} /></div>}
         {canManage && <EventInviteSection friends={friends} invitedIds={invitedIds} copySuccess={copySuccess} onInvite={handleInviteFriend} onCopyLink={handleCopyLink} />}
         {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}
       </div>

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
+import { EVENT_TYPES } from '../components/event/eventUtils'
 
 const types = [
   <><Cake size={13} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Anniversaire</>,
@@ -12,7 +13,7 @@ const types = [
   <><Coffee size={13} strokeWidth={1.5} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Café</>,
   '🎉 Autre',
 ]
-const typeValues = ['Anniversaire', 'Soirée', 'Repas', 'Café', 'Autre']
+const typeValues = EVENT_TYPES
 const emojiTypeMap = {
   '🍽️': 'Repas',
   '🥂': 'Soirée',

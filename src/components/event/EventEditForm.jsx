@@ -1,12 +1,25 @@
+import { Cake, Coffee, CookingPot, PartyPopper } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { birthdayFriendInitial, birthdayFriendName } from './eventUtils'
+import { BIRTHDAY_TYPE, EVENT_TYPES, birthdayFriendInitial, birthdayFriendName, keepsBirthdayPerson } from './eventUtils'
+
+const TYPE_ICONS = {
+  Anniversaire: <Cake size={13} strokeWidth={1.5} />,
+  Soirée: <PartyPopper size={13} strokeWidth={1.5} />,
+  Repas: <CookingPot size={13} strokeWidth={1.5} />,
+  Café: <Coffee size={13} strokeWidth={1.5} />,
+  Autre: '✨',
+}
+
+const noticeStyle = { marginTop: 8, padding: '9px 12px', borderRadius: 10, background: 'rgba(224,85,170,0.08)', border: '1px solid rgba(224,85,170,0.20)', fontSize: 12, lineHeight: 1.45, color: '#993556' }
 
 export default function EventEditForm({
   event,
   editForm,
   setEditForm,
   friends,
+  currentType,
   birthdayPersonId,
+  birthdayPersonName,
   onToggleBirthdayPerson,
   coverPreview,
   setCoverFile,
@@ -15,6 +28,10 @@ export default function EventEditForm({
   onSubmit,
   onCancel,
 }) {
+  const showBirthdayPicker = keepsBirthdayPerson(editForm.type, currentType, birthdayPersonId)
+  const leavingBirthday = !showBirthdayPicker && (currentType === BIRTHDAY_TYPE || !!birthdayPersonId)
+  const becomingBirthday = editForm.type === BIRTHDAY_TYPE && currentType !== BIRTHDAY_TYPE
+
   return (
     <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
@@ -26,9 +43,32 @@ export default function EventEditForm({
           <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }} />
         </div>
         <div>
+          <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 6 }}>Type</div>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', padding: '2px 0' }}>
+            {EVENT_TYPES.map(type => {
+              const selected = editForm.type === type
+              return (
+                <button key={type} type="button" onClick={() => setEditForm(f => ({ ...f, type }))} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, padding: '7px 11px', borderRadius: 20, border: selected ? 'none' : '1px solid #E5E5EA', background: selected ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#fff', color: selected ? '#fff' : '#8E8E93', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {TYPE_ICONS[type]} {type}
+                </button>
+              )
+            })}
+          </div>
+          {leavingBirthday && (
+            <div style={noticeStyle}>
+              Ce ne sera plus un anniversaire{birthdayPersonName ? ` : ${birthdayPersonName} ne sera plus la personne fêtée` : ''}. L'espace secret (idées cadeaux, cagnotte, carte, chat secret) sera fermé pour tout le monde, mais son contenu est conservé : il réapparaît si tu repasses l'événement en Anniversaire.
+            </div>
+          )}
+        </div>
+        {showBirthdayPicker && <div>
           <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 6 }}>
             Personne fêtée <span style={{ color: '#AEAEB2' }}>(optionnel)</span>
           </div>
+          {becomingBirthday && !birthdayPersonId && (
+            <div style={{ ...noticeStyle, marginTop: 0, marginBottom: 8 }}>
+              Choisis la personne fêtée : l'espace secret lui sera caché. Sans personne fêtée, tous les invités confirmés y ont accès.
+            </div>
+          )}
           {friends.length === 0 ? (
             <div style={{ fontSize: 13, color: '#8E8E93' }}>Ajoute des amis pour les sélectionner ici</div>
           ) : (
@@ -58,7 +98,7 @@ export default function EventEditForm({
               })}
             </div>
           )}
-        </div>
+        </div>}
         <div>
           <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500, marginBottom: 4 }}>Date</div>
           <input type="datetime-local" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} style={{ width: '100%', border: '1px solid #E5E5EA', borderRadius: 10, padding: '9px 12px', fontSize: 13, outline: 'none', color: '#1C1C1E', boxSizing: 'border-box' }} />

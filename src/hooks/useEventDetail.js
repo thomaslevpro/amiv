@@ -4,6 +4,7 @@ import { APP_URL } from '../lib/native'
 import { addCoOrganizerById, isOrganizer } from '../lib/organizers'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
+import { keepsBirthdayPerson } from '../components/event/eventUtils'
 
 function readSeen(key) {
   if (typeof window === 'undefined') return 0
@@ -23,7 +24,7 @@ export default function useEventDetail(event, onBack) {
   const [guestRsvps, setGuestRsvps] = useState([])
   const [toast, setToast] = useState(null)
   const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', date: '', description: '', location: '' })
+  const [editForm, setEditForm] = useState({ name: '', type: '', date: '', description: '', location: '' })
   const [birthdayPersonId, setBirthdayPersonId] = useState(event?.birthday_person_user_id ?? null)
   const [birthdayPersonName, setBirthdayPersonName] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -58,9 +59,16 @@ export default function useEventDetail(event, onBack) {
     setTimeout(() => setToast(null), 2500)
   }
 
+  const currentType = eventOverrides.type ?? event?.type ?? null
+  // Une override à null (personne fêtée retirée) ne doit pas retomber sur la valeur d'origine.
+  const savedBirthdayPersonId = 'birthday_person_user_id' in eventOverrides
+    ? eventOverrides.birthday_person_user_id
+    : birthdayPersonId ?? event?.birthday_person_user_id ?? null
+
   const eventForMessages = {
     ...event,
-    birthday_person_user_id: eventOverrides.birthday_person_user_id ?? birthdayPersonId ?? event?.birthday_person_user_id ?? null,
+    type: currentType,
+    birthday_person_user_id: savedBirthdayPersonId,
   }
 
   function handleShare() {
@@ -337,8 +345,8 @@ export default function useEventDetail(event, onBack) {
   }
 
   function handleEditOpen() {
-    setEditForm({ name: event.name ?? '', date: event.date ? event.date.slice(0, 16) : '', description: event.description ?? '', location: event.location ?? '' })
-    setBirthdayPersonId(eventOverrides.birthday_person_user_id ?? birthdayPersonId ?? event?.birthday_person_user_id ?? null)
+    setEditForm({ name: event.name ?? '', type: currentType ?? 'Autre', date: event.date ? event.date.slice(0, 16) : '', description: event.description ?? '', location: event.location ?? '' })
+    setBirthdayPersonId(savedBirthdayPersonId)
     setCoverFile(null)
     setCoverPreview(null)
     setEditing(true)
@@ -374,17 +382,23 @@ export default function useEventDetail(event, onBack) {
       coverImagePath = filePath
     }
 
-    const { error } = await supabase.from('events').update({ name: editForm.name, date: editForm.date || null, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: birthdayPersonId }).eq('id', event.id)
+    // Quitter le type Anniversaire retire la personne fêtée : l'espace secret est
+    // alors fermé (can_access_secret_space), son contenu est conservé.
+    const nextBirthdayPersonId = keepsBirthdayPerson(editForm.type, currentType, birthdayPersonId) ? birthdayPersonId : null
+    const { error } = await supabase.from('events').update({ name: editForm.name, type: editForm.type, date: editForm.date || null, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: nextBirthdayPersonId }).eq('id', event.id)
     if (!error) {
       track('event_updated', {
         event_id: event.id,
         changed_cover_image: Boolean(coverFile),
+        changed_type: editForm.type !== currentType,
         has_date: Boolean(editForm.date),
-        has_birthday_person: Boolean(birthdayPersonId),
+        has_birthday_person: Boolean(nextBirthdayPersonId),
       })
-      setEventOverrides(prev => ({ ...prev, name: editForm.name, date: editForm.date, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: birthdayPersonId }))
+      setBirthdayPersonId(nextBirthdayPersonId)
+      setEventOverrides(prev => ({ ...prev, name: editForm.name, type: editForm.type, date: editForm.date, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: nextBirthdayPersonId }))
       setEditing(false)
       showToast('Événement modifié !')
+      refreshSecretSpaceAccess()
     } else {
       captureSupabaseError(error, { operation: 'update_event' })
       track('event_update_failed', {
@@ -544,6 +558,7 @@ export default function useEventDetail(event, onBack) {
     editForm,
     setEditForm,
     birthdayPersonId,
+    currentType,
     saving,
     coverPreview,
     setCoverFile,
