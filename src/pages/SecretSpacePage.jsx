@@ -251,6 +251,7 @@ export default function SecretSpacePage() {
   const [giftForm, setGiftForm] = useState(EMPTY_GIFT_FORM)
   const [giftSaving, setGiftSaving] = useState(false)
 
+  const [cagnotte, setCagnotte] = useState(null)
   const [cagnotteUrl, setCagnotteUrl] = useState('')
   const [cagnotteGoal, setCagnotteGoal] = useState('')
   const [cagnotteGiftId, setCagnotteGiftId] = useState('')
@@ -273,7 +274,8 @@ export default function SecretSpacePage() {
     approveCandidate,
     rejectCandidate,
   } = useGuestLeader(eventId)
-  const canManageCagnotte = ['owner', 'co_organizer'].includes(currentUserRole) || isGuestLeader
+  // Même règle que la RLS d'event_cagnottes : owner et co-organisateurs approuvés
+  const canManageCagnotte = ['owner', 'co_organizer'].includes(currentUserRole)
 
   const showToast = useCallback((message, isError = false) => {
     setToast({ message, isError })
@@ -379,7 +381,7 @@ export default function SecretSpacePage() {
   const fetchEvent = useCallback(async (userId) => {
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, date, user_id, birthday_person_user_id, cagnotte_url, cagnotte_goal, cagnotte_gift_id, cagnotte_created_by')
+      .select('id, name, date, user_id, birthday_person_user_id')
       .eq('id', eventId)
       .maybeSingle()
 
@@ -406,10 +408,18 @@ export default function SecretSpacePage() {
       birthdayProfile = profileData
     }
 
+    const { data: cagnotteData, error: cagnotteError } = await supabase
+      .from('event_cagnottes')
+      .select('url, goal, gift_id')
+      .eq('event_id', eventId)
+      .maybeSingle()
+    if (cagnotteError) throw cagnotteError
+
     setEvent({ ...data, birthdayProfile })
-    setCagnotteUrl(data.cagnotte_url ?? '')
-    setCagnotteGoal(data.cagnotte_goal ?? '')
-    setCagnotteGiftId(data.cagnotte_gift_id ?? '')
+    setCagnotte(cagnotteData)
+    setCagnotteUrl(cagnotteData?.url ?? '')
+    setCagnotteGoal(cagnotteData?.goal ?? '')
+    setCagnotteGiftId(cagnotteData?.gift_id ?? '')
   }, [eventId])
 
   useEffect(() => {
@@ -575,16 +585,15 @@ export default function SecretSpacePage() {
     if (!currentUserId || cagnotteSaving || !cagnotteUrl.trim()) return
 
     setCagnotteSaving(true)
+    const url = cagnotteUrl.trim()
     const next = {
-      cagnotte_url: cagnotteUrl.trim(),
-      cagnotte_goal: cagnotteGoal === '' ? null : Number(cagnotteGoal),
-      cagnotte_gift_id: cagnotteGiftId || null,
-      cagnotte_created_by: currentUserId,
+      url: /^https?:\/\//i.test(url) ? url : `https://${url}`,
+      goal: cagnotteGoal === '' ? null : Number(cagnotteGoal),
+      gift_id: cagnotteGiftId || null,
     }
-    const { error } = await supabase
-      .from('events')
-      .update(next)
-      .eq('id', eventId)
+    const { error } = cagnotte
+      ? await supabase.from('event_cagnottes').update(next).eq('event_id', eventId)
+      : await supabase.from('event_cagnottes').insert({ event_id: eventId, ...next })
 
     setCagnotteSaving(false)
     if (error) {
@@ -592,7 +601,7 @@ export default function SecretSpacePage() {
       setErrorMessage("Impossible d'enregistrer la cagnotte.")
       return
     }
-    setEvent(current => current ? { ...current, ...next } : current)
+    setCagnotte(next)
   }
 
   if (loading) {
@@ -858,18 +867,18 @@ export default function SecretSpacePage() {
           )}
 
           {activeTab === 'cagnotte' && (
-            event.cagnotte_url ? (
+            cagnotte?.url ? (
               <div style={{ background: COLORS.card, borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
                 <div style={{ width: 42, height: 42, borderRadius: 15, background: 'rgba(245,166,35,0.15)', color: COLORS.orange, display: 'grid', placeItems: 'center', marginBottom: 12 }}>
                   <Sparkles size={20} />
                 </div>
                 <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Cagnotte prête</h2>
-                {event.cagnotte_goal && (
+                {cagnotte.goal && (
                   <div style={{ fontSize: 13, color: COLORS.muted, fontWeight: 700, marginBottom: 14 }}>
-                    Objectif : {formatMoney(event.cagnotte_goal)}
+                    Objectif : {formatMoney(cagnotte.goal)}
                   </div>
                 )}
-                <a href={event.cagnotte_url} target="_blank" rel="noreferrer" style={{ minHeight: 48, borderRadius: 14, background: COLORS.gradient, color: '#fff', fontSize: 14, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}>
+                <a href={cagnotte.url} target="_blank" rel="noreferrer" style={{ minHeight: 48, borderRadius: 14, background: COLORS.gradient, color: '#fff', fontSize: 14, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}>
                   Accéder à la cagnotte <ExternalLink size={17} />
                 </a>
               </div>
