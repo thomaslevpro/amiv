@@ -24,6 +24,7 @@ export function initNative() {
 export const LEGAL_URLS = {
   terms: `${APP_URL}/cgu`,
   privacy: `${APP_URL}/confidentialite`,
+  legalNotice: `${APP_URL}/mentions-legales`,
 }
 
 // Lien externe : navigateur intégré (SFSafariViewController) sur natif,

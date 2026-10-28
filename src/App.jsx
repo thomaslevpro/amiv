@@ -40,6 +40,7 @@ const AuthReset = lazy(() => import('./screens/AuthReset'))
 const TermsPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })))
 const PrivacyPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPage })))
 const SupportPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.SupportPage })))
+const LegalNoticePage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.LegalNoticePage })))
 
 function SplashScreen() {
   return (
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/auth/reset" element={<AuthReset />} />
         <Route path="/cgu" element={<TermsPage />} />
         <Route path="/confidentialite" element={<PrivacyPage />} />
+        <Route path="/mentions-legales" element={<LegalNoticePage />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="*" element={<MainApp />} />
       </Routes>
