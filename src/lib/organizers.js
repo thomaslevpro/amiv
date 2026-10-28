@@ -1,17 +1,11 @@
 import { supabase } from './supabase'
 
+// Owner ou co-organisateur approuvé (même règle que les policies RLS) ;
+// un guest_leader ou un co-organisateur en attente n'est pas organisateur.
 export async function isOrganizer(eventId) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
-
-  const { data } = await supabase
-    .from('event_organizers')
-    .select('id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  return !!data
+  const { data, error } = await supabase.rpc('is_event_organizer', { p_event_id: eventId })
+  if (error) return false
+  return data === true
 }
 
 export async function getOrganizers(eventId) {
