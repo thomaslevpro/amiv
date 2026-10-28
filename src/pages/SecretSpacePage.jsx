@@ -6,6 +6,7 @@ import { setStatusBarDark } from '../lib/native'
 import GuestLeaderBanner from '../components/GuestLeaderBanner'
 import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
 import { useGuestLeader } from '../hooks/useGuestLeader'
+import { uploadMemoryImage, withMemoryImageUrls } from '../lib/memories'
 
 const COLORS = {
   bg: '#F5F5F5',
@@ -323,7 +324,8 @@ export default function SecretSpacePage() {
       ...loadedMemories.map(memory => memory.contributor_id),
       ...(invitationRows ?? []).map(invitation => invitation.invited_user_id),
     ])
-    setMemories(loadedMemories.map(memory => ({
+    const memoriesWithImages = await withMemoryImageUrls(loadedMemories)
+    setMemories(memoriesWithImages.map(memory => ({
       ...memory,
       profile: profilesById[memory.contributor_id] ?? null,
     })))
@@ -388,7 +390,7 @@ export default function SecretSpacePage() {
     if (error) throw error
     if (!data) throw new Error('Événement introuvable.')
     if (data.birthday_person_user_id && data.birthday_person_user_id === userId) {
-      throw new Error('Cet espace est caché jusqu’au jour J.')
+      throw new Error('Cet espace n’est pas accessible.')
     }
 
     const { data: canAccess, error: accessError } = await supabase.rpc('can_access_secret_space', { p_event_id: eventId })
@@ -473,23 +475,6 @@ export default function SecretSpacePage() {
     return () => URL.revokeObjectURL(url)
   }, [memoryImageFile])
 
-  async function uploadMemoryImage() {
-    if (!memoryImageFile || !currentUserId) return null
-
-    const ext = memoryImageFile.name.split('.').pop() || 'jpg'
-    const path = `${eventId}/${currentUserId}/${Date.now()}.${ext}`
-    const { error } = await supabase.storage
-      .from('memory-images')
-      .upload(path, memoryImageFile, {
-        cacheControl: '3600',
-        contentType: memoryImageFile.type || 'image/jpeg',
-        upsert: false,
-      })
-
-    if (error) throw error
-    return supabase.storage.from('memory-images').getPublicUrl(path).data.publicUrl
-  }
-
   async function handleAddMemory(event) {
     event.preventDefault()
     if (!cardId || !currentUserId || memorySaving) return
@@ -501,7 +486,7 @@ export default function SecretSpacePage() {
     setMemorySaving(true)
     let uploadedUrl = null
     try {
-      uploadedUrl = await uploadMemoryImage()
+      if (memoryImageFile && currentUserId) uploadedUrl = await uploadMemoryImage(memoryImageFile, eventId, currentUserId)
     } catch (error) {
       console.error('[SecretSpace] memory image upload error:', error)
       setMemorySaving(false)
@@ -741,8 +726,8 @@ export default function SecretSpacePage() {
                     return (
                       <article key={memory.id} style={{ background: COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
                         <div style={{ height: 110, background: palette.bg, display: 'grid', placeItems: 'center' }}>
-                        {memory.image_url ? (
-                          <img src={memory.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        {memory.display_image_url ? (
+                          <img src={memory.display_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         ) : (
                           <Image size={30} color={palette.icon} strokeWidth={2.1} />
                         )}

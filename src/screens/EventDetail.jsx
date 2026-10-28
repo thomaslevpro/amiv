@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, MessageCircle } from 'lucide-react'
-import CardView from '../components/card/CardView'
 import EventDatePoll from '../components/event/EventDatePoll'
 import EventEditForm from '../components/event/EventEditForm'
 import EventGuestList from '../components/event/EventGuestList'
@@ -9,6 +8,7 @@ import EventInfoCard from '../components/event/EventInfoCard'
 import EventInviteSection from '../components/event/EventInviteSection'
 import EventStatsRow from '../components/event/EventStatsRow'
 import { getAvatarColor } from '../components/event/eventUtils'
+import RevealedMemoriesEntry from '../components/event/RevealedMemoriesEntry'
 import PlusOneReviewList from '../components/PlusOneReviewList'
 import useEventDetail from '../hooks/useEventDetail'
 
@@ -81,6 +81,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           </div>
         )}
 
+        {userId && birthdayPersonId === userId && <RevealedMemoriesEntry eventId={event.id} />}
+
         {renderChatBanner()}
 
         {canAccessSecretSpace && isBirthdayEvent && (
@@ -118,7 +120,6 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
         )}
         {isPollActive && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
         {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
-        {userId && canManage && currentType === 'Anniversaire' && <div style={{ marginBottom: 14 }}><CardView eventId={event.id} currentUserId={userId} /></div>}
         {canManage && <EventInviteSection friends={friends} invitedIds={invitedIds} copySuccess={copySuccess} onInvite={handleInviteFriend} onCopyLink={handleCopyLink} />}
         {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}
       </div>

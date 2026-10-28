@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -13,7 +14,7 @@ const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const AVATAR_COLORS = ['#FBBF9A', '#7c5cbf', '#4D96FF', '#FF6B9D', '#34C759', '#FFD93D']
 const FILTERS = [
   { key: 'all', label: 'Tout', types: null },
-  { key: 'events', label: 'Événements', types: ['rsvp_received', 'event_invitation', 'invitation_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response'] },
+  { key: 'events', label: 'Événements', types: ['rsvp_received', 'event_invitation', 'invitation_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed', 'memories_surprise'] },
   { key: 'messages', label: 'Messages', types: ['message_received'] },
   { key: 'friends', label: 'Amis', types: ['friend_request', 'friend_accepted', 'birthday_reminder', 'birthday_today'] },
 ]
@@ -77,6 +78,10 @@ function Avatar({ notification }) {
     <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FFF5F0', display: 'grid', placeItems: 'center', fontSize: 23 }}>
       🎂
     </div>
+  ) : ['memories_revealed', 'memories_surprise'].includes(notification.type) ? (
+    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FFF5F0', display: 'grid', placeItems: 'center', fontSize: 23 }}>
+      {notification.type === 'memories_surprise' ? '🎁' : '🎉'}
+    </div>
   ) : notification.data?.cancelled ? (
     <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F5F5F5', display: 'grid', placeItems: 'center', fontSize: 21 }}>
       🗓️
@@ -129,7 +134,7 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
   const title = notification.title || 'Activité'
   const body = notification.body || ''
   const isBirthdayReminder = notification.type === 'birthday_reminder'
-  const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'invitation_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response'].includes(notification.type)
+  const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'invitation_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed'].includes(notification.type)
   const friendshipId = notification.data?.friendship_id || notification.data?.request_id
 
   async function handleFriendAction(action, event) {
@@ -265,6 +270,7 @@ export default function NotificationPanel({
   onAcceptFriend,
   onDeclineFriend,
 }) {
+  const navigate = useNavigate()
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
   const [activeFilter, setActiveFilter] = useState('all')
@@ -394,7 +400,12 @@ export default function NotificationPanel({
       onEventOpen?.({ id: notification.data.event_id, initialTab: 'guests' })
       return
     }
-    if ((notification.type === 'rsvp_received' || notification.type === 'event_invitation' || notification.type === 'invitation_reminder' || notification.type === 'co_organizer_added' || notification.type.startsWith('guest_leader_') || notification.type === 'plus_one_response') && notification.data?.event_id) {
+    if (notification.type === 'memories_surprise' && notification.data?.event_id) {
+      onClose?.()
+      navigate(`/events/${notification.data.event_id}/souvenirs`)
+      return
+    }
+    if ((notification.type === 'rsvp_received' || notification.type === 'event_invitation' || notification.type === 'invitation_reminder' || notification.type === 'co_organizer_added' || notification.type.startsWith('guest_leader_') || notification.type === 'plus_one_response' || notification.type === 'memories_revealed') && notification.data?.event_id) {
       onClose?.()
       onEventOpen?.({ id: notification.data.event_id })
       return

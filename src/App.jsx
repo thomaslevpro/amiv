@@ -34,6 +34,7 @@ import UsernamePrompt from './components/UsernamePrompt'
 // Écrans secondaires chargés à la demande (hors premier écran)
 const SecretSpacePage = lazy(() => import('./pages/SecretSpacePage'))
 const OrganizerSpacePage = lazy(() => import('./pages/OrganizerSpacePage'))
+const MemoriesPage = lazy(() => import('./pages/MemoriesPage'))
 const PublicUserProfile = lazy(() => import('./screens/PublicUserProfile'))
 const AuthReset = lazy(() => import('./screens/AuthReset'))
 const TermsPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })))
@@ -55,6 +56,7 @@ export default function App() {
       <Suspense fallback={<SplashScreen />}>
       <Routes>
         <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
+        <Route path="/events/:id/souvenirs" element={<MemoriesPage />} />
         <Route path="/events/:id/manage" element={<OrganizerSpacePage />} />
         <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
         <Route path="/events/:id" element={<EventPage />} />
