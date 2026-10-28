@@ -13,6 +13,7 @@ export type EmailContent = {
   subject: string
   html: string
   text: string
+  replyTo?: string
 }
 
 export function json(data: unknown, status = 200) {
@@ -51,6 +52,7 @@ export async function sendEmail(to: string, content: EmailContent) {
       subject: content.subject,
       html: content.html,
       text: content.text,
+      ...(content.replyTo ? { reply_to: content.replyTo } : {}),
     }),
   })
 }

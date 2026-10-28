@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 // Pages publiques /cgu, /confidentialite et /support, ouvertes depuis le
 // Profil et l'écran d'inscription (navigateur intégré sur natif).
 // Contenu provisoire : le texte définitif reste à rédiger.
@@ -75,10 +77,38 @@ export function PrivacyPage() {
 }
 
 export function SupportPage() {
+  const [copied, setCopied] = useState(false)
+
+  async function copySupportEmail() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(SUPPORT_EMAIL)
+      } else {
+        const input = document.createElement('textarea')
+        input.value = SUPPORT_EMAIL
+        input.style.position = 'fixed'
+        input.style.opacity = '0'
+        document.body.appendChild(input)
+        input.select()
+        const copiedToClipboard = document.execCommand('copy')
+        input.remove()
+        if (!copiedToClipboard) throw new Error('copy failed')
+      }
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   return (
     <LegalLayout title="Support">
       <Section title="Nous contacter">
-        Une question, un bug ou un contenu à signaler ? Écris-nous à <Contact />, nous répondons au plus vite.
+        Une question, un bug ou un contenu à signaler ? Écris-nous à{' '}
+        <span style={{ color: '#e055aa', fontWeight: 700, userSelect: 'all' }}>{SUPPORT_EMAIL}</span>.
+        <button type="button" onClick={copySupportEmail} style={{ display: 'block', marginTop: 12, border: 0, borderRadius: 10, padding: '10px 14px', background: COLORS.gradient, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+          {copied ? 'Adresse copiée' : "Copier l'adresse"}
+        </button>
       </Section>
     </LegalLayout>
   )

@@ -15,9 +15,13 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 const REPORTS_ADMIN_EMAIL = Deno.env.get('REPORTS_ADMIN_EMAIL')
 
 type AppPayload = {
-  action: 'report_created' | 'invitation_reminder'
+  action: 'report_created' | 'invitation_reminder' | 'support_message'
   invitation_ids?: string[]
   message?: string
+  category?: 'bug' | 'contact'
+  app_version?: string
+  platform?: string
+  screen?: string
 }
 
 const REPORT_TARGET_LABELS: Record<string, string> = {
@@ -216,6 +220,45 @@ async function handleInvitationReminder(userId: string, payload: AppPayload) {
   return json({ success: true, sent })
 }
 
+async function handleSupportMessage(user: { id: string; email?: string }, payload: AppPayload) {
+  const message = typeof payload.message === 'string' ? payload.message.trim() : ''
+  if (!message || message.length > 5000) return json({ error: 'Le message doit contenir entre 1 et 5 000 caractères.' }, 400)
+  if (payload.category !== 'bug' && payload.category !== 'contact') return json({ error: 'Type de message invalide.' }, 400)
+  if (!REPORTS_ADMIN_EMAIL) return json({ error: 'Le service de contact est momentanément indisponible.' }, 500)
+  if (!user.email) return json({ error: 'Aucune adresse e-mail associée à ce compte.' }, 400)
+
+  const admin = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data: allowed, error: limitError } = await admin.rpc('claim_support_message_daily_limit', { p_user_id: user.id })
+  if (limitError) {
+    console.error('support message rate limit failed', limitError)
+    return json({ error: 'Impossible de vérifier la limite d’envoi. Réessaie dans un instant.' }, 500)
+  }
+  if (!allowed) return json({ error: 'Tu as atteint la limite de 5 messages par jour. Réessaie demain.' }, 429)
+
+  const isBug = payload.category === 'bug'
+  const details: [string, string][] = isBug ? [
+    ['Version', String(payload.app_version ?? 'inconnue').slice(0, 50)],
+    ['Plateforme', String(payload.platform ?? 'inconnue').slice(0, 30)],
+    ['Écran', String(payload.screen ?? 'inconnu').slice(0, 200)],
+  ] : []
+  const subject = isBug ? '[Amiv] Signalement de bug' : '[Amiv] Message de contact'
+  const safeMessage = escapeHtml(message)
+  const content: EmailContent = {
+    subject,
+    replyTo: user.email,
+    html: `<h2>${isBug ? 'Nouveau signalement de bug' : 'Nouveau message'}</h2><p style="white-space:pre-wrap">${safeMessage}</p>${details.length ? `<table>${details.map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`).join('')}</table>` : ''}<p>Compte : ${escapeHtml(user.email)}</p>`,
+    text: `${message}${details.length ? `\n\n${details.map(([label, value]) => `${label} : ${value}`).join('\n')}` : ''}\n\nCompte : ${user.email}`,
+  }
+  const response = await sendEmail(REPORTS_ADMIN_EMAIL, content)
+  if (!response.ok) {
+    console.error('support message email failed', { status: response.status })
+    return json({ error: 'L’envoi a échoué. Réessaie dans un instant.' }, 502)
+  }
+  return json({ success: true })
+}
+
 async function handleAppAction(req: Request, payload: AppPayload) {
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
   if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return json({ error: 'Non authentifié' }, 401)
@@ -228,6 +271,7 @@ async function handleAppAction(req: Request, payload: AppPayload) {
 
   if (payload.action === 'report_created') return await handleReportCreated(user.id)
   if (payload.action === 'invitation_reminder') return await handleInvitationReminder(user.id, payload)
+  if (payload.action === 'support_message') return await handleSupportMessage(user, payload)
   return json({ error: 'Unsupported action' }, 400)
 }
 

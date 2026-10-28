@@ -32,6 +32,7 @@ import DeleteAccountModal from '../components/profile/DeleteAccountModal'
 import AmivQrModal from '../components/profile/AmivQrModal'
 import FriendsListModal from '../components/profile/FriendsListModal'
 import BlockedUsersModal from '../components/profile/BlockedUsersModal'
+import SupportMessageModal from '../components/profile/SupportMessageModal'
 import { LEGAL_URLS, openExternalUrl } from '../lib/native'
 
 dayjs.locale('fr')
@@ -206,6 +207,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [showQrModal, setShowQrModal] = useState(false)
   const [showFriendsList, setShowFriendsList] = useState(false)
   const [showBlockedUsers, setShowBlockedUsers] = useState(false)
+  const [supportCategory, setSupportCategory] = useState(null)
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [calendarToken, setCalendarToken] = useState(null)
   const [calendarPlatform, setCalendarPlatform] = useState(null)
@@ -442,7 +444,8 @@ export default function Profile({ session, onCalendarClick }) {
     { icon: <Ban size={18} strokeWidth={1.7} color="#FF3B30" />, bg: 'rgba(255,59,48,0.08)', label: 'Utilisateurs bloqués', desc: 'Gérer les personnes que tu as bloquées', onClick: () => setShowBlockedUsers(true) },
     { icon: <FileText size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: "Conditions d'utilisation", desc: "Règles d'utilisation d'Amiv", onClick: () => openExternalUrl(LEGAL_URLS.terms) },
     { icon: <Shield size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: 'Politique de confidentialité', desc: 'Comment Amiv utilise tes données', onClick: () => openExternalUrl(LEGAL_URLS.privacy) },
-    { icon: <AlertCircle size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Contact & signaler un bug', desc: "Écrire à l'équipe Amiv", onClick: () => window.open('mailto:contact@amiv.app?subject=Bug%20Amiv', '_blank') },
+    { icon: <AlertCircle size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Signaler un bug', desc: 'Décrire un problème rencontré', onClick: () => setSupportCategory('bug') },
+    { icon: <Mail size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Nous contacter', desc: "Écrire à l'équipe Amiv", onClick: () => setSupportCategory('contact') },
   ]
 
   return (
@@ -819,6 +822,16 @@ export default function Profile({ session, onCalendarClick }) {
         onClose={() => setShowFriendsList(false)}
         currentUserId={profile?.id}
       />
+      {supportCategory && (
+        <SupportMessageModal
+          category={supportCategory}
+          onClose={() => setSupportCategory(null)}
+          onSuccess={() => {
+            setSupportCategory(null)
+            showToast('Merci, on te répond rapidement')
+          }}
+        />
+      )}
     </div>
   )
 }
