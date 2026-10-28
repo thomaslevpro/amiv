@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { AtSign, X } from 'lucide-react'
+import { AtSign, Camera, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { uploadAvatar } from '../../lib/avatar'
 
 const inputStyle = {
   width: '100%',
@@ -44,6 +45,9 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
   const [usernameInitial, setUsernameInitial] = useState('')
   const [usernameStatus, setUsernameStatus] = useState(null)
   const usernameDebounceRef = useRef(null)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -54,6 +58,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
     setUsername(profile?.username ?? '')
     setUsernameInitial(profile?.username ?? '')
     setUsernameStatus(null)
+    setAvatarFile(null)
+    setAvatarPreview(profile?.avatar_url ?? null)
     setError(null)
   }, [isOpen, profile])
 
@@ -64,6 +70,19 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
   }, [])
 
   if (!isOpen) return null
+
+  function handleAvatarChange(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('Choisis une image.')
+      return
+    }
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+    setError(null)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -97,6 +116,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
       if (userError) throw userError
       if (!user) throw new Error('Utilisateur non connecté.')
 
+      const nextAvatarUrl = avatarFile ? await uploadAvatar(user.id, avatarFile) : undefined
+
       const { data, error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -104,6 +125,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
           name: nextName,
           birthday: nextBirthday,
           username: nextUsername,
+          ...(nextAvatarUrl ? { avatar_url: nextAvatarUrl } : {}),
         })
         .eq('id', user.id)
         .select('id, first_name, name, avatar_url, username')
@@ -232,6 +254,32 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Changer la photo de profil"
+              style={{ position: 'relative', width: 88, height: 88, borderRadius: '50%', border: 'none', padding: 0, background: '#FBBF9A', cursor: 'pointer', overflow: 'visible' }}
+            >
+              <div style={{ width: 88, height: 88, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 32, fontWeight: 800 }}>
+                {avatarPreview
+                  ? <img src={avatarPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : (firstName || name || '?').trim().charAt(0).toUpperCase()}
+              </div>
+              <div style={{ position: 'absolute', right: 0, bottom: 0, width: 28, height: 28, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 5px rgba(0,0,0,0.18)' }}>
+                <Camera size={15} strokeWidth={2} color="#e055aa" />
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ border: 'none', background: 'none', color: '#e055aa', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 4 }}
+            >
+              {avatarPreview ? 'Changer la photo' : 'Ajouter une photo'}
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
+          </div>
+
           <div style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <label style={{ display: 'block', fontSize: 13, color: '#8E8E93', fontWeight: 600, marginBottom: 7 }}>
               Prénom

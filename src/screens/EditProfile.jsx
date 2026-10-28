@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, AtSign } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { uploadAvatar } from '../lib/avatar'
 
 export default function EditProfile({ onSave, onBack, isOnboarding = false, initialFocus = null }) {
   const [name, setName] = useState('')
@@ -55,14 +56,7 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
       const { data: { user } } = await supabase.auth.getUser()
       let avatar_url = existingAvatarUrl
 
-      if (avatarFile) {
-        const ext = avatarFile.name.split('.').pop()
-        const path = `${user.id}.${ext}`
-        const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, avatarFile, { upsert: true })
-        if (uploadErr) throw uploadErr
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-        avatar_url = urlData.publicUrl
-      }
+      if (avatarFile) avatar_url = await uploadAvatar(user.id, avatarFile)
 
       const { error: upsertErr } = await supabase.from('profiles').update({
         name: name.trim(),
