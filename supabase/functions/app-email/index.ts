@@ -1,4 +1,4 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.104.1'
 import { corsHeaders, escapeHtml, isEmailConfigured, json, maskEmail, sendEmail, type EmailContent } from '../_shared/email.ts'
 
 // Emails déclenchés depuis l'app (JWT utilisateur vérifié ici). Seuls deux
