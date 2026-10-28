@@ -339,12 +339,8 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
     if (!conversationId || !currentUserId) return
 
     supabase
-      .from('direct_conversation_participants')
-      .select('user_id, last_read_at')
-      .eq('conversation_id', conversationId)
-      .neq('user_id', currentUserId)
-      .maybeSingle()
-      .then(({ data }) => setOtherLastReadAt(data?.last_read_at ?? null))
+      .rpc('get_dm_other_last_read', { p_conversation_id: conversationId })
+      .then(({ data }) => setOtherLastReadAt(data ?? null))
   }, [conversationId, currentUserId])
 
   useEffect(() => {
