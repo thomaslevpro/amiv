@@ -16,13 +16,30 @@ type DeletionPlan = {
 
 export type AccountDeletionResult =
   | { ok: true; transferredEvents: number; deletedEvents: number; deletedFiles: number }
-  | { ok: false; step: 'prepare' | 'storage' | 'auth'; error: unknown }
+  | { ok: false; step: 'prepare' | 'storage' | 'auth' | 'blocked'; error: unknown }
 
-export async function deleteAccount(supabase: SupabaseClient, userId: string): Promise<AccountDeletionResult> {
+export async function deleteAccount(supabase: SupabaseClient, userId: string, requireInactiveWarning = false): Promise<AccountDeletionResult> {
+  // Supabase Auth deletion is a separate HTTP operation. No SQL lock or
+  // eligibility check can make it conditional on the user's last activity.
+  // Keep scheduled deletion fail-closed until that cross-service race is
+  // covered by an Auth/session gate that applies to every client request.
+  if (requireInactiveWarning) {
+    return {
+      ok: false,
+      step: 'blocked',
+      error: 'automatic deletion is disabled until reconnects can be excluded atomically',
+    }
+  }
+
   // ── Transfert / suppression des événements, nettoyage des tables ──────────
-  const { data, error: planError } = await supabase.rpc('prepare_account_deletion', { p_user_id: userId })
-  const plan = data as DeletionPlan | null
-  if (planError || !plan) return { ok: false, step: 'prepare', error: planError }
+  let plan: DeletionPlan | null
+  try {
+    const { data, error: planError } = await supabase.rpc('prepare_account_deletion_with_storage_queue', { p_user_id: userId })
+    if (planError || !data) return { ok: false, step: 'prepare', error: planError ?? 'empty deletion plan' }
+    plan = data as DeletionPlan
+  } catch (error) {
+    return { ok: false, step: 'prepare', error }
+  }
 
   // ── Fichiers Storage ──────────────────────────────────────────────────────
   const namesByBucket = new Map<string, string[]>()
@@ -32,14 +49,47 @@ export async function deleteAccount(supabase: SupabaseClient, userId: string): P
 
   for (const [bucket, names] of namesByBucket) {
     for (let i = 0; i < names.length; i += STORAGE_BATCH_SIZE) {
-      const { error } = await supabase.storage.from(bucket).remove(names.slice(i, i + STORAGE_BATCH_SIZE))
-      if (error) return { ok: false, step: 'storage', error: { bucket, error } }
+      const batch = names.slice(i, i + STORAGE_BATCH_SIZE)
+      try {
+        const { error } = await supabase.storage.from(bucket).remove(batch)
+        if (error) return { ok: false, step: 'storage', error: { bucket, error } }
+      } catch (error) {
+        return { ok: false, step: 'storage', error: { bucket, error } }
+      }
+      try {
+        const { error: queueError } = await supabase
+          .from('account_deletion_storage_queue')
+          .delete()
+          .eq('user_id', userId)
+          .eq('bucket_id', bucket)
+          .in('name', batch)
+        if (queueError) return { ok: false, step: 'storage', error: { bucket, error: queueError } }
+      } catch (error) {
+        return { ok: false, step: 'storage', error: { bucket, error } }
+      }
     }
   }
 
+  try {
+    const { data: pendingFiles, error: pendingFilesError } = await supabase
+      .from('account_deletion_storage_queue')
+      .select('name')
+      .eq('user_id', userId)
+      .limit(1)
+    if (pendingFilesError || pendingFiles?.length) {
+      return { ok: false, step: 'storage', error: pendingFilesError ?? 'storage queue still contains pending files' }
+    }
+  } catch (error) {
+    return { ok: false, step: 'storage', error }
+  }
+
   // ── Utilisateur (cascade sur profil, amitiés, RSVP, anonymisation…) ───────
-  const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
-  if (deleteError) return { ok: false, step: 'auth', error: deleteError }
+  try {
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
+    if (deleteError) return { ok: false, step: 'auth', error: deleteError }
+  } catch (error) {
+    return { ok: false, step: 'auth', error }
+  }
 
   return {
     ok: true,

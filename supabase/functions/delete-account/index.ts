@@ -20,6 +20,7 @@ const ERROR_MESSAGES = {
   prepare: 'Impossible de préparer la suppression du compte.',
   storage: 'Impossible de supprimer tes fichiers.',
   auth: 'Impossible de supprimer le compte.',
+  blocked: 'La suppression automatique des comptes inactifs est désactivée.',
 }
 
 // Suppression à la demande de l'utilisateur. La logique est partagée avec

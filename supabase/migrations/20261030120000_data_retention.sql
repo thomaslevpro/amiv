@@ -2,9 +2,9 @@
 -- (/confidentialite). Le cron quotidien data-retention appelle l'Edge
 -- Function du même nom (header x-cron-secret), qui :
 --   1. lance run_data_retention() : purges SQL ci-dessous ;
---   2. supprime les comptes avertis il y a 30 jours et toujours inactifs,
---      avec la même logique que delete-account ;
---   3. avertit par email les comptes sans connexion depuis 3 ans.
+--   2. consulte les candidats à la suppression (désactivée par défaut dans
+--      la migration 20261030130000_inactivity_warning_delivery) ;
+--   3. avertit par email les comptes sans activité depuis 3 ans.
 --
 --   notifications                         6 mois après création
 --   activity                              12 mois après création
@@ -14,6 +14,10 @@
 --   invitations sans compte               12 mois après la date de l'événement
 --   invitations.invited_email (avec compte), nom et message des +1 : effacés au même terme
 
+-- Deployment guard: if this job already exists in the target database, commit
+-- cron.alter_job(jobid, active := false) before applying this migration. The
+-- replacement job below is created inactive in the same statement as schedule.
+
 -- ── Date de traitement des signalements ─────────────────────────────────────
 alter table public.reports add column if not exists handled_at timestamptz;
 
@@ -21,8 +25,9 @@ comment on column public.reports.handled_at is
   'Date de traitement par l''éditeur. Le signalement est supprimé 12 mois après (12 mois après created_at si jamais traité).';
 
 -- ── Avertissements d'inactivité ─────────────────────────────────────────────
--- Une ligne = email d'avertissement envoyé. Supprimée si l'utilisateur se
--- reconnecte, sinon le compte est supprimé à deletion_scheduled_at.
+-- Une ligne suit un avertissement d'inactivité. La migration de livraison
+-- distingue les tentatives des emails confirmés; la suppression automatique
+-- reste explicitement désactivée tant que la reconnexion n'est pas atomique.
 create table if not exists public.account_inactivity_warnings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   warned_at timestamptz not null default now(),
@@ -74,7 +79,7 @@ as $$
   from public.events e
   where coalesce(
     e.date,
-    (select max(o.proposed_date)::timestamptz from public.event_date_options o where o.event_id = e.id),
+    (select max(o.proposed_date)::timestamp at time zone 'utc' from public.event_date_options o where o.event_id = e.id),
     e.created_at
   ) < now() - interval '12 months'
 $$;
@@ -187,8 +192,9 @@ as $$
   limit p_limit
 $$;
 
--- Seuls les comptes avertis peuvent être supprimés : pas d'email envoyé,
--- pas de suppression.
+-- Fail closed from this migration onward: the newly scheduled cron may run
+-- before the follow-up warning-delivery migration is applied, so no candidate
+-- can be returned to an older deployed Edge Function during that interval.
 create or replace function public.get_inactive_accounts_to_delete(p_limit integer default 20)
 returns setof uuid
 language sql
@@ -196,13 +202,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select w.user_id
-  from public.account_inactivity_warnings w
-  join public.account_activity() a on a.user_id = w.user_id
-  where w.deletion_scheduled_at <= now()
-    and a.last_activity_at <= w.warned_at
-  order by w.deletion_scheduled_at
-  limit p_limit
+  select null::uuid where false
 $$;
 
 revoke all on function public.account_activity() from public, anon, authenticated;
@@ -218,23 +218,32 @@ grant execute on function public.get_inactive_accounts_to_delete(integer) to ser
 
 -- ── Cron ────────────────────────────────────────────────────────────────────
 -- 03:00 UTC, en dehors des autres jobs (reveal-memories 06:00, rappels 08:00).
+-- Configure project_url, publishable_key and cron_secret in Vault separately
+-- in each Supabase project. This keeps staging and local jobs within their
+-- own environment instead of embedding the production URL in the migration.
+-- New jobs are created inactive in one SQL statement; the migration cannot
+-- commit an active retention cron that could purge while staging is validated.
 select cron.unschedule('data-retention')
 where exists (select 1 from cron.job where jobname = 'data-retention');
 
-select cron.schedule(
-  'data-retention',
-  '0 3 * * *',
-  $$
-  select net.http_post(
-    url := 'https://kftzfljdewojxhxcuxnd.supabase.co/functions/v1/data-retention',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'apikey', 'sb_publishable_FNAFgult5S2iSkXXd2SgKQ_aX8Z3eIK',
-      'Authorization', 'Bearer sb_publishable_FNAFgult5S2iSkXXd2SgKQ_aX8Z3eIK',
-      'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
-    ),
-    body := '{}'::jsonb,
-    timeout_milliseconds := 120000
-  );
-  $$
-);
+with scheduled as (
+  select cron.schedule(
+    'data-retention',
+    '0 3 * * *',
+    $$
+    select net.http_post(
+      url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url')
+        || '/functions/v1/data-retention',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'publishable_key'),
+        'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')
+      ),
+      body := '{}'::jsonb,
+      timeout_milliseconds := 120000
+    );
+    $$
+  ) as job_id
+)
+select cron.alter_job(job_id, active := false)
+from scheduled;

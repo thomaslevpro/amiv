@@ -39,13 +39,14 @@ export function escapeHtml(value: string) {
     .replace(/"/g, '&quot;')
 }
 
-export async function sendEmail(to: string, content: EmailContent) {
+export async function sendEmail(to: string, content: EmailContent, signal?: AbortSignal) {
   return await fetch(RESEND_EMAILS_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
+    ...(signal ? { signal } : {}),
     body: JSON.stringify({
       from: SENDER,
       to,

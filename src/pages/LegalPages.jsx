@@ -217,7 +217,7 @@ export function PrivacyPage() {
         <CardTable
           columns={['Données', 'Pourquoi', 'Base légale', 'Conservation']}
           rows={[
-            ["Compte : email, mot de passe chiffré, dates d'inscription et de connexion", 'Créer et sécuriser ton compte', 'Exécution des CGU', "Jusqu'à la suppression du compte, ou 3 ans sans connexion (après un email d'avertissement)"],
+            ["Compte : email, mot de passe géré par Supabase Auth, dates d'inscription et de connexion", 'Créer et sécuriser ton compte', 'Exécution des CGU', "Jusqu'à la suppression du compte que tu peux demander à tout moment ; aucune suppression automatique pour inactivité n'est actuellement activée"],
             ['Profil : nom, prénom, pseudo, photo, date de naissance', 'T\'identifier auprès de tes amis, rappeler ton anniversaire', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
             ['Événements, invitations, réponses, votes de dates, checklist, budget', 'Organiser tes événements', 'Exécution des CGU', "Tant que l'événement existe"],
             ['Messages, souvenirs, photos, idées cadeaux, cagnotte', 'Discuter et préparer les surprises', 'Exécution des CGU', "Tant que l'événement ou la conversation existe"],
@@ -225,11 +225,12 @@ export function PrivacyPage() {
             ['Données de personnes sans compte : nom, email, réponse à une invitation', "Inviter quelqu'un qui n'a pas Amiv", 'Intérêt légitime', "12 mois après la date de l'événement"],
             ['Anniversaires et contacts que tu ajoutes', 'Te rappeler les anniversaires', 'Intérêt légitime', "Jusqu'à leur suppression ou celle de ton compte"],
             ['Notifications', "T'informer dans l'application", 'Exécution des CGU', '6 mois'],
-            ['Signalements et messages au support', 'Modérer, répondre, corriger les bugs', 'Intérêt légitime', '12 mois après leur traitement'],
+            ['Signalements', 'Modérer les contenus', 'Intérêt légitime', '12 mois après leur traitement, ou après leur création s’ils ne sont pas traités'],
+            ['Messages au support', 'Répondre et corriger les bugs', 'Intérêt légitime', 'Conservés dans la boîte de réception du support ; durée à préciser'],
             ["Données techniques : adresse IP, type d'appareil, journaux", 'Sécurité et bon fonctionnement', 'Intérêt légitime', 'Quelques jours, selon les hébergeurs'],
           ]}
         />
-        <P>Tu ne reçois aucune publicité, et tes données ne servent à aucun profilage. Les emails envoyés par Amiv servent uniquement au service : confirmation d'inscription, réinitialisation du mot de passe, invitations et relances.</P>
+        <P>Tu ne reçois aucune publicité, et tes données ne servent à aucun profilage. Les emails envoyés par Amiv servent uniquement au fonctionnement du service, par exemple pour la confirmation d'inscription, la réinitialisation du mot de passe, les invitations et les relances.</P>
       </Section>
 
       <Section title="3. Qui voit tes données">
@@ -254,8 +255,9 @@ export function PrivacyPage() {
       </Section>
 
       <Section title="4. Suppression de ton compte">
-        <P>Tu peux supprimer ton compte à tout moment depuis Profil → Supprimer mon compte. Sont alors supprimés : ton profil, ta photo, tes amis, tes réponses, tes souvenirs, tes mots sur les cartes et tes fichiers.</P>
-        <P>Les événements que tu organises sont transférés à un co-organisateur s'il y en a un, sinon supprimés, et les invités en sont prévenus. Tes messages dans les chats d'événement et les messages privés restent visibles par les autres participants, mais apparaissent sous « Utilisateur supprimé » : ces échanges appartiennent aussi aux autres.</P>
+        <P>La suppression automatique des comptes inactifs n'est actuellement pas activée. Tu peux supprimer ton compte à tout moment depuis Profil → Supprimer mon compte.</P>
+        <P>Sont alors supprimés : ton profil, ta photo, tes amis, tes réponses, tes souvenirs, tes mots sur les cartes et tes fichiers.</P>
+        <P>Les événements que tu organises sont transférés à un co-organisateur s'il y en a un, sinon supprimés, et les invités en sont prévenus. Tes messages dans les chats d'événement et les messages privés restent visibles par les autres participants, mais apparaissent sous « Utilisateur supprimé » : ces échanges appartiennent aussi aux autres. Les signalements sont supprimés 12 mois après leur traitement, ou 12 mois après leur création s'ils ne sont pas traités.</P>
         <P>Les sauvegardes de la base sont conservées au maximum 3 mois.</P>
       </Section>
 
