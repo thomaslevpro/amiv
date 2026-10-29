@@ -103,6 +103,8 @@ function OrganizerEventCard({ event, stats, participants, dateParts, openEvent, 
   const title = titleCase(event.name, 'Événement')
   const details = [dateParts.longDate, dateParts.time, event.location].filter(Boolean).join(' · ')
   const isDeclined = normalizeStatus(event.rsvpStatus) === 'no'
+  // Chat : organisateur ou invitation acceptée (en attente / peut-être : non)
+  const canChat = event.isOrganizer || !event.rsvpStatus || normalizeStatus(event.rsvpStatus) === 'yes'
   const shownParticipants = participants.slice(0, MAX_PARTICIPANT_AVATARS)
   const moreCount = Math.max(0, yesCount - shownParticipants.length)
 
@@ -285,7 +287,7 @@ function OrganizerEventCard({ event, stats, participants, dateParts, openEvent, 
               </div>
             </>
           )}
-          <button
+          {canChat && <button
             type="button"
             onClick={(event) => {
               event.stopPropagation()
@@ -308,7 +310,7 @@ function OrganizerEventCard({ event, stats, participants, dateParts, openEvent, 
           >
             <MessageCircle size={15} strokeWidth={2.2} />
             Chat
-          </button>
+          </button>}
         </div>
       </div>
     </article>

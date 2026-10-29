@@ -27,7 +27,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     coverPreview, setCoverFile, setCoverPreview, eventOverrides, showDeleteModal,
     setShowDeleteModal, deleting, friends, guests, guestsLoading, dateOptions,
     myVotes, allVoteCounts, confirmingDate, birthdayPersonName,
-    canAccessSecretSpace, chatUnreadCount, organizers, showCoOrgModal,
+    canAccessSecretSpace, canAccessEventChat, chatUnreadCount, organizers, showCoOrgModal,
     setShowCoOrgModal, coOrgSubmitting, coOrgError, confirmedParticipants, coOrgLoading,
     eventForMessages, handleRsvp, handleDateVote, handleConfirmDate, handleEditOpen,
     toggleBirthdayPerson, handleEditSubmit, handleHeroCoverChange, handleDeleteEvent,
@@ -89,7 +89,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
         {userId && birthdayPersonId === userId && <RevealedMemoriesEntry eventId={event.id} />}
 
-        {!hasDeclined && renderChatBanner()}
+        {/* Organisateurs et invités qui ont accepté seulement */}
+        {canAccessEventChat && renderChatBanner()}
 
         {canAccessSecretSpace && isBirthdayEvent && (
           <div style={{ marginBottom: 14 }}>

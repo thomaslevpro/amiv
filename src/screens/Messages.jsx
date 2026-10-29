@@ -7,6 +7,7 @@ import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 import { findOrCreateDirectConversation } from '../lib/conversations'
 import { getFriends } from '../lib/friendships'
+import { RSVP_CHANGED_EVENT } from '../lib/eventGuests'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
@@ -121,6 +122,13 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     return () => { supabase.removeChannel(channel) }
   }, [event, userId])
 
+  // Réponse à une invitation (accepter, refuser…) : la liste suit tout de suite
+  useEffect(() => {
+    if (event || !userId || typeof window === 'undefined') return undefined
+    window.addEventListener(RSVP_CHANGED_EVENT, fetchAll)
+    return () => window.removeEventListener(RSVP_CHANGED_EVENT, fetchAll)
+  }, [event, userId])
+
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
     const handleMessageSent = sentEvent => {
@@ -211,12 +219,13 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   async function fetchEventConversations() {
-    const [rsvpResult, { data: ownRows }] = await Promise.all([supabase.from('rsvps').select('event_id, status, last_read_at').eq('user_id', userId), supabase.from('events').select('id').eq('user_id', userId)])
+    // Organisateur ou invitation acceptée seulement (serveur : is_event_chat_member).
+    // En attente, peut-être ou refusé : pas de conversation.
+    const [rsvpResult, { data: memberIds, error: memberError }] = await Promise.all([supabase.from('rsvps').select('event_id, status, last_read_at').eq('user_id', userId), supabase.rpc('get_my_event_conversation_ids')])
     let rsvpRows = rsvpResult.data ?? []
     if (rsvpResult.error) rsvpRows = (await supabase.from('rsvps').select('event_id, status').eq('user_id', userId)).data ?? []
-    // Invitation refusée : la conversation disparaît (elle revient si j'accepte)
-    const joinedIds = rsvpRows.filter(r => r.status !== 'declined').map(r => r.event_id)
-    const allIds = [...new Set([...joinedIds, ...(ownRows?.map(e => e.id) ?? [])])]
+    if (memberError) { console.error('[Messages] event conversations error:', memberError); captureSupabaseError(memberError, { operation: 'get_my_event_conversation_ids' }) }
+    const allIds = [...new Set(memberIds ?? [])]
     if (!allIds.length) return []
     const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, location, cover_image, created_at, birthday_person_user_id, user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
     const lastByEvent = {}, generalLastByEvent = {}, secretLastByEvent = {}, generalUnreadByEvent = {}, secretUnreadByEvent = {}

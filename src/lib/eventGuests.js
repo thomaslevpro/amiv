@@ -12,6 +12,14 @@ export const GUEST_STATUS_META = {
   declined: { label: 'Décliné', plural: 'Déclinés', color: '#FF3B30', bg: '#FDECEB', text: '#B42318' },
 }
 
+// Après une réponse à une invitation : la messagerie recharge sa liste (la
+// conversation apparaît dès l'acceptation, disparaît au refus).
+export const RSVP_CHANGED_EVENT = 'amiv:rsvp-changed'
+
+export function announceRsvpChange(eventId) {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(RSVP_CHANGED_EVENT, { detail: { eventId } }))
+}
+
 export const EMPTY_GUEST_COUNTS = { total: 0, confirmed: 0, maybe: 0, pending: 0, declined: 0, preview: [] }
 
 const ROLE_RANK = { owner: 0 }

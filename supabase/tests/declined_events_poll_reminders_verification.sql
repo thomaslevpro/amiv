@@ -1,6 +1,6 @@
 -- Vérification de 20261101140000 : une personne qui refuse un événement ne
 -- reçoit plus ses notifications (ni push) et ses notifications non lues
--- passent en lues ; « peut-être » reste notifié ; une nouvelle acceptation
+-- passent en lues ; une nouvelle acceptation
 -- rétablit tout. Rappel de sondage : un seul, 24 h après l'acceptation,
 -- seulement si le sondage est ouvert, sans vote et réglage invitations activé.
 -- Run against the linked database with:
@@ -43,7 +43,7 @@ declare
     ['C (peut-être) n''a pas refusé', 'postgres', $s$select has_declined_event('00000000-0000-4000-a000-000000000054', '00000000-0000-4000-e000-000000000051')$s$, 'false'],
     ['l''organisateur n''a jamais refusé', 'postgres', $s$select has_declined_event('00000000-0000-4000-a000-000000000051', '00000000-0000-4000-e000-000000000051')$s$, 'false'],
     ['O écrit dans le chat général', 'postgres', $s$insert into messages(event_id, user_id, content, is_secret) values ('00000000-0000-4000-e000-000000000051', '00000000-0000-4000-a000-000000000051', 'Coucou', false) returning 1$s$, '1'],
-    ['message : B rien, A et C notifiés', 'postgres', $s$select string_agg(right(user_id::text, 2), ',' order by user_id) from notifications where type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000051'$s$, '52,54,55,56'],
+    ['message : B et C (peut-être, depuis 20261101180000) rien, A D E notifiés', 'postgres', $s$select string_agg(right(user_id::text, 2), ',' order by user_id) from notifications where type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000051'$s$, '52,55,56'],
     ['autre notif d''événement pour B -> bloquée', 'postgres', $s$with x as (insert into notifications(user_id, type, title, data) values ('00000000-0000-4000-a000-000000000053', 'invitation_reminder', 'Test', '{"event_id":"00000000-0000-4000-e000-000000000051"}') returning 1) select count(*) from x$s$, '0'],
     ['notif hors événement pour B -> créée', 'postgres', $s$with x as (insert into notifications(user_id, type, title) values ('00000000-0000-4000-a000-000000000053', 'friend_accepted', 'Test') returning 1) select count(*) from x$s$, '1'],
     ['event_id invalide -> créée', 'postgres', $s$with x as (insert into notifications(user_id, type, title, data) values ('00000000-0000-4000-a000-000000000053', 'event_updated', 'Test', '{"event_id":"pas-un-uuid"}') returning 1) select count(*) from x$s$, '1'],

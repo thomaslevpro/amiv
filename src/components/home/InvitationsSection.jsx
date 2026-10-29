@@ -1,5 +1,6 @@
 import { Check, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { announceRsvpChange } from '../../lib/eventGuests'
 
 export function formatInvitationRelativeDate(dateStr) {
   if (!dateStr) return 'Date à définir'
@@ -41,6 +42,7 @@ async function handleAcceptInvitation({ eventId, userId, userEmail, onUpdate, on
     .from('rsvps')
     .upsert({ event_id: eventId, user_id: userId, status: 'going' }, { onConflict: 'event_id,user_id' })
   if (!error) {
+    announceRsvpChange(eventId)
     onUpdate?.()
     onAccepted?.({ id: eventId })
   }
@@ -60,7 +62,10 @@ async function handleDeclineInvitation({ eventId, userId, userEmail, onUpdate })
   const { error } = await supabase
     .from('rsvps')
     .upsert({ event_id: eventId, user_id: userId, status: 'declined' }, { onConflict: 'event_id,user_id' })
-  if (!error) onUpdate?.()
+  if (!error) {
+    announceRsvpChange(eventId)
+    onUpdate?.()
+  }
 }
 
 export default function InvitationsSection({ invitations, userId, userEmail, onUpdate, onAccepted, title = 'INVITATIONS EN ATTENTE' }) {

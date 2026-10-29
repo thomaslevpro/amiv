@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase'
 import { APP_URL } from '../lib/native'
 import EventCard from '../components/EventCard'
 import { getInviteeResponse } from '../hooks/useHomeData'
-import { fetchEventGuestCounts, toCardStats } from '../lib/eventGuests'
+import { announceRsvpChange, fetchEventGuestCounts, toCardStats } from '../lib/eventGuests'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
@@ -546,6 +546,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
       .upsert({ event_id: item.event.id, user_id: currentUser.id, status }, { onConflict: 'event_id,user_id' })
 
     if (!error) {
+      announceRsvpChange(item.event.id)
       setMyRsvpByEvent(prev => ({ ...prev, [item.event.id]: status }))
       fetchEventGuestCounts([item.event.id]).then(counts => setGuestCountsByEvent(prev => ({ ...prev, ...counts })))
       setGuestEvents(prev => prev.map(row => row.events?.id === item.event.id ? { ...row, status: invitationStatus } : row))

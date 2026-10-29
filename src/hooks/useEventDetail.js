@@ -6,7 +6,7 @@ import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { uploadEventCover } from '../lib/eventCover'
 import { keepsBirthdayPerson } from '../components/event/eventUtils'
-import { fetchEventGuestList } from '../lib/eventGuests'
+import { announceRsvpChange, fetchEventGuestList } from '../lib/eventGuests'
 import { shareLink } from '../lib/share'
 
 function readSeen(key) {
@@ -45,6 +45,7 @@ export default function useEventDetail(event, onBack) {
   const [confirmingDate, setConfirmingDate] = useState(false)
   const [isInvitedGuest, setIsInvitedGuest] = useState(false)
   const [canAccessSecretSpace, setCanAccessSecretSpace] = useState(false)
+  const [canAccessEventChat, setCanAccessEventChat] = useState(false)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
   const [organizers, setOrganizers] = useState([])
   const [showCoOrgModal, setShowCoOrgModal] = useState(false)
@@ -100,6 +101,7 @@ export default function useEventDetail(event, onBack) {
     setGuestsLoading(true)
     setIsInvitedGuest(false)
     setCanAccessSecretSpace(false)
+    setCanAccessEventChat(false)
     setFriends([])
     setBirthdayPersonId(event?.birthday_person_user_id ?? null)
 
@@ -135,6 +137,7 @@ export default function useEventDetail(event, onBack) {
       const { data: isGuestResult } = await supabase.rpc('is_invited_to_event', { p_event_id: event.id, p_user_id: user.id })
       setIsInvitedGuest(!!isGuestResult)
       refreshSecretSpaceAccess()
+      refreshEventChatAccess()
       // « Peut-être » : RSVP pending + invitation maybe
       const myRsvpStatus = rsvpRes.data?.status ?? null
       setRsvpStatus(myRsvpStatus !== 'going' && myRsvpStatus !== 'declined' && myInvitationRes.data?.status === 'maybe' ? 'maybe' : myRsvpStatus)
@@ -231,6 +234,12 @@ export default function useEventDetail(event, onBack) {
     }
   }, [event?.id, userId])
 
+  async function refreshEventChatAccess() {
+    const { data, error } = await supabase.rpc('can_access_event_chat', { p_event_id: event.id })
+    if (error) captureSupabaseError(error, { operation: 'can_access_event_chat' })
+    setCanAccessEventChat(!!data)
+  }
+
   async function refreshSecretSpaceAccess() {
     const { data, error } = await supabase.rpc('can_access_secret_space', { p_event_id: event.id })
     if (error) captureSupabaseError(error, { operation: 'can_access_secret_space' })
@@ -269,7 +278,9 @@ export default function useEventDetail(event, onBack) {
       setRsvpStatus(rsvpStatusValue === 'pending' ? 'maybe' : data?.status ?? rsvpStatusValue)
       setMyRsvp(data ?? { ...myRsvp, status: rsvpStatusValue })
       showToast('Réponse enregistrée ✓')
+      announceRsvpChange(event.id)
       refreshSecretSpaceAccess()
+      refreshEventChatAccess()
       refreshGuests()
     } else {
       captureSupabaseError(error, { operation: 'upsert_rsvp' })
@@ -545,6 +556,7 @@ export default function useEventDetail(event, onBack) {
     birthdayPersonName,
     isInvitedGuest,
     canAccessSecretSpace,
+    canAccessEventChat,
     chatUnreadCount,
     organizers,
     showCoOrgModal,
