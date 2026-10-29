@@ -23,16 +23,6 @@ export function getEventDaysLeft(dateStr) {
   return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24))
 }
 
-export function countStatuses(rows = []) {
-  return rows.reduce((acc, row) => {
-    const status = normalizeStatus(row.status || row.response)
-    if (status === 'yes') acc.yes += 1
-    else if (status === 'no') acc.no += 1
-    else acc.maybe += 1
-    return acc
-  }, { yes: 0, no: 0, maybe: 0 })
-}
-
 function MiniEventStatusChip({ item }) {
   const isOrganizer = item.role === 'organise'
   const normalized = normalizeStatus(item.myStatus)

@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import InvitationsSection from '../components/home/InvitationsSection'
 import { fetchPendingInvitations, getInviteeResponse } from '../hooks/useHomeData'
+import { fetchEventGuestCounts, toCardStats } from '../lib/eventGuests'
 
 const TITLE_GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 
@@ -30,16 +31,6 @@ function normalizeStatus(status) {
   if (status === 'maybe' || status === 'invited' || status === 'pending') return 'maybe'
   if (status === 'declined' || status === 'no' || status === 'not_going') return 'no'
   return status || null
-}
-
-function countStatuses(rows = []) {
-  return rows.reduce((acc, row) => {
-    const status = normalizeStatus(row.status || row.response)
-    if (status === 'yes') acc.yes += 1
-    else if (status === 'no') acc.no += 1
-    else acc.maybe += 1
-    return acc
-  }, { yes: 0, no: 0, maybe: 0 })
 }
 
 function getInitial(profile, fallback = 'A') {
@@ -126,8 +117,8 @@ function EventCard({ event, onClick }) {
   const dateStr = formatEventDate(date)
   const hasCover = !!event.cover_image
   const countdown = getCountdown(date)
-  const stats = event.rsvpStats ?? { yes: 0, maybe: 0, no: 0 }
-  const total = stats.yes + stats.maybe + stats.no
+  const stats = toCardStats(event.guestCounts)
+  const total = stats.total
   const progress = total > 0 ? Math.round((stats.yes / total) * 100) : 0
   return (
     <div
@@ -180,9 +171,9 @@ function EventCard({ event, onClick }) {
 
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
-            <GuestAvatars profiles={event.memberProfiles ?? []} extraCount={Math.max(0, total - 3)} />
+            <GuestAvatars profiles={event.memberProfiles ?? []} extraCount={Math.max(0, stats.yes - (event.memberProfiles ?? []).length)} />
             <div style={{ color: '#6B6B72', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap' }}>
-              {stats.yes} oui · {stats.maybe} att.
+              {stats.yes} oui · {stats.maybe + stats.pending} att.
             </div>
           </div>
           <div style={{ height: 6, borderRadius: 999, background: '#F5F5F5', overflow: 'hidden' }}>
@@ -243,34 +234,16 @@ export default function AllEvents({ onBack, onEventClick, onInvitationAccepted }
       return getInviteeResponse(invitation, rsvp) === 'going'
     })
 
-    const eventIds = visibleEvents.map(event => event.id).filter(Boolean)
-    let rsvpRows = []
-    let profilesById = {}
-    if (eventIds.length > 0) {
-      const { data: rsvps } = await supabase
-        .from('rsvps')
-        .select('event_id, user_id, status')
-        .in('event_id', eventIds)
-      rsvpRows = rsvps ?? []
-      const userIds = [...new Set(rsvpRows.map(row => row.user_id).filter(Boolean))]
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, name, first_name, avatar_url')
-          .in('id', userIds)
-        profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
-      }
-    }
+    const countsByEvent = await fetchEventGuestCounts(visibleEvents.map(event => event.id))
 
     setEvents(visibleEvents.map(event => {
-      const eventRsvps = rsvpRows.filter(row => row.event_id === event.id)
       const isOrganizer = event.user_id === user.id || organizedEventIds.has(event.id)
       return {
         ...event,
         isOrganizer,
         myStatus: 'going',
-        rsvpStats: countStatuses(eventRsvps),
-        memberProfiles: eventRsvps.map(row => profilesById[row.user_id]).filter(Boolean),
+        guestCounts: countsByEvent[event.id],
+        memberProfiles: countsByEvent[event.id]?.preview ?? [],
       }
     }))
     setLoading(false)

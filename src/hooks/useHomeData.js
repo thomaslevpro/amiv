@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { countStatuses } from '../components/home/MyEventsSection'
+import { fetchEventGuestCounts, toCardStats } from '../lib/eventGuests'
 import { supabase } from '../lib/supabase'
 
 // Réponse effective d'un invité : le RSVP fait foi, l'invitation sert de repli.
@@ -147,36 +147,16 @@ export function useHomeData(userId, userEmail) {
         if (event?.id && !byId.has(event.id)) byId.set(event.id, event)
       })
 
-      const eventIds = [...byId.keys()]
-      let rsvpRows = []
-      let profilesById = {}
-      if (eventIds.length > 0) {
-        const { data: rsvps } = await supabase
-          .from('rsvps')
-          .select('event_id, user_id, status')
-          .in('event_id', eventIds)
-        rsvpRows = rsvps ?? []
-        const rsvpUserIds = [...new Set(rsvpRows.map(row => row.user_id).filter(Boolean))]
-        if (rsvpUserIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, name, first_name, avatar_url')
-            .in('id', rsvpUserIds)
-          profilesById = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
-        }
-      }
+      const countsByEvent = await fetchEventGuestCounts([...byId.keys()])
+      if (cancelled) return
 
       const merged = [...byId.values()]
-        .map(event => {
-          const eventRsvps = rsvpRows.filter(row => row.event_id === event.id)
-          const mine = eventRsvps.find(row => row.user_id === userId)
-          return {
-            ...event,
-            myStatus: event.role === 'organise' ? 'going' : (mine?.status || event.status),
-            rsvpStats: countStatuses(eventRsvps),
-            memberProfiles: eventRsvps.map(row => profilesById[row.user_id]).filter(Boolean),
-          }
-        })
+        .map(event => ({
+          ...event,
+          myStatus: 'going',
+          rsvpStats: toCardStats(countsByEvent[event.id]),
+          memberProfiles: countsByEvent[event.id]?.preview ?? [],
+        }))
         .sort((a, b) => new Date(a.date || '9999-12-31') - new Date(b.date || '9999-12-31'))
         .slice(0, 3)
 

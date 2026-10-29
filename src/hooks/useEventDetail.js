@@ -6,6 +6,8 @@ import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { uploadEventCover } from '../lib/eventCover'
 import { keepsBirthdayPerson } from '../components/event/eventUtils'
+import { fetchEventGuestList } from '../lib/eventGuests'
+import { shareLink } from '../lib/share'
 
 function readSeen(key) {
   if (typeof window === 'undefined') return 0
@@ -22,7 +24,6 @@ export default function useEventDetail(event, onBack) {
   const [currentUserName, setCurrentUserName] = useState('')
   const [canManage, setCanManage] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [guestRsvps, setGuestRsvps] = useState([])
   const [toast, setToast] = useState(null)
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', type: '', date: '', description: '', location: '' })
@@ -34,17 +35,14 @@ export default function useEventDetail(event, onBack) {
   const [eventOverrides, setEventOverrides] = useState({})
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // Personne fêtée possible : moi ou un de mes amis (formulaire de modification)
   const [friends, setFriends] = useState([])
-  const [invitedIds, setInvitedIds] = useState(new Set())
-  const [copySuccess, setCopySuccess] = useState(false)
+  const [guests, setGuests] = useState([])
+  const [guestsLoading, setGuestsLoading] = useState(true)
   const [dateOptions, setDateOptions] = useState([])
   const [myVotes, setMyVotes] = useState({})
   const [allVoteCounts, setAllVoteCounts] = useState({})
   const [confirmingDate, setConfirmingDate] = useState(false)
-  const [rsvpStats, setRsvpStats] = useState({ confirmed: 0, pending: 0, declined: 0 })
-  const [participants, setParticipants] = useState([])
-  const [organizerName, setOrganizerName] = useState(null)
-  const [eventGuests, setEventGuests] = useState([])
   const [isInvitedGuest, setIsInvitedGuest] = useState(false)
   const [canAccessSecretSpace, setCanAccessSecretSpace] = useState(false)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
@@ -72,20 +70,17 @@ export default function useEventDetail(event, onBack) {
     birthday_person_user_id: savedBirthdayPersonId,
   }
 
-  function handleShare() {
-    const url = `${APP_URL}/invite/${event.invite_token}`
-    const text = `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`
-    if (navigator.share) {
-      navigator.share({ title: event.name, text, url })
-    } else {
-      navigator.clipboard.writeText(url).then(() => showToast('Lien copié !'))
-    }
+  async function refreshGuests() {
+    const list = await fetchEventGuestList(event.id)
+    if (list) setGuests(list)
+    setGuestsLoading(false)
   }
 
-  async function handleCopyLink() {
-    await navigator.clipboard.writeText(`https://amiv.app/invite/${event.invite_token}`)
-    setCopySuccess(true)
-    setTimeout(() => setCopySuccess(false), 2000)
+  async function handleShare() {
+    const url = `${APP_URL}/invite/${event.invite_token}`
+    const result = await shareLink({ title: eventOverrides.name ?? event.name, text: `Tu es invité(e) ! Rejoins l'événement sur Amiv : ${url}`, url })
+    if (result === 'copied') showToast('Lien copié !')
+    else if (result === 'failed') showToast('Impossible de partager le lien')
   }
 
   useEffect(() => {
@@ -97,18 +92,15 @@ export default function useEventDetail(event, onBack) {
     setDateOptions([])
     setMyVotes({})
     setAllVoteCounts({})
-    setRsvpStats({ confirmed: 0, pending: 0, declined: 0 })
     setMyRsvp(null)
     setCurrentUserName('')
     setCanManage(false)
-    setParticipants([])
-    setOrganizerName(null)
     setOrganizers([])
-    setEventGuests([])
+    setGuests([])
+    setGuestsLoading(true)
     setIsInvitedGuest(false)
     setCanAccessSecretSpace(false)
     setFriends([])
-    setInvitedIds(new Set())
     setBirthdayPersonId(event?.birthday_person_user_id ?? null)
 
     async function init() {
@@ -120,11 +112,12 @@ export default function useEventDetail(event, onBack) {
       const userCanManage = await isOrganizer(event.id)
       if (!cancelled) setCanManage(userCanManage)
 
-      const [rsvpRes, optRes, guestRes, allRsvpsRes, eventInfoRes] = await Promise.all([
+      refreshGuests()
+
+      const [rsvpRes, optRes, myInvitationRes, eventInfoRes] = await Promise.all([
         supabase.from('rsvps').select('id, status, plus_one_requested, plus_one_status, plus_one_name, plus_one_message').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
         supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
-        userCanManage ? supabase.from('guest_rsvps').select('id, guest_name, guest_email, response').eq('event_id', event.id).order('created_at', { ascending: true }) : Promise.resolve({ data: [] }),
-        supabase.from('rsvps').select('user_id, status').eq('event_id', event.id),
+        supabase.from('invitations').select('status').eq('event_id', event.id).eq('invited_user_id', user.id).maybeSingle(),
         supabase.from('events').select('birthday_person_user_id').eq('id', event.id).maybeSingle(),
       ])
 
@@ -142,40 +135,12 @@ export default function useEventDetail(event, onBack) {
       const { data: isGuestResult } = await supabase.rpc('is_invited_to_event', { p_event_id: event.id, p_user_id: user.id })
       setIsInvitedGuest(!!isGuestResult)
       refreshSecretSpaceAccess()
-      setRsvpStatus(rsvpRes.data?.status ?? null)
+      // « Peut-être » : RSVP pending + invitation maybe
+      const myRsvpStatus = rsvpRes.data?.status ?? null
+      setRsvpStatus(myRsvpStatus !== 'going' && myRsvpStatus !== 'declined' && myInvitationRes.data?.status === 'maybe' ? 'maybe' : myRsvpStatus)
       setMyRsvp(rsvpRes.data ?? null)
 
-      const guestsData = guestRes.data ?? []
-      if (userCanManage) setGuestRsvps(guestsData)
-
-      const rsvpsData = allRsvpsRes.data ?? []
-      const confirmed = rsvpsData.filter(r => r.status === 'going').length + guestsData.filter(g => g.response === 'yes').length
-      const declined = rsvpsData.filter(r => r.status === 'declined').length + guestsData.filter(g => g.response === 'no').length
-      const pending = rsvpsData.filter(r => r.status !== 'going' && r.status !== 'declined').length + guestsData.filter(g => !g.response || g.response === 'maybe').length
-      setRsvpStats({ confirmed, pending, declined })
-
-      const userIds = rsvpsData.map(r => r.user_id)
-      let profileMap = {}
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, name').in('id', userIds)
-        if (profiles) profiles.forEach(p => { profileMap[p.id] = p.name })
-      }
-
-      if (event.user_id) {
-        const { data: orgProfile } = await supabase.from('profiles').select('first_name, name').eq('id', event.user_id).maybeSingle()
-        if (!cancelled) setOrganizerName(orgProfile?.name || orgProfile?.first_name || 'Organisateur')
-      }
-
-      if (!userCanManage) {
-        const { data: inviteeGuests } = await supabase.rpc('get_event_guests', { p_event_id: event.id })
-        if (!cancelled && inviteeGuests) setEventGuests(inviteeGuests)
-      }
-
       if (cancelled) return
-
-      const userParts = rsvpsData.map(r => ({ id: r.user_id, name: profileMap[r.user_id] || 'Invité', status: r.status ?? 'pending' }))
-      const guestParts = guestsData.map(g => ({ id: `guest_${g.id}`, name: g.guest_name, status: g.response === 'yes' ? 'going' : g.response === 'no' ? 'declined' : 'pending' }))
-      setParticipants([...userParts, ...guestParts])
 
       // Dates affichées avec mes votes, pour que le bandeau « sondage en
       // attente » n'apparaisse pas avant leur chargement.
@@ -208,14 +173,11 @@ export default function useEventDetail(event, onBack) {
       const { data: selfProfile } = await supabase.from('profiles').select('id, first_name, name, avatar_url').eq('id', user.id).single()
       if (!cancelled) setCurrentUserName(selfProfile?.first_name || selfProfile?.name || user.email || '')
 
-      const allPickerProfiles = [
+      const birthdayCandidates = [
         ...(selfProfile ? [{ ...selfProfile, first_name: `${selfProfile.first_name || selfProfile.name || 'Moi'} (moi)` }] : []),
         ...friendList,
       ]
-      if (!cancelled) setFriends(allPickerProfiles)
-
-      const { data: existingInvites } = await supabase.from('invitations').select('invited_user_id').eq('event_id', event.id).not('invited_user_id', 'is', null)
-      if (!cancelled) setInvitedIds(new Set((existingInvites || []).map(i => i.invited_user_id)))
+      if (!cancelled) setFriends(birthdayCandidates)
     }
 
     init()
@@ -279,7 +241,7 @@ export default function useEventDetail(event, onBack) {
     if (!userId || loading) return
     const rsvpStatusValue = status === 'maybe' ? 'pending' : status
     setLoading(true)
-    const invitationStatus = rsvpStatusValue === 'going' ? 'accepted' : rsvpStatusValue === 'declined' ? 'declined' : 'pending'
+    const invitationStatus = rsvpStatusValue === 'going' ? 'accepted' : rsvpStatusValue === 'declined' ? 'declined' : 'maybe'
     const orParts = [`invited_user_id.eq.${userId}`]
     if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
 
@@ -304,10 +266,11 @@ export default function useEventDetail(event, onBack) {
         event_id: event.id,
         status: rsvpStatusValue,
       })
-      setRsvpStatus(data?.status ?? rsvpStatusValue)
+      setRsvpStatus(rsvpStatusValue === 'pending' ? 'maybe' : data?.status ?? rsvpStatusValue)
       setMyRsvp(data ?? { ...myRsvp, status: rsvpStatusValue })
       showToast('Réponse enregistrée ✓')
       refreshSecretSpaceAccess()
+      refreshGuests()
     } else {
       captureSupabaseError(error, { operation: 'upsert_rsvp' })
       track('rsvp_update_failed', {
@@ -463,19 +426,29 @@ export default function useEventDetail(event, onBack) {
     }
   }
 
-  async function handleInviteFriend(friendId) {
-    if (invitedIds.has(friendId)) return
-    await supabase.from('invitations').insert({ event_id: event.id, invited_user_id: friendId, invited_by: userId, status: 'pending' })
-    setInvitedIds(prev => new Set([...prev, friendId]))
+  async function handleRemindGuest(guest) {
+    if (!guest.invitation_id) return
+    const { data: notified, error } = await supabase.rpc('remind_invitations', { p_invitation_ids: [guest.invitation_id], p_message: null })
+    if (error) {
+      captureSupabaseError(error, { operation: 'remind_invitation' })
+      showToast('Erreur lors de la relance')
+      return
+    }
+    showToast(notified > 0 ? 'Relance envoyée ✓' : 'Déjà relancé il y a moins de 24 h')
+    refreshGuests()
   }
 
-  async function handleAddFriend(inviteeId) {
-    setEventGuests(prev => prev.map(g => g.invitee_id === inviteeId ? { ...g, friend_request_sent: true } : g))
-    const { error } = await supabase.from('friendships').insert({ requester_id: userId, addressee_id: inviteeId, status: 'pending' })
+  async function handleRemoveInvitation(guest) {
+    if (!guest.invitation_id) return
+    const { error } = await supabase.rpc('remove_event_invitation', { p_invitation_id: guest.invitation_id })
     if (error) {
-      setEventGuests(prev => prev.map(g => g.invitee_id === inviteeId ? { ...g, friend_request_sent: false } : g))
-      showToast('Erreur lors de la demande')
+      captureSupabaseError(error, { operation: 'remove_event_invitation' })
+      showToast("Erreur lors du retrait de l'invitation")
+      return
     }
+    setGuests(prev => prev.filter(g => g.guest_key !== guest.guest_key))
+    showToast('Invitation retirée')
+    refreshGuests()
   }
 
   async function handleOpenCoOrgModal() {
@@ -548,7 +521,6 @@ export default function useEventDetail(event, onBack) {
     currentUserName,
     canManage,
     loading,
-    guestRsvps,
     toast,
     editing,
     editForm,
@@ -564,17 +536,13 @@ export default function useEventDetail(event, onBack) {
     setShowDeleteModal,
     deleting,
     friends,
-    invitedIds,
-    copySuccess,
+    guests,
+    guestsLoading,
     dateOptions,
     myVotes,
     allVoteCounts,
     confirmingDate,
-    rsvpStats,
-    participants,
-    organizerName,
     birthdayPersonName,
-    eventGuests,
     isInvitedGuest,
     canAccessSecretSpace,
     chatUnreadCount,
@@ -595,13 +563,13 @@ export default function useEventDetail(event, onBack) {
     handleEditSubmit,
     handleHeroCoverChange,
     handleDeleteEvent,
-    handleInviteFriend,
-    handleAddFriend,
+    refreshGuests,
+    handleRemindGuest,
+    handleRemoveInvitation,
     handleOpenCoOrgModal,
     handleAddCoOrganizer,
     handleAddToCalendar,
     handleShare,
-    handleCopyLink,
     setEditing,
   }
 }

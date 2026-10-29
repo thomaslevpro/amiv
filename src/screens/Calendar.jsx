@@ -9,6 +9,8 @@ import {
 import { supabase } from '../lib/supabase'
 import { APP_URL } from '../lib/native'
 import EventCard from '../components/EventCard'
+import { getInviteeResponse } from '../hooks/useHomeData'
+import { fetchEventGuestCounts, toCardStats } from '../lib/eventGuests'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
@@ -35,16 +37,6 @@ function normalizeRsvpStatus(status) {
   if (status === 'not_going' || status === 'declined') return 'no'
   if (status === 'maybe' || status === 'invited' || status === 'pending') return 'maybe'
   return status || null
-}
-
-function countStatuses(rows = []) {
-  return rows.reduce((acc, row) => {
-    const status = normalizeRsvpStatus(row.status || row.response)
-    if (status === 'yes') acc.yes += 1
-    else if (status === 'no') acc.no += 1
-    else acc.maybe += 1
-    return acc
-  }, { yes: 0, no: 0, maybe: 0 })
 }
 
 function formatEventDate(dateStr) {
@@ -339,9 +331,8 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
   const [currentUser, setCurrentUser] = useState(null)
   const [organizedEvents, setOrganizedEvents] = useState([])
   const [guestEvents, setGuestEvents] = useState([])
-  const [rsvpsByEvent, setRsvpsByEvent] = useState({})
-  const [publicRsvpsByEvent, setPublicRsvpsByEvent] = useState({})
-  const [profilesById, setProfilesById] = useState({})
+  const [guestCountsByEvent, setGuestCountsByEvent] = useState({})
+  const [myRsvpByEvent, setMyRsvpByEvent] = useState({})
   const [loadingEvents, setLoadingEvents] = useState(true)
 
   const fetchCalendarDots = useCallback(async (monthDate) => {
@@ -397,43 +388,19 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
     const allEvents = [...organized, ...guests.map(item => item.events)]
     const eventIds = [...new Set(allEvents.map(event => event.id).filter(Boolean))]
 
-    let memberRows = []
-    let publicRows = []
-    if (eventIds.length > 0) {
-      const [rsvpRes, publicRes] = await Promise.all([
-        supabase.from('rsvps').select('event_id, user_id, status').in('event_id', eventIds),
-        supabase.from('public_rsvps').select('event_id, status').in('event_id', eventIds),
-      ])
-
-      memberRows = rsvpRes.data ?? []
-      publicRows = publicRes.data ?? []
-
-      if (publicRes.error) {
-        const { data: guestRows } = await supabase
-          .from('guest_rsvps')
-          .select('event_id, response')
-          .in('event_id', eventIds)
-        publicRows = (guestRows ?? []).map(row => ({ event_id: row.event_id, status: row.response }))
-      }
-    }
-
-    const userIds = [...new Set(memberRows.map(row => row.user_id).filter(Boolean))]
-    let profileMap = {}
-    if (userIds.length > 0) {
-      const { data: rsvpProfiles } = await supabase
-        .from('profiles')
-        .select('id, name, first_name, avatar_url')
-        .in('id', userIds)
-      profileMap = Object.fromEntries((rsvpProfiles ?? []).map(row => [row.id, row]))
-    }
+    const [countsByEvent, myRsvpsRes] = await Promise.all([
+      fetchEventGuestCounts(eventIds),
+      eventIds.length > 0
+        ? supabase.from('rsvps').select('event_id, status').eq('user_id', user.id).in('event_id', eventIds)
+        : Promise.resolve({ data: [] }),
+    ])
 
     setCurrentUser(user)
     setOrganizedEvents(organized)
     const sortedGuests = guests.sort((a, b) => new Date(a.events.date || '9999-12-31') - new Date(b.events.date || '9999-12-31'))
     setGuestEvents(sortedGuests)
-    setRsvpsByEvent(groupByEvent(memberRows))
-    setPublicRsvpsByEvent(groupByEvent(publicRows))
-    setProfilesById(profileMap)
+    setGuestCountsByEvent(countsByEvent)
+    setMyRsvpByEvent(Object.fromEntries((myRsvpsRes.data ?? []).map(row => [row.event_id, row.status])))
     setLoadingEvents(false)
   }, [])
 
@@ -471,69 +438,36 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
     setWeekOffset(diffWeeks)
   }, [selectedDate])
 
-  function groupByEvent(rows) {
-    return rows.reduce((acc, row) => {
-      if (!row.event_id) return acc
-      if (!acc[row.event_id]) acc[row.event_id] = []
-      acc[row.event_id].push(row)
-      return acc
-    }, {})
-  }
-
   const items = useMemo(() => {
-    const userId = currentUser?.id
-    const participantProfiles = rows => rows
-      .filter(row => normalizeRsvpStatus(row.status) === 'yes')
-      .map(row => profilesById[row.user_id])
-      .filter(Boolean)
-    const organized = organizedEvents.map(event => {
-      const memberRows = rsvpsByEvent[event.id] ?? []
-      const publicRows = publicRsvpsByEvent[event.id] ?? []
-      const memberStats = countStatuses(memberRows)
-      const publicStats = countStatuses(publicRows)
-      const stats = {
-        yes: memberStats.yes + publicStats.yes,
-        no: memberStats.no + publicStats.no,
-        maybe: memberStats.maybe + publicStats.maybe,
-      }
-      return buildItem({
-        event,
-        filter: 'organizer',
-        isOrganizer: true,
-        myStatus: 'organizer',
-        stats,
-        memberProfiles: memberRows.map(row => profilesById[row.user_id]).filter(Boolean),
-        participantProfiles: participantProfiles(memberRows),
-      })
-    })
+    const countsFor = event => guestCountsByEvent[event.id]
+    const organized = organizedEvents.map(event => buildItem({
+      event,
+      filter: 'organizer',
+      isOrganizer: true,
+      myStatus: 'organizer',
+      stats: toCardStats(countsFor(event)),
+      memberProfiles: countsFor(event)?.preview ?? [],
+      participantProfiles: countsFor(event)?.preview ?? [],
+    }))
 
     const guests = guestEvents.map(item => {
       const event = item.events
-      const memberRows = rsvpsByEvent[event.id] ?? []
-      const publicRows = publicRsvpsByEvent[event.id] ?? []
-      const mine = memberRows.find(row => row.user_id === userId)
-      const myStatus = normalizeRsvpStatus(mine?.status || item.status)
-      const memberStats = countStatuses(memberRows)
-      const publicStats = countStatuses(publicRows)
-      const stats = {
-        yes: memberStats.yes + publicStats.yes,
-        no: memberStats.no + publicStats.no,
-        maybe: memberStats.maybe + publicStats.maybe,
-      }
+      const response = getInviteeResponse(item, { status: myRsvpByEvent[event.id] })
+      const myStatus = response === 'going' ? 'yes' : response === 'declined' ? 'no' : normalizeRsvpStatus(item.status)
       return buildItem({
         event,
         filter: myStatus === 'yes' ? 'going' : 'pending',
         isOrganizer: false,
         myStatus,
-        stats,
-        memberProfiles: memberRows.map(row => profilesById[row.user_id]).filter(Boolean),
-        participantProfiles: participantProfiles(memberRows),
+        stats: toCardStats(countsFor(event)),
+        memberProfiles: countsFor(event)?.preview ?? [],
+        participantProfiles: countsFor(event)?.preview ?? [],
         invitationStatus: item.status,
       })
     })
 
     return [...organized, ...guests].sort((a, b) => new Date(a.event.date || '9999-12-31') - new Date(b.event.date || '9999-12-31'))
-  }, [organizedEvents, guestEvents, rsvpsByEvent, publicRsvpsByEvent, profilesById, currentUser?.id])
+  }, [organizedEvents, guestEvents, guestCountsByEvent, myRsvpByEvent])
 
   function buildItem({ event, filter, isOrganizer, myStatus, stats, memberProfiles, participantProfiles, invitationStatus }) {
     const date = event.date ? new Date(event.date) : null
@@ -612,17 +546,8 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
       .upsert({ event_id: item.event.id, user_id: currentUser.id, status }, { onConflict: 'event_id,user_id' })
 
     if (!error) {
-      setRsvpsByEvent(prev => {
-        const rows = prev[item.event.id] ?? []
-        const exists = rows.some(row => row.user_id === currentUser.id)
-        const nextRow = { event_id: item.event.id, user_id: currentUser.id, status }
-        return {
-          ...prev,
-          [item.event.id]: exists
-            ? rows.map(row => row.user_id === currentUser.id ? nextRow : row)
-            : [...rows, nextRow],
-        }
-      })
+      setMyRsvpByEvent(prev => ({ ...prev, [item.event.id]: status }))
+      fetchEventGuestCounts([item.event.id]).then(counts => setGuestCountsByEvent(prev => ({ ...prev, ...counts })))
       setGuestEvents(prev => prev.map(row => row.events?.id === item.event.id ? { ...row, status: invitationStatus } : row))
       if (status === 'going') onInvitationAccepted?.({ id: item.event.id })
     }

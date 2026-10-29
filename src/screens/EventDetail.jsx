@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronRight, MessageCircle } from 'lucide-react'
 import EventDatePoll from '../components/event/EventDatePoll'
 import EventEditForm from '../components/event/EventEditForm'
-import EventGuestList from '../components/event/EventGuestList'
+import EventGuestsSection from '../components/event/EventGuestsSection'
 import EventHero from '../components/event/EventHero'
 import EventInfoCard from '../components/event/EventInfoCard'
-import EventInviteSection from '../components/event/EventInviteSection'
-import EventStatsRow from '../components/event/EventStatsRow'
 import PendingPollsBanner from '../components/event/PendingPollsBanner'
 import { getAvatarColor } from '../components/event/eventUtils'
 import RevealedMemoriesEntry from '../components/event/RevealedMemoriesEntry'
+import InviteFriendsSheet from '../components/InviteFriendsSheet'
 import PlusOneReviewList from '../components/PlusOneReviewList'
 import useEventDetail from '../hooks/useEventDetail'
 
@@ -18,21 +17,22 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const navigate = useNavigate()
   const detail = useEventDetail(event, onBack)
   const [pollBannerVisible, setPollBannerVisible] = useState(false)
+  const [showInviteSheet, setShowInviteSheet] = useState(false)
 
   if (!event) return null
 
   const {
     coverInputRef, rsvpStatus, myRsvp, userId, currentUserName, canManage, loading,
-    guestRsvps, toast, editing, editForm, setEditForm, birthdayPersonId, currentType, saving,
+    toast, editing, editForm, setEditForm, birthdayPersonId, currentType, saving,
     coverPreview, setCoverFile, setCoverPreview, eventOverrides, showDeleteModal,
-    setShowDeleteModal, deleting, friends, invitedIds, copySuccess, dateOptions,
-    myVotes, allVoteCounts, confirmingDate, rsvpStats, participants, birthdayPersonName,
-    eventGuests, canAccessSecretSpace, chatUnreadCount, organizers, showCoOrgModal,
+    setShowDeleteModal, deleting, friends, guests, guestsLoading, dateOptions,
+    myVotes, allVoteCounts, confirmingDate, birthdayPersonName,
+    canAccessSecretSpace, chatUnreadCount, organizers, showCoOrgModal,
     setShowCoOrgModal, coOrgSubmitting, coOrgError, confirmedParticipants, coOrgLoading,
     eventForMessages, handleRsvp, handleDateVote, handleConfirmDate, handleEditOpen,
     toggleBirthdayPerson, handleEditSubmit, handleHeroCoverChange, handleDeleteEvent,
-    handleInviteFriend, handleAddFriend, handleOpenCoOrgModal, handleAddCoOrganizer,
-    handleCopyLink, setEditing,
+    refreshGuests, handleRemindGuest, handleRemoveInvitation, handleShare, showToast,
+    handleOpenCoOrgModal, handleAddCoOrganizer, setEditing,
   } = detail
 
   const displayDescription = eventOverrides.description ?? event.description
@@ -74,7 +74,6 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
         <PendingPollsBanner polls={myPolls} myVotes={myVotes} allVoteCounts={allVoteCounts} onVote={handleDateVote} onVisibleChange={setPollBannerVisible} />
-        {canManage && <EventStatsRow rsvpStats={rsvpStats} />}
 
         {canManage && (
           <div style={{ marginBottom: 14 }}>
@@ -118,20 +117,24 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
           </div>
         )}
 
-        {canManage ? (
-          <EventGuestList participants={participants} guestRsvps={guestRsvps} eventGuests={eventGuests} canManage={canManage} userId={userId} invitedIds={invitedIds} onInvite={handleInviteFriend} onAddFriend={handleAddFriend} />
-        ) : (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-            <EventGuestList participants={participants} guestRsvps={guestRsvps} eventGuests={eventGuests} canManage={canManage} userId={userId} invitedIds={invitedIds} onInvite={handleInviteFriend} onAddFriend={handleAddFriend} myRsvp={myRsvp} currentUserName={currentUserName} eventId={event.id} embedded />
-          </div>
-        )}
+        <EventGuestsSection guests={guests} loading={guestsLoading} canManage={canManage} userId={userId} myRsvp={myRsvp} currentUserName={currentUserName} eventId={event.id} onInvite={() => setShowInviteSheet(true)} onShare={handleShare} onRemind={handleRemindGuest} onRemove={handleRemoveInvitation} />
         {isPollActive && !pollBannerVisible && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
         {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
-        {canManage && <EventInviteSection friends={friends} invitedIds={invitedIds} copySuccess={copySuccess} onInvite={handleInviteFriend} onCopyLink={handleCopyLink} />}
         {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}
       </div>
 
       {toast && <div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.8)', color: '#fff', borderRadius: 20, padding: '10px 20px', fontSize: 14, fontWeight: 600, zIndex: 999, whiteSpace: 'nowrap' }}>{toast}</div>}
+
+      {showInviteSheet && (
+        <InviteFriendsSheet
+          eventId={event.id}
+          onClose={() => setShowInviteSheet(false)}
+          onInvited={count => {
+            showToast(count > 1 ? `${count} amis invités ✓` : 'Ami invité ✓')
+            refreshGuests()
+          }}
+        />
+      )}
 
       {showCoOrgModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 16px 20px' }}>
