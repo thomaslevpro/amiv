@@ -1,7 +1,42 @@
 import { useEffect, useState } from 'react'
-import { CalendarPlus, UserPlus } from 'lucide-react'
+import { CalendarPlus, Cake, Send } from 'lucide-react'
 
-export default function CreateActionSheet({ onClose, onCreateEvent, onAddAmiv }) {
+function ActionRow({ icon, iconBackground, title, subtitle, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '14px 12px', borderRadius: 16,
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+      onTouchStart={e => e.currentTarget.style.background = '#F5F5F5'}
+      onTouchEnd={e => e.currentTarget.style.background = 'transparent'}
+      onMouseDown={e => e.currentTarget.style.background = '#F5F5F5'}
+      onMouseUp={e => e.currentTarget.style.background = 'transparent'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+    >
+      <div style={{
+        width: 52, height: 52, borderRadius: 16, flexShrink: 0,
+        background: iconBackground,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {icon}
+      </div>
+      <div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: '#1C1C1E', lineHeight: 1.3 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>
+          {subtitle}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function CreateActionSheet({ onClose, onCreateEvent, onAddAmiv, onAskBirthday }) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -13,15 +48,12 @@ export default function CreateActionSheet({ onClose, onCreateEvent, onAddAmiv })
     setTimeout(onClose, 300)
   }
 
-  function handleCreateEvent() {
+  function closeThen(action) {
     setVisible(false)
-    setTimeout(() => { onClose(); onCreateEvent() }, 300)
+    setTimeout(() => { onClose(); action() }, 300)
   }
 
-  function handleAddAmiv() {
-    setVisible(false)
-    setTimeout(() => { onClose(); onAddAmiv() }, 300)
-  }
+  const divider = <div style={{ height: 1, background: '#F5F5F5', marginLeft: 78 }} />
 
   return (
     <>
@@ -51,72 +83,29 @@ export default function CreateActionSheet({ onClose, onCreateEvent, onAddAmiv })
         </div>
 
         <div style={{ padding: '8px 16px 0' }}>
-          {/* Row 1 — Créer un événement */}
-          <div
-            onClick={handleCreateEvent}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '14px 12px', borderRadius: 16,
-              cursor: 'pointer',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            onTouchStart={e => e.currentTarget.style.background = '#F5F5F5'}
-            onTouchEnd={e => e.currentTarget.style.background = 'transparent'}
-            onMouseDown={e => e.currentTarget.style.background = '#F5F5F5'}
-            onMouseUp={e => e.currentTarget.style.background = 'transparent'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <div style={{
-              width: 52, height: 52, borderRadius: 16, flexShrink: 0,
-              background: 'linear-gradient(135deg, #e055aa, #f5a623)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <CalendarPlus size={24} color="#fff" strokeWidth={1.8} />
-            </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#1C1C1E', lineHeight: 1.3 }}>
-                Créer un événement
-              </div>
-              <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>
-                Soirée, anniversaire, apéro…
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div style={{ height: 1, background: '#F5F5F5', marginLeft: 78 }} />
-
-          {/* Row 2 — Ajouter un amiv */}
-          <div
-            onClick={handleAddAmiv}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '14px 12px', borderRadius: 16,
-              cursor: 'pointer',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            onTouchStart={e => e.currentTarget.style.background = '#F5F5F5'}
-            onTouchEnd={e => e.currentTarget.style.background = 'transparent'}
-            onMouseDown={e => e.currentTarget.style.background = '#F5F5F5'}
-            onMouseUp={e => e.currentTarget.style.background = 'transparent'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <div style={{
-              width: 52, height: 52, borderRadius: 16, flexShrink: 0,
-              background: '#F5F5F5',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <UserPlus size={24} color="#1C1C1E" strokeWidth={1.8} />
-            </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: '#1C1C1E', lineHeight: 1.3 }}>
-                Ajouter un amiv
-              </div>
-              <div style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>
-                Inviter un ami par email ou lien
-              </div>
-            </div>
-          </div>
+          <ActionRow
+            icon={<CalendarPlus size={24} color="#fff" strokeWidth={1.8} />}
+            iconBackground="linear-gradient(135deg, #e055aa, #f5a623)"
+            title="Créer un événement"
+            subtitle="Soirée, anniversaire, apéro…"
+            onClick={() => closeThen(onCreateEvent)}
+          />
+          {divider}
+          <ActionRow
+            icon={<Cake size={24} color="#1C1C1E" strokeWidth={1.8} />}
+            iconBackground="#F5F5F5"
+            title="Ajouter un rappel anniv"
+            subtitle="Je connais déjà la date"
+            onClick={() => closeThen(onAddAmiv)}
+          />
+          {divider}
+          <ActionRow
+            icon={<Send size={22} color="#1C1C1E" strokeWidth={1.8} />}
+            iconBackground="#F5F5F5"
+            title="Demander son anniversaire"
+            subtitle="Envoie un lien à un ami pour qu'il te donne sa date"
+            onClick={() => closeThen(onAskBirthday)}
+          />
         </div>
 
         {/* Cancel */}

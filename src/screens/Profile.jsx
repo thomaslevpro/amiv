@@ -36,6 +36,7 @@ import BlockedUsersModal from '../components/profile/BlockedUsersModal'
 import SupportMessageModal from '../components/profile/SupportMessageModal'
 import { LEGAL_URLS, openExternalUrl } from '../lib/native'
 import { unregisterPushToken } from '../lib/push'
+import { birthdayRequestStatus, createBirthdayRequest, listBirthdayRequests, shareBirthdayRequest } from '../lib/birthdayRequests'
 
 dayjs.locale('fr')
 
@@ -192,6 +193,93 @@ function IconBubble({ children, background, size = 34, radius = 9 }) {
       flexShrink: 0,
     }}>
       {children}
+    </div>
+  )
+}
+
+const REQUEST_STATUS = {
+  pending: { label: 'En attente', color: '#B26A00', bg: 'rgba(245,166,35,0.14)' },
+  received: { label: 'Reçue', color: '#248A3D', bg: 'rgba(52,199,89,0.12)' },
+  expired: { label: 'Expirée', color: COLORS.secondary, bg: 'rgba(0,0,0,0.05)' },
+}
+
+function BirthdayRequestsSection() {
+  const [requests, setRequests] = useState([])
+  const [busyId, setBusyId] = useState(null)
+  const [notice, setNotice] = useState(null)
+
+  async function load() {
+    const { data, error } = await listBirthdayRequests()
+    if (!error) setRequests(data ?? [])
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function resend(request) {
+    if (busyId) return
+    setBusyId(request.id)
+    setNotice(null)
+    let target = request
+    // Lien expiré : on en crée un nouveau pour la même personne.
+    if (birthdayRequestStatus(request) === 'expired') {
+      const { data, error } = await createBirthdayRequest(request.friend_name)
+      if (error) {
+        setNotice(error)
+        setBusyId(null)
+        return
+      }
+      target = data
+      load()
+    }
+    const result = await shareBirthdayRequest({ code: target.code, friendName: target.friend_name })
+    if (result === 'copied') setNotice('Message copié ✓ Colle-le dans une conversation.')
+    if (result === 'failed') setNotice('Partage impossible. Réessaie.')
+    setBusyId(null)
+  }
+
+  if (requests.length === 0) return null
+
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <SectionTitle>Demandes envoyées</SectionTitle>
+      <div style={{ background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+        {requests.map((request, index) => {
+          const status = birthdayRequestStatus(request)
+          const meta = REQUEST_STATUS[status]
+          const name = request.responder_name || request.friend_name || 'Ami sans prénom'
+          const detail = status === 'received'
+            ? (request.birthday?.birthdate ? `Anniversaire le ${dayjs(request.birthday.birthdate).format('D MMMM')}` : `Reçue le ${dayjs(request.responded_at).format('D MMM')}`)
+            : status === 'pending'
+              ? `Envoyée le ${dayjs(request.created_at).format('D MMM')} · expire le ${dayjs(request.expires_at).format('D MMM')}`
+              : `Envoyée le ${dayjs(request.created_at).format('D MMM')}`
+          return (
+            <div key={request.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: index < requests.length - 1 ? '0.5px solid rgba(0,0,0,0.07)' : 'none' }}>
+              <IconBubble background="rgba(224,85,170,0.10)">
+                <Cake size={18} strokeWidth={1.7} color="#e055aa" />
+              </IconBubble>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, color: COLORS.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, background: meta.bg, borderRadius: 20, padding: '2px 7px', flexShrink: 0 }}>{meta.label}</span>
+                </div>
+                <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 2 }}>{detail}</div>
+              </div>
+              {status !== 'received' && (
+                <button
+                  type="button"
+                  onClick={() => resend(request)}
+                  disabled={!!busyId}
+                  style={{ padding: '7px 11px', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.12)', background: COLORS.card, color: COLORS.text, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, cursor: busyId ? 'default' : 'pointer', fontFamily: 'inherit', flexShrink: 0, opacity: busyId && busyId !== request.id ? 0.5 : 1 }}
+                >
+                  <Share2 size={13} strokeWidth={2} color="#e055aa" />
+                  {busyId === request.id ? '…' : status === 'expired' ? 'Nouveau lien' : 'Renvoyer'}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {notice && <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 8, padding: '0 2px' }}>{notice}</div>}
     </div>
   )
 }
@@ -668,6 +756,7 @@ export default function Profile({ session, onCalendarClick }) {
             </div>
           </div>
 
+          <BirthdayRequestsSection />
 
           <div style={{ marginBottom: 18 }}>
             <SectionTitle>Calendrier</SectionTitle>

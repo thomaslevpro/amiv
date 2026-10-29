@@ -3,14 +3,16 @@ import { Share } from '@capacitor/share'
 
 // Feuille de partage iOS dans l'app, navigator.share sur le web, sinon copie
 // du lien. Renvoie 'shared' | 'copied' | 'cancelled' | 'failed'.
+// Sans url (lien déjà dans le texte), le texte entier est copié en secours.
 export async function shareLink({ title, text, url }) {
+  const payload = url ? { title, text, url } : { title, text }
   try {
     if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Share')) {
-      await Share.share({ title, text, url, dialogTitle: title })
+      await Share.share({ ...payload, dialogTitle: title })
       return 'shared'
     }
     if (navigator.share) {
-      await navigator.share({ title, text, url })
+      await navigator.share(payload)
       return 'shared'
     }
   } catch (err) {
@@ -20,7 +22,7 @@ export async function shareLink({ title, text, url }) {
   }
 
   try {
-    await navigator.clipboard.writeText(url)
+    await navigator.clipboard.writeText(url || text)
     return 'copied'
   } catch {
     return 'failed'

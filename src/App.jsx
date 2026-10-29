@@ -11,6 +11,7 @@ import { useUnreadCounts } from './hooks/useUnreadCounts'
 import BottomNav from './components/BottomNav'
 import CreateActionSheet from './components/CreateActionSheet'
 import AddAmivModal from './components/AddAmivModal'
+import AskBirthdaySheet from './components/AskBirthdaySheet'
 import OnboardingFlow from './pages/Onboarding'
 import Auth from './screens/Auth'
 import AuthCallback from './screens/AuthCallback'
@@ -38,6 +39,7 @@ const SecretSpacePage = lazy(() => import('./pages/SecretSpacePage'))
 const OrganizerSpacePage = lazy(() => import('./pages/OrganizerSpacePage'))
 const MemoriesPage = lazy(() => import('./pages/MemoriesPage'))
 const PublicUserProfile = lazy(() => import('./screens/PublicUserProfile'))
+const BirthdayRequestPage = lazy(() => import('./screens/BirthdayRequestPage'))
 const AuthReset = lazy(() => import('./screens/AuthReset'))
 const TermsPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })))
 const PrivacyPage = lazy(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPage })))
@@ -65,6 +67,7 @@ export default function App() {
         <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
         <Route path="/events/:id" element={<EventPage />} />
         <Route path="/u/:username" element={<PublicUserProfile />} />
+        <Route path="/anniv/:code" element={<BirthdayRequestPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/reset" element={<AuthReset />} />
         <Route path="/cgu" element={<TermsPage />} />
@@ -206,6 +209,7 @@ function MainApp() {
   const view = currentView(nav)
   const [showCreateSheet, setShowCreateSheet] = useState(false)
   const [showAddAmiv, setShowAddAmiv] = useState(false)
+  const [showAskBirthday, setShowAskBirthday] = useState(false)
   const [birthdayRefreshTrigger, setBirthdayRefreshTrigger] = useState(0)
   const appLoadedTracked = useRef(false)
   const { notifications, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
@@ -510,8 +514,10 @@ function MainApp() {
           onClose={() => setShowCreateSheet(false)}
           onCreateEvent={() => openCreate()}
           onAddAmiv={() => setShowAddAmiv(true)}
+          onAskBirthday={() => setShowAskBirthday(true)}
         />
       )}
+      {showAskBirthday && <AskBirthdaySheet onClose={() => setShowAskBirthday(false)} />}
       {showAddAmiv && (
         <AddAmivModal
           onClose={() => setShowAddAmiv(false)}

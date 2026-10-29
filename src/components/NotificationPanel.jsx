@@ -16,7 +16,7 @@ const FILTERS = [
   { key: 'all', label: 'Tout', types: null },
   { key: 'events', label: 'Événements', types: ['rsvp_received', 'event_invitation', 'invitation_reminder', 'poll_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed', 'memories_surprise'] },
   { key: 'messages', label: 'Messages', types: ['message_received'] },
-  { key: 'friends', label: 'Amis', types: ['friend_request', 'friend_accepted', 'birthday_reminder', 'birthday_today'] },
+  { key: 'friends', label: 'Amis', types: ['friend_request', 'friend_accepted', 'birthday_reminder', 'birthday_today', 'birthday_shared'] },
 ]
 
 function avatarColor(id = '') {
@@ -74,7 +74,7 @@ async function enrichNotification(notification) {
 function Avatar({ notification }) {
   const sender = notification.sender
   const unread = !notification.read
-  const content = ['birthday_reminder', 'birthday_today'].includes(notification.type) ? (
+  const content = ['birthday_reminder', 'birthday_today', 'birthday_shared'].includes(notification.type) ? (
     <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FFF5F0', display: 'grid', placeItems: 'center', fontSize: 23 }}>
       🎂
     </div>

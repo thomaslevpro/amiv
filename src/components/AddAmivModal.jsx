@@ -132,7 +132,7 @@ export default function AddAmivModal({ onClose, onSaved, onToast }) {
             fontSize: 20, fontWeight: 700, color: '#1C1C1E',
             textAlign: 'center', marginBottom: 24,
           }}>
-            Ajouter un amiv 🎂
+            Ajouter un rappel anniv 🎂
           </div>
 
           <form onSubmit={handleSave} id="add-amiv-form">
