@@ -860,23 +860,12 @@ export default function Profile({ session, onCalendarClick }) {
             </div>
           </div>
 
-          <div style={{ marginBottom: 18 }}>
-            <SectionTitle>À propos</SectionTitle>
-            <div style={{ background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
-              {[
-                { icon: <FileText size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: "Conditions d'utilisation", path: '/cgu' },
-                { icon: <Shield size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: 'Politique de confidentialité', path: '/confidentialite' },
-                { icon: <Landmark size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: 'Mentions légales', path: '/mentions-legales' },
-                { icon: <Mail size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: 'Aide et contact', path: '/support' },
-              ].map((row, index, rows) => (
-                <button key={row.path} type="button" onClick={() => navigate(row.path)} style={{ width: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: index < rows.length - 1 ? '0.5px solid rgba(0,0,0,0.07)' : 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                  <IconBubble background={COLORS.page}>{row.icon}</IconBubble>
-                  <div style={{ flex: 1, fontSize: 14, color: COLORS.text, fontWeight: 600 }}>{row.label}</div>
-                  <ChevronRight size={16} strokeWidth={1.7} color={COLORS.hint} />
-                </button>
-              ))}
-              <div style={{ padding: '12px 16px 14px', textAlign: 'center', fontSize: 11, color: COLORS.secondary, borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>Amiv · version 1.0.0 (build 1)</div>
-            </div>
+          <div style={{ marginBottom: 18, background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+            <button type="button" onClick={() => navigate('/a-propos')} style={{ width: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+              <IconBubble background={COLORS.page}><FileText size={18} strokeWidth={1.7} color={COLORS.secondary} /></IconBubble>
+              <div style={{ flex: 1, fontSize: 14, color: COLORS.text, fontWeight: 600 }}>À propos</div>
+              <ChevronRight size={16} strokeWidth={1.7} color={COLORS.hint} />
+            </button>
           </div>
 
           <div style={{ background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW, marginBottom: 18 }}>

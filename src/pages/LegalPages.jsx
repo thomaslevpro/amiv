@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronRight, FileText, Landmark, Mail, Shield } from 'lucide-react'
 
 // Pages publiques /cgu, /confidentialite, /mentions-legales et /support,
 // ouvertes depuis le Profil et l'écran d'inscription (navigateur intégré sur natif).
@@ -114,6 +115,30 @@ function CardTable({ columns, rows }) {
 
 function Contact() {
   return <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: COLORS.accent, fontWeight: 700 }}>{SUPPORT_EMAIL}</a>
+}
+
+export function AboutPage() {
+  const links = [
+    { to: '/cgu', label: "Conditions d'utilisation", Icon: FileText },
+    { to: '/confidentialite', label: 'Politique de confidentialité', Icon: Shield },
+    { to: '/mentions-legales', label: 'Mentions légales', Icon: Landmark },
+    { to: '/support', label: 'Aide et contact', Icon: Mail },
+  ]
+
+  return (
+    <LegalLayout title="À propos">
+      <div style={{ background: COLORS.card, borderRadius: 18, overflow: 'hidden', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+        {links.map(({ to, label, Icon }, index) => (
+          <Link key={to} to={to} style={{ minHeight: 56, padding: '10px 14px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12, borderBottom: index < links.length - 1 ? `1px solid ${COLORS.border}` : 'none', color: COLORS.text, textDecoration: 'none', fontSize: 15, fontWeight: 600 }}>
+            <Icon size={19} strokeWidth={1.7} color={COLORS.secondary} />
+            <span style={{ flex: 1 }}>{label}</span>
+            <ChevronRight size={17} strokeWidth={1.7} color={COLORS.secondary} />
+          </Link>
+        ))}
+      </div>
+      <div style={{ textAlign: 'center', fontSize: 12, color: COLORS.secondary, padding: '18px 0' }}>Amiv · version 1.0.0 (build 1)</div>
+    </LegalLayout>
+  )
 }
 
 export function LegalNoticePage() {
