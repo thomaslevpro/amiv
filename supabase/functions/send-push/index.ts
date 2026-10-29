@@ -14,6 +14,12 @@ import {
 // Appelée par le trigger trg_enqueue_push_notification (pg_net) à chaque
 // insertion dans notifications, avec { notification_id }. Le trigger a déjà
 // vérifié les réglages du destinataire et qu'il a au moins un appareil.
+//
+// Sécurité : sans le header x-cron-secret (Vault cron_secret = secret de
+// fonction CRON_SECRET), l'appel est refusé ; la clé publique de l'app ne
+// suffit pas. L'appelant ne fournit qu'un id : texte et destinataire sont
+// relus en base. Id inconnu → 404 ; notification déjà envoyée → 409
+// (push_deliveries).
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const APNS_KEY = Deno.env.get('APNS_KEY') ?? ''
@@ -61,7 +67,19 @@ Deno.serve(async (req) => {
     console.error('[send-push] notification_error', { notificationId, message: notificationError.message })
     return json({ error: notificationError.message }, 500)
   }
-  if (!notification) return json({ success: true, sent: 0, skipped: 'notification_not_found' })
+  if (!notification) return json({ error: 'Notification not found' }, 404)
+
+  // Réserve l'envoi avant d'appeler APNs : un second appel avec le même id
+  // échoue sur la clé primaire.
+  const { error: claimError } = await supabase
+    .from('push_deliveries')
+    .insert({ notification_id: notification.id })
+  if (claimError) {
+    if (claimError.code === '23505') return json({ error: 'Notification already sent' }, 409)
+    if (claimError.code === '23503') return json({ error: 'Notification not found' }, 404)
+    console.error('[send-push] claim_error', { notificationId, message: claimError.message })
+    return json({ error: claimError.message }, 500)
+  }
 
   const { data: tokens, error: tokensError } = await supabase
     .from('device_tokens')

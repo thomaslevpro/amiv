@@ -25,6 +25,8 @@ declare
     ['B ne voit pas le jeton de A', 'B', 'select count(*) from device_tokens', '0'],
     ['B ne peut pas supprimer le jeton de A', 'B', $s$with x as (delete from device_tokens returning 1) select count(*) from x$s$, '0'],
     ['B forge user_id', 'B', $s$insert into device_tokens(user_id, token) values ('00000000-0000-4000-a000-000000000031', repeat('cd', 32)) returning 1$s$, 'ERR 42501'],
+    ['B lit push_deliveries', 'B', 'select count(*) from push_deliveries', 'ERR 42501'],
+    ['B marque une notification comme déjà envoyée', 'B', $s$insert into push_deliveries(notification_id) values ('00000000-0000-4000-b000-000000000031') returning 1$s$, 'ERR 42501'],
     ['B ne peut pas appeler push_allowed', 'B', $s$select push_allowed('00000000-0000-4000-a000-000000000031', 'friend_request')$s$, 'ERR 42501'],
     ['B se connecte sur le même iPhone (T1)', 'B', $s$select 'done' from (select register_device_token(repeat('ab', 32))) s$s$, 'done'],
     ['T1 appartient maintenant à B', 'postgres', $s$select user_id::text from device_tokens where token = repeat('ab', 32)$s$, '00000000-0000-4000-a000-000000000032'],
