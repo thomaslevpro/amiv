@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { BellOff, Mic, Trash2 } from 'lucide-react'
 import { BLACK, CARD_SHADOW, DELETE_REVEAL_WIDTH, FONT, GRADIENT, GRAY1, GRAY2, WHITE } from './constants'
-import { formatConvTime, previewMessage } from './utils'
+import { formatConvTime, isOwnMessage, previewMessage } from './utils'
 import { Avatar } from './MessageUI'
 
 function EventAvatar({ emoji, size = 50 }) {
@@ -22,9 +22,10 @@ function EventAvatar({ emoji, size = 50 }) {
   )
 }
 
-export default function ConversationRow({ conversation, isLast, onClick, onDelete }) {
+export default function ConversationRow({ conversation, isLast, onClick, onDelete, currentUserId }) {
   const unread = conversation.unreadCount > 0
   const preview = previewMessage(conversation.lastMessage?.content)
+  const previewPrefix = isOwnMessage(conversation.lastMessage, currentUserId) ? 'Toi : ' : ''
   const [offset, setOffset] = useState(0)
   const [dragging, setDragging] = useState(false)
   const pointerRef = useRef(null)
@@ -118,7 +119,7 @@ export default function ConversationRow({ conversation, isLast, onClick, onDelet
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 15, color: unread ? BLACK : GRAY1, fontWeight: unread ? 800 : 400, minWidth: 0 }}>
               {preview.voice && <Mic size={16} strokeWidth={2} color={unread ? BLACK : GRAY1} />}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {preview.text}
+                {previewPrefix}{preview.text}
               </span>
             </div>
           </div>

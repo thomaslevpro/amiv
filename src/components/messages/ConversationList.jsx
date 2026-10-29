@@ -210,6 +210,7 @@ export default function ConversationList({
                     isLast={index === visibleConversations.length - 1}
                     onClick={() => handleConversationTap(conv)}
                     onDelete={() => hideConversation(conv)}
+                    currentUserId={effectiveUserId}
                   />
                 )
               ))}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ConversationList from '../components/messages/ConversationList'
 import MessageThread from '../components/messages/MessageThread'
 import { typeEmoji } from '../components/messages/constants'
-import { applyIncomingMessage, buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, sortConversationsByActivity, sortConversationsForInbox, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
+import { applyIncomingMessage, buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, applySentMessages, isConversationHidden, notificationConversationId, recordSentMessage, readChannelLastRead, readHiddenConversations, readSeen, sortConversationsByActivity, sortConversationsForInbox, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -123,6 +123,16 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
+    const handleMessageSent = sentEvent => {
+      const { table, message } = sentEvent.detail ?? {}
+      if (table && message) setConversations(prev => applyIncomingMessage(prev, table, message))
+    }
+    window.addEventListener('amiv:message-sent', handleMessageSent)
+    return () => window.removeEventListener('amiv:message-sent', handleMessageSent)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
     const handleCloseFriendUpdate = event => {
       const { friendId, isCloseFriend } = event.detail ?? {}
       if (!friendId) return
@@ -149,7 +159,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     const convRows = await fetchConversations(friendRows.data ?? [])
     if (requestId !== fetchAllRequestRef.current) return
     listLoadedRef.current = true
-    setConversations(convRows); setFriends(friendRows.data ?? []); setListLoading(false); setFriendsLoading(false)
+    setConversations(applySentMessages(convRows)); setFriends(friendRows.data ?? []); setListLoading(false); setFriendsLoading(false)
     setCloseFriendIds(new Set((friendRows.data ?? []).filter(friend => friend.is_close_friend === true).map(friend => friend.friend_id)))
   }
 
@@ -370,7 +380,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     const optimistic = { id: crypto.randomUUID(), event_id: event.id, user_id: userId, content, created_at: new Date().toISOString(), profile: null, is_secret: isSecret, isOptimistic: true }
     setInput('')
     setMessages(prev => [...prev, optimistic])
-    const { error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content, is_secret: isSecret })
+    const { data: sent, error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content, is_secret: isSecret }).select('id, event_id, content, created_at, user_id, is_secret').maybeSingle()
     if (error) {
       setMessages(prev => prev.filter(message => message.id !== optimistic.id))
       console.log('Erreur Supabase:', JSON.stringify(error))
@@ -383,6 +393,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       })
       return
     }
+    recordSentMessage('messages', sent ?? { ...optimistic, isOptimistic: undefined })
     track('message_sent', {
       event_id: event.id,
       is_secret: isSecret,

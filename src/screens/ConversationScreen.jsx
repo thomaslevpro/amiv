@@ -5,6 +5,7 @@ import { isBlockedByMe, unblockUser } from '../lib/safety'
 import { ReportSheet, UserSafetySheet } from '../components/safety/SafetySheets'
 import DirectFriendProfileSheet from '../components/messages/DirectFriendProfileSheet'
 import { CloseFriendBadge } from '../components/messages/MessageUI'
+import { recordSentMessage } from '../components/messages/utils'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
 const PAGE_BG = '#FFFFFF'
@@ -476,11 +477,12 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
     // Garde le clavier ouvert pour enchaîner (focus synchrone : iOS l'exige dans le geste)
     if (document.activeElement !== inputRef.current) inputRef.current?.focus()
     setMessages(prev => [...prev, optimistic])
-    const { error } = await supabase.from('direct_messages').insert({
+    const { data: sent, error } = await supabase.from('direct_messages').insert({
       conversation_id: conversationId,
       sender_id: currentUserId,
       content: text,
-    })
+    }).select('id, conversation_id, content, created_at, sender_id').maybeSingle()
+    if (!error) recordSentMessage('direct_messages', sent ?? { ...optimistic, isOptimistic: undefined })
     if (error) {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
       setInput(text)

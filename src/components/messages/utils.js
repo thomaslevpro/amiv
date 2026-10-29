@@ -190,29 +190,59 @@ export function sortConversationsForInbox(conversations) {
   return [...conversations].sort((a, b) => unread(b) - unread(a) || time(b) - time(a))
 }
 
-// Message reçu en temps réel : met à jour l'aperçu de sa conversation et la
-// remonte, sans attendre le rechargement complet. Renvoie la liste telle
-// quelle si la conversation n'est pas encore connue.
+// Message reçu ou envoyé (temps réel ou depuis cet appareil) : met à jour
+// l'aperçu de sa conversation et la remonte, sans attendre le rechargement
+// complet. Un message plus ancien que l'aperçu actuel ne le remplace pas.
+// Renvoie la liste telle quelle si la conversation n'est pas encore connue.
 export function applyIncomingMessage(conversations, table, message) {
   if (!message?.created_at) return conversations
-  let found = false
+  const time = value => new Date(value || 0).getTime() || 0
+  const at = time(message.created_at)
+  let changed = false
   const next = conversations.map(conv => {
     if (table === 'messages' && conv.kind === 'event' && String(conv.eventId) === String(message.event_id)) {
-      found = true
+      const channelKey = message.is_secret ? 'secretMessage' : 'generalMessage'
+      const newerChannel = at >= time(conv[channelKey]?.created_at)
+      const newerOverall = at >= time(conv.lastAt)
+      if (!newerChannel && !newerOverall) return conv
+      changed = true
       return {
         ...conv,
-        lastMessage: message,
-        lastAt: message.created_at,
-        ...(message.is_secret ? { secretMessage: message } : { generalMessage: message }),
+        ...(newerOverall ? { lastMessage: message, lastAt: message.created_at } : {}),
+        ...(newerChannel ? { [channelKey]: message } : {}),
       }
     }
     if (table === 'direct_messages' && conv.kind === 'direct' && conv.conversationId === message.conversation_id) {
-      found = true
+      if (at < time(conv.lastAt)) return conv
+      changed = true
       return { ...conv, lastMessage: message, lastAt: message.created_at }
     }
     return conv
   })
-  return found ? sortConversationsByActivity(next) : conversations
+  return changed ? sortConversationsByActivity(next) : conversations
+}
+
+// Messages envoyés depuis cet appareil : la liste les applique tout de suite
+// (événement amiv:message-sent) et après chaque rechargement pendant
+// SENT_MESSAGE_TTL_MS, au cas où la base ne les renverrait pas encore.
+const SENT_MESSAGE_TTL_MS = 30000
+let sentMessages = []
+
+export function recordSentMessage(table, message) {
+  const now = Date.now()
+  sentMessages = [...sentMessages.filter(entry => now - entry.recordedAt < SENT_MESSAGE_TTL_MS), { table, message, recordedAt: now }]
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('amiv:message-sent', { detail: { table, message } }))
+}
+
+export function applySentMessages(conversations) {
+  const now = Date.now()
+  sentMessages = sentMessages.filter(entry => now - entry.recordedAt < SENT_MESSAGE_TTL_MS)
+  return sentMessages.reduce((list, entry) => applyIncomingMessage(list, entry.table, entry.message), conversations)
+}
+
+// Aperçu d'une conversation : « Toi : » devant mes propres messages.
+export function isOwnMessage(message, currentUserId) {
+  return !!currentUserId && !!message && (message.user_id ?? message.sender_id) === currentUserId
 }
 
 export async function fetchProfilesByIds(ids) {

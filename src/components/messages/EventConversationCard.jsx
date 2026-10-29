@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Calendar as CalendarIcon, CalendarFold, EyeOff, Lock, MessageCircle, MoreHorizontal, Trash2 } from 'lucide-react'
 import { BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
-import { formatEventDateTime, previewMessage } from './utils'
+import { formatEventDateTime, isOwnMessage, previewMessage } from './utils'
 
-function ChannelPreview({ type, message, unreadCount = 0, onClick, isOrganizer = false }) {
+function ChannelPreview({ type, message, unreadCount = 0, onClick, isOrganizer = false, currentUserId }) {
   if (type === 'secret' && isOrganizer) return null
   const isSecretChannel = type === 'secret'
   const preview = previewMessage(message?.content)
@@ -49,7 +49,7 @@ function ChannelPreview({ type, message, unreadCount = 0, onClick, isOrganizer =
             whiteSpace: 'nowrap',
             lineHeight: 1.25,
           }}>
-            {preview.text}
+            {isOwnMessage(message, currentUserId) ? `Toi : ${preview.text}` : preview.text}
           </span>
         </span>
         {hasUnread && (
@@ -138,8 +138,8 @@ export default function EventConversationCard({ conversation, onOpenChannel, onH
       </div>
 
       <div style={{ padding: '0 14px 14px', display: 'flex', gap: 8 }}>
-        <ChannelPreview type="general" message={conversation.generalMessage} unreadCount={conversation.generalUnreadCount || 0} onClick={() => onOpenChannel(false)} />
-        <ChannelPreview type="secret" message={conversation.secretMessage} unreadCount={conversation.secretUnreadCount || 0} onClick={() => onOpenChannel(true)} isOrganizer={isOrganizer} />
+        <ChannelPreview type="general" message={conversation.generalMessage} unreadCount={conversation.generalUnreadCount || 0} onClick={() => onOpenChannel(false)} currentUserId={currentUserId} />
+        <ChannelPreview type="secret" message={conversation.secretMessage} unreadCount={conversation.secretUnreadCount || 0} onClick={() => onOpenChannel(true)} isOrganizer={isOrganizer} currentUserId={currentUserId} />
       </div>
     </div>
   )
