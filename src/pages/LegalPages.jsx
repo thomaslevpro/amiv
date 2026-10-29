@@ -207,7 +207,7 @@ export function PrivacyPage() {
   return (
     <LegalLayout
       title="Politique de confidentialité"
-      intro="Amiv collecte uniquement les données nécessaires pour organiser tes événements, ne les vend jamais et n'affiche aucune publicité. Cette politique est en vigueur depuis le 30 octobre 2026."
+      intro="Amiv collecte uniquement les données nécessaires pour organiser tes événements, ne les vend jamais et n'affiche aucune publicité. Dernière mise à jour : 29 octobre 2026."
     >
       <Section title="1. Responsable du traitement">
         <P>Thomas LEVY, entrepreneur individuel, 53 rue du Moulin Vert, 75014 Paris. Contact : <Contact />.</P>
@@ -218,18 +218,25 @@ export function PrivacyPage() {
           columns={['Données', 'Pourquoi', 'Base légale', 'Conservation']}
           rows={[
             ["Compte : email, mot de passe géré par Supabase Auth, dates d'inscription et de connexion", 'Créer et sécuriser ton compte', 'Exécution des CGU', "Jusqu'à la suppression du compte que tu peux demander à tout moment ; aucune suppression automatique pour inactivité n'est actuellement activée"],
-            ['Profil : nom, prénom, pseudo, photo, date de naissance', 'T\'identifier auprès de tes amis, rappeler ton anniversaire', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
+            ['Profil : nom, prénom, pseudo, photo, date de naissance, ville (facultative)', 'T\'identifier auprès de tes amis, rappeler ton anniversaire, te suggérer des amis', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
             ['Événements, invitations, réponses, votes de dates, checklist, budget', 'Organiser tes événements', 'Exécution des CGU', "Tant que l'événement existe"],
             ['Messages, souvenirs, photos, idées cadeaux, cagnotte', 'Discuter et préparer les surprises', 'Exécution des CGU', "Tant que l'événement ou la conversation existe"],
-            ['Amis, blocages', 'Relier les comptes, te protéger', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
+            ['Amis, blocages', 'Relier les comptes, te protéger', 'Exécution des CGU', "Jusqu'à la suppression du compte, ou jusqu'à ce que tu débloques la personne"],
+            ['Suggestions d\'amis : profils que tu as masqués', 'Ne plus te proposer ces personnes', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
             ['Données de personnes sans compte : nom, email, réponse à une invitation', "Inviter quelqu'un qui n'a pas Amiv", 'Intérêt légitime', "12 mois après la date de l'événement"],
             ['Anniversaires et contacts que tu ajoutes', 'Te rappeler les anniversaires', 'Intérêt légitime', "Jusqu'à leur suppression ou celle de ton compte"],
-            ['Notifications', "T'informer dans l'application", 'Exécution des CGU', '6 mois'],
-            ['Signalements', 'Modérer les contenus', 'Intérêt légitime', '12 mois après leur traitement, ou après leur création s’ils ne sont pas traités'],
-            ['Messages au support', 'Répondre et corriger les bugs', 'Intérêt légitime', 'Conservés dans la boîte de réception du support ; durée à préciser'],
+            ["Dates d'anniversaire transmises par lien : prénom, jour et mois de naissance, et année si la personne le souhaite", "Rappeler cet anniversaire à l'utilisateur qui a envoyé le lien", 'Consentement de la personne, qui choisit de répondre', "Dans les rappels de l'utilisateur tant qu'il ne les supprime pas, et au plus tard jusqu'à la suppression de son compte. Le suivi de la demande (prénom, statut, dates d'envoi et de réponse) est supprimé 90 jours après l'envoi du lien. Un lien non utilisé expire au bout de 30 jours."],
+            ["Empreinte pseudonymisée de l'adresse IP de la personne qui répond à un lien d'anniversaire, jamais l'adresse elle-même", 'Limiter les abus', 'Intérêt légitime', '24 heures'],
+            ['Notifications', "T'informer dans l'application et sur ton iPhone", 'Exécution des CGU', '6 mois'],
+            ["Jeton de notification push de ton appareil", "T'envoyer des notifications push sur iPhone", "Consentement, donné quand iOS te demande d'autoriser les notifications", "Supprimé quand tu te déconnectes, quand Apple indique qu'il n'est plus valide, et avec ton compte"],
+            ['Signalements : auteur, message ou profil signalé, motif, commentaire, copie du contenu signalé au moment du signalement', 'Modérer les contenus', 'Intérêt légitime', '12 mois après leur traitement, ou après leur création s’ils ne sont pas traités'],
+            ['Messages au support, envoyés par le formulaire « Nous contacter » ou par email', 'Répondre et corriger les bugs', 'Intérêt légitime', "2 ans après le dernier échange. Les messages du formulaire ne sont pas enregistrés dans la base d'Amiv : ils arrivent par email dans la boîte du support, comme les emails reçus, et sont supprimés selon la même durée."],
             ["Données techniques : adresse IP, type d'appareil, journaux", 'Sécurité et bon fonctionnement', 'Intérêt légitime', 'Quelques jours, selon les hébergeurs'],
           ]}
         />
+        <P><strong>Dates d'anniversaire transmises par lien.</strong> Un utilisateur peut envoyer à un proche un lien personnel pour lui demander sa date d'anniversaire. La personne qui répond, même sans compte Amiv, nous transmet son prénom, son jour et mois de naissance et, si elle le souhaite, son année de naissance. Ces informations ne sont visibles que par l'utilisateur qui a envoyé le lien. Elles servent uniquement à lui rappeler cet anniversaire et ne sont ni publiées ni partagées.</P>
+        <P><strong>Suggestions d'amis.</strong> Amiv te propose des personnes que tu connais peut-être, selon, par ordre d'importance : vos amis en commun, les événements auxquels vous participez tous les deux, et les invitations échangées entre vous. Ta ville, si tu l'as renseignée, ne sert qu'en complément : elle ne suffit jamais à elle seule pour proposer quelqu'un et n'est jamais affichée aux autres. Ne sont jamais proposés : les personnes que tu as bloquées ou qui t'ont bloqué, les profils que tu as masqués, et les personnes avec qui une demande d'ami existe déjà. Une suggestion affiche uniquement le nom, le pseudo, la photo et la raison de la suggestion, par exemple le nombre d'amis en commun.</P>
+        <P><strong>Signalement et blocage.</strong> Un signalement est transmis uniquement à l'éditeur, qui est prévenu par email, et la personne signalée ne sait pas qui l'a signalée. Bloquer quelqu'un empêche entre vous les messages privés et les demandes d'ami, ignore ses invitations et masque ses messages dans les chats d'événement. La personne bloquée n'en est pas informée.</P>
         <P>Tu ne reçois aucune publicité, et tes données ne servent à aucun profilage. Les emails envoyés par Amiv servent uniquement au fonctionnement du service, par exemple pour la confirmation d'inscription, la réinitialisation du mot de passe, les invitations et les relances.</P>
       </Section>
 
@@ -239,15 +246,18 @@ export function PrivacyPage() {
           <><strong>Tes amis</strong> voient en plus ta date de naissance.</>,
           <><strong>Les participants d'un événement</strong> voient tes réponses et tes messages dans cet événement.</>,
           <><strong>La personne fêtée</strong> ne voit jamais l'espace secret. Elle découvre uniquement les souvenirs, le jour de son anniversaire.</>,
-          <><strong>Ton email</strong> n'est jamais affiché aux autres utilisateurs.</>,
+          <><strong>Ton email et ta ville</strong> ne sont jamais affichés aux autres utilisateurs.</>,
+          <><strong>Une date d'anniversaire transmise par lien</strong> n'est visible que par l'utilisateur qui a envoyé le lien.</>,
+          <><strong>Une notification push</strong> (titre et texte, par exemple le début d'un message) passe par Apple pour s'afficher sur ton iPhone.</>,
         ]} />
         <P>Amiv fait appel aux prestataires suivants, qui traitent les données uniquement pour son compte :</P>
         <CardTable
           columns={['Prestataire', 'Rôle', 'Localisation']}
           rows={[
-            ['Supabase', 'Base de données, authentification, fichiers', 'Londres, Royaume-Uni'],
+            ['Supabase', 'Base de données, authentification, fichiers, fonctions serveur et tâches planifiées', 'Londres, Royaume-Uni'],
             ['Vercel', 'Hébergement du site', 'États-Unis, avec un réseau de diffusion en Europe'],
-            ['Resend', 'Envoi des emails', "Serveurs d'envoi en Irlande, société américaine"],
+            ['Apple (service de notifications push)', "Acheminer les notifications push vers ton iPhone : reçoit le jeton de ton appareil et le contenu de la notification", 'États-Unis'],
+            ['Resend', "Envoi des emails : inscription, invitations, relances, formulaire « Nous contacter » et alertes de signalement à l'éditeur", "Serveurs d'envoi en Irlande, société américaine"],
             ['ImprovMX', `Réception des emails envoyés à ${SUPPORT_EMAIL}`, 'États-Unis (société américaine, Dover, Delaware)'],
           ]}
         />
@@ -255,15 +265,14 @@ export function PrivacyPage() {
       </Section>
 
       <Section title="4. Suppression de ton compte">
-        <P>La suppression automatique des comptes inactifs n'est actuellement pas activée. Tu peux supprimer ton compte à tout moment depuis Profil → Supprimer mon compte.</P>
-        <P>Sont alors supprimés : ton profil, ta photo, tes amis, tes réponses, tes souvenirs, tes mots sur les cartes et tes fichiers.</P>
-        <P>Les événements que tu organises sont transférés à un co-organisateur s'il y en a un, sinon supprimés, et les invités en sont prévenus. Tes messages dans les chats d'événement et les messages privés restent visibles par les autres participants, mais apparaissent sous « Utilisateur supprimé » : ces échanges appartiennent aussi aux autres. Les signalements sont supprimés 12 mois après leur traitement, ou 12 mois après leur création s'ils ne sont pas traités.</P>
-        <P>Les sauvegardes de la base sont conservées au maximum 3 mois.</P>
-      </Section>
+        <P>La suppression automatique des comptes inactifs n'est actuellement pas activée. Après 3 ans sans activité, tu reçois un email pour t'en informer. Ton compte n'est pas supprimé pour autant. Tu peux supprimer ton compte à tout moment depuis Profil → Supprimer mon compte.</P>
+        <P>La suppression est immédiate : ton profil, tes fichiers et ton compte de connexion sont effacés dès ta demande. Seules les sauvegardes peuvent contenir tes données, au maximum 3 mois.</P>
+        <P>Sont alors supprimés : ton profil, ta photo, tes amis, tes blocages, les profils que tu as masqués, tes réponses, tes souvenirs, tes mots sur les cartes, tes fichiers, tes demandes d'anniversaire, tes signalements et le jeton de notification de tes appareils.</P>
+        <P>Les événements que tu organises sont transférés à un co-organisateur s'il y en a un, sinon supprimés, et les invités en sont prévenus. Tes messages dans les chats d'événement et les messages privés restent visibles par les autres participants, mais apparaissent sous « Utilisateur supprimé » : ces échanges appartiennent aussi aux autres. Les signalements faits par d'autres sur tes messages ou ton profil sont supprimés 12 mois après leur traitement, ou 12 mois après leur création s'ils ne sont pas traités.</P>      </Section>
 
       <Section title="5. Tes droits">
         <P>Tu peux à tout moment demander l'accès à tes données, leur rectification, leur suppression, leur portabilité, ou t'opposer à un traitement fondé sur l'intérêt légitime. Tu peux aussi définir des directives sur le sort de tes données après ton décès.</P>
-        <P>Écris à <Contact /> depuis l'adresse de ton compte. La réponse arrive sous un mois au plus. Une personne sans compte, invitée par email ou ajoutée dans les anniversaires d'un utilisateur, peut demander la suppression de ses données de la même manière.</P>
+        <P>Écris à <Contact /> depuis l'adresse de ton compte. La réponse arrive sous un mois au plus. Une personne sans compte, invitée par email, ajoutée dans les anniversaires d'un utilisateur ou qui a donné sa date d'anniversaire par lien, peut demander la suppression de ses données de la même manière.</P>
         <P>Si tu estimes que tes droits ne sont pas respectés, tu peux saisir la CNIL : cnil.fr, 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07.</P>
       </Section>
 
