@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ConversationList from '../components/messages/ConversationList'
 import MessageThread from '../components/messages/MessageThread'
 import { typeEmoji } from '../components/messages/constants'
-import { buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
+import { applyIncomingMessage, buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, sortConversationsByActivity, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -25,6 +25,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [deletedEventConversationIds, setDeletedEventConversationIds] = useState(() => (typeof window === 'undefined' ? new Set() : new Set(Object.keys(window.localStorage).filter(k => k.startsWith('deleted_event_conversation_')).map(k => k.slice('deleted_event_conversation_'.length)))))
   const bottomRef = useRef(null)
   const appOpenedAtRef = useRef(null)
+  const listLoadedRef = useRef(false), fetchAllRequestRef = useRef(0)
   const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const { unreadByConversation, totalUnread: unreadTotal } = useUnreadCounts(userId)
   const { guestLeaders } = useGuestLeader(event?.id)
@@ -134,16 +135,27 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   useEffect(() => {
     if (event || !userId) return undefined
     const suffix = Math.random().toString(36).slice(2, 8)
-    const channel = supabase.channel(`messages-list:${userId}:${suffix}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => fetchAll()).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, () => fetchAll()).subscribe()
+    const channel = supabase.channel(`messages-list:${userId}:${suffix}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => onListMessage('messages', payload.new)).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, payload => onListMessage('direct_messages', payload.new)).subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [event, userId])
 
+  // Squelette au premier chargement seulement : les rechargements (message
+  // reçu, ami ajouté…) remplacent la liste sans la faire clignoter. Une
+  // réponse plus ancienne que la dernière demandée est ignorée.
   async function fetchAll() {
-    setListLoading(true); setFriendsLoading(true)
+    const requestId = ++fetchAllRequestRef.current
+    if (!listLoadedRef.current) { setListLoading(true); setFriendsLoading(true) }
     const friendRows = await getFriends(userId)
     const convRows = await fetchConversations(friendRows.data ?? [])
+    if (requestId !== fetchAllRequestRef.current) return
+    listLoadedRef.current = true
     setConversations(convRows); setFriends(friendRows.data ?? []); setListLoading(false); setFriendsLoading(false)
     setCloseFriendIds(new Set((friendRows.data ?? []).filter(friend => friend.is_close_friend === true).map(friend => friend.friend_id)))
+  }
+
+  function onListMessage(table, message) {
+    setConversations(prev => applyIncomingMessage(prev, table, message))
+    fetchAll()
   }
 
   async function refreshCloseFriendIds() {
@@ -194,7 +206,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (rsvpResult.error) rsvpRows = (await supabase.from('rsvps').select('event_id').eq('user_id', userId)).data ?? []
     const allIds = [...new Set([...(rsvpRows?.map(r => r.event_id) ?? []), ...(ownRows?.map(e => e.id) ?? [])])]
     if (!allIds.length) return []
-    const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, birthday_person_user_id, user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
+    const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, created_at, birthday_person_user_id, user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
     const lastByEvent = {}, generalLastByEvent = {}, secretLastByEvent = {}, generalUnreadByEvent = {}, secretUnreadByEvent = {}
     const lastReadByEvent = Object.fromEntries((rsvpRows ?? []).map(row => [row.event_id, row.last_read_at]))
     ;(msgs ?? []).forEach(message => {
@@ -213,7 +225,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       const generalUnreadCount = generalUnreadByEvent[ev.id] || 0
       const secretUnreadCount = secretUnreadByEvent[ev.id] || 0
       const lastMessage = lastByEvent[ev.id] || null
-      return { id: `event-${ev.id}`, kind: 'event', event: ev, eventId: ev.id, title: ev.name || 'Événement', emoji: ev.emoji || typeEmoji[ev.type] || '🎉', lastMessage: lastMessage || { content: 'Aucun message', created_at: ev.date }, generalMessage: generalLastByEvent[ev.id] || null, secretMessage: secretLastByEvent[ev.id] || null, lastAt: lastMessage?.created_at || ev.date, unreadCount: generalUnreadCount + secretUnreadCount, generalUnreadCount, secretUnreadCount }
+      return { id: `event-${ev.id}`, kind: 'event', event: ev, eventId: ev.id, title: ev.name || 'Événement', emoji: ev.emoji || typeEmoji[ev.type] || '🎉', lastMessage: lastMessage || { content: 'Aucun message', created_at: ev.created_at }, generalMessage: generalLastByEvent[ev.id] || null, secretMessage: secretLastByEvent[ev.id] || null, lastAt: lastMessage?.created_at || ev.created_at, unreadCount: generalUnreadCount + secretUnreadCount, generalUnreadCount, secretUnreadCount }
     })
   }
 
@@ -257,7 +269,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
 
   async function fetchConversations(friendRows = []) {
     const [eventRows, directRows] = await Promise.all([fetchEventConversations(), fetchDirectConversations(friendRows)])
-    return [...eventRows, ...directRows].sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0))
+    return sortConversationsByActivity([...eventRows, ...directRows])
   }
 
   const conversationsByFriendId = useMemo(() => {

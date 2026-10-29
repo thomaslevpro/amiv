@@ -175,6 +175,38 @@ export function isConversationHidden(conversation, hiddenConversations) {
   return !lastTime || lastTime <= hiddenTime
 }
 
+// Liste de conversations (événements et privées mélangées) : la plus
+// récemment active en haut. lastAt = dernier message, sinon création.
+export function sortConversationsByActivity(conversations) {
+  const time = conv => new Date(conv.lastAt || 0).getTime() || 0
+  return [...conversations].sort((a, b) => time(b) - time(a))
+}
+
+// Message reçu en temps réel : met à jour l'aperçu de sa conversation et la
+// remonte, sans attendre le rechargement complet. Renvoie la liste telle
+// quelle si la conversation n'est pas encore connue.
+export function applyIncomingMessage(conversations, table, message) {
+  if (!message?.created_at) return conversations
+  let found = false
+  const next = conversations.map(conv => {
+    if (table === 'messages' && conv.kind === 'event' && String(conv.eventId) === String(message.event_id)) {
+      found = true
+      return {
+        ...conv,
+        lastMessage: message,
+        lastAt: message.created_at,
+        ...(message.is_secret ? { secretMessage: message } : { generalMessage: message }),
+      }
+    }
+    if (table === 'direct_messages' && conv.kind === 'direct' && conv.conversationId === message.conversation_id) {
+      found = true
+      return { ...conv, lastMessage: message, lastAt: message.created_at }
+    }
+    return conv
+  })
+  return found ? sortConversationsByActivity(next) : conversations
+}
+
 export async function fetchProfilesByIds(ids) {
   if (!ids.length) return []
   const { data } = await supabase.from('profiles').select('id, name, first_name, avatar_url').in('id', ids)
