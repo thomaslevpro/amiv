@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   getFriendSuggestions,
+  dismissFriendSuggestion,
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
@@ -63,6 +64,17 @@ export function useFriendships(userId) {
     return { error }
   }
 
+  const dismissSuggestion = async (dismissedUserId) => {
+    const dismissed = suggestions.find(s => s.user_id === dismissedUserId)
+    setSuggestions(prev => prev.filter(s => s.user_id !== dismissedUserId))
+    const { error } = await dismissFriendSuggestion(dismissedUserId)
+    if (error && dismissed) {
+      console.error('[Friendships] dismiss suggestion failed:', error)
+      setSuggestions(prev => prev.some(s => s.user_id === dismissedUserId) ? prev : [...prev, dismissed])
+    }
+    return { error }
+  }
+
   const acceptRequest = async (friendshipId) => {
     const { error } = await acceptFriendRequest(friendshipId)
     if (!error) refresh()
@@ -93,5 +105,5 @@ export function useFriendships(userId) {
     return { error }
   }
 
-  return { suggestions, friends, pendingRequests, loading, sendRequest, acceptRequest, declineRequest, toggleCloseFriend }
+  return { suggestions, friends, pendingRequests, loading, sendRequest, dismissSuggestion, acceptRequest, declineRequest, toggleCloseFriend }
 }

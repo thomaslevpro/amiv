@@ -452,8 +452,8 @@ export default function Profile({ session, onCalendarClick }) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: COLORS.page, overflow: 'hidden', fontFamily: FONT }}>
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
-        <div style={{ background: COLORS.heroGradient, padding: '52px 16px 0', textAlign: 'center', color: '#fff', position: 'relative' }}>
+      <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 90 }}>
+        <div style={{ background: COLORS.heroGradient, padding: '14px 0 0', textAlign: 'center', color: '#fff', position: 'relative', maxWidth: '100%' }}>
           {showShareMenu && (
             <div
               onClick={() => setShowShareMenu(false)}
@@ -554,30 +554,32 @@ export default function Profile({ session, onCalendarClick }) {
           >
             <QrCode size={18} strokeWidth={2.2} color="#fff" />
           </button>
-          <div
-            onClick={openEditProfile}
-            style={{ width: 86, height: 86, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.5)', margin: '0 auto 12px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#FBBF9A', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 30, fontWeight: 800 }}>
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : getInitial(profile)
-              }
+          <div style={{ padding: '0 16px' }}>
+            <div
+              onClick={openEditProfile}
+              style={{ width: 86, height: 86, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.5)', margin: '0 auto 12px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#FBBF9A', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 30, fontWeight: 800 }}>
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : getInitial(profile)
+                }
+              </div>
+              <div style={{ position: 'absolute', right: 0, bottom: 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 5px rgba(0,0,0,0.16)' }}>
+                <Pencil size={12} strokeWidth={2} color="#e055aa" />
+              </div>
             </div>
-            <div style={{ position: 'absolute', right: 0, bottom: 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 5px rgba(0,0,0,0.16)' }}>
-              <Pencil size={12} strokeWidth={2} color="#e055aa" />
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.15, overflowWrap: 'anywhere' }}>{loading ? 'Profil' : displayName}</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)', marginTop: 5, overflowWrap: 'anywhere' }}>{profile?.username ? `@${profile.username}` : (profile?.email ?? session?.user?.email ?? '—')}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+              <div style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '5px 12px' }}>🎉 Membre depuis {memberSince}</div>
+              <div style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '5px 12px' }}>⭐ Bêta</div>
             </div>
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.15, overflowWrap: 'anywhere' }}>{loading ? 'Profil' : displayName}</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)', marginTop: 5, overflowWrap: 'anywhere' }}>{profile?.username ? `@${profile.username}` : (profile?.email ?? session?.user?.email ?? '—')}</div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-            <div style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '5px 12px' }}>🎉 Membre depuis {memberSince}</div>
-            <div style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '5px 12px' }}>⭐ Bêta</div>
-          </div>
-          <div style={{ height: 28, background: COLORS.page, borderRadius: '24px 24px 0 0', margin: '24px -16px 0' }} />
+          <div style={{ height: 28, background: COLORS.page, borderRadius: '24px 24px 0 0', marginTop: 24 }} />
         </div>
 
-        <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 18 }}>
+        <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 18 }}>
           {statsItems.map(({ label, value, iconName, iconBg, iconColor }) => (
             <div
               key={label}
@@ -585,10 +587,13 @@ export default function Profile({ session, onCalendarClick }) {
               style={{
                 background: COLORS.card,
                 borderRadius: 16,
-                padding: '14px 12px',
+                padding: '12px 6px',
+                minWidth: 0,
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: 10,
+                textAlign: 'center',
+                gap: 6,
                 boxShadow: CARD_SHADOW,
                 cursor: label === 'Amis' ? 'pointer' : 'default',
                 opacity: 1,
@@ -610,11 +615,11 @@ export default function Profile({ session, onCalendarClick }) {
               }}>
                 {STAT_ICONS[iconName]}
               </div>
-              <div>
+              <div style={{ minWidth: 0, maxWidth: '100%' }}>
                 <div style={{ fontSize: 20, fontWeight: 700, color: COLORS.text, lineHeight: 1 }}>
                   {loading || error || value === null ? '—' : value}
                 </div>
-                <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 2, lineHeight: 1.2 }}>{label}</div>
+                <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 2, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
               </div>
             </div>
           ))}

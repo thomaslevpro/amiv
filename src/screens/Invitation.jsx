@@ -23,7 +23,7 @@ export default function Invitation({ event, onBack }) {
         <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
           {[
             { icon: <Cake size={16} strokeWidth={1.5} />, label: 'Événement', value: `${event.eventName} — ${event.age}` },
-            { icon: <Calendar size={16} strokeWidth={1.5} />, label: 'Date', value: event.date },
+            { icon: <Calendar size={16} strokeWidth={1.5} />, label: 'Date', value: event.date || 'Date à définir' },
             { icon: <MapPin size={16} strokeWidth={1.5} />, label: 'Lieu', value: event.location },
             { icon: <User size={16} strokeWidth={1.5} />, label: 'Organisé par', value: event.organizer },
           ].map((row, i) => (

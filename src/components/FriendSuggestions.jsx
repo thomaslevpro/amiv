@@ -1,3 +1,5 @@
+import { X } from 'lucide-react'
+
 function Avatar({ url, name, size = 44 }) {
   const initials = name
     ? name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -23,7 +25,7 @@ function Avatar({ url, name, size = 44 }) {
   )
 }
 
-export default function FriendSuggestions({ suggestions, onAdd }) {
+export default function FriendSuggestions({ suggestions, onAdd, onDismiss }) {
   if (!suggestions?.length) return null
 
   return (
@@ -38,7 +40,7 @@ export default function FriendSuggestions({ suggestions, onAdd }) {
             <Avatar url={s.avatar_url} name={s.name} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {s.name}
+                {s.name || `@${s.username}`}
               </div>
               {s.shared_event_name && (
                 <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -56,6 +58,18 @@ export default function FriendSuggestions({ suggestions, onAdd }) {
               }}
             >
               Ajouter
+            </button>
+            <button
+              type="button"
+              onClick={() => onDismiss?.(s.user_id)}
+              aria-label={`Masquer ${s.name || 'cette suggestion'}`}
+              style={{
+                width: 28, height: 28, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#AEAEB2', flexShrink: 0, cursor: 'pointer',
+              }}
+            >
+              <X size={16} strokeWidth={2} />
             </button>
           </div>
         ))}

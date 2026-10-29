@@ -24,7 +24,8 @@ function getLocalDateParts(dateStr) {
       day: '--',
       month: 'DATE',
       weekday: '',
-      time: 'Heure à préciser',
+      time: null,
+      longDate: 'Date à définir',
       daysLeft: null,
       badge: null,
     }
@@ -86,7 +87,7 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
   const coverUrl = getCoverUrl(event.cover_image)
   const yesCount = getYesCount(stats, event)
   const title = titleCase(event.name, 'Événement')
-  const details = `${dateParts.longDate} · ${dateParts.time}${event.location ? ` · ${event.location}` : ''}`
+  const details = [dateParts.longDate, dateParts.time, event.location].filter(Boolean).join(' · ')
   const isDeclined = normalizeStatus(event.rsvpStatus) === 'no'
   const avatarGradients = [
     'linear-gradient(135deg,#e055aa,#f5a623)',

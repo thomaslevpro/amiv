@@ -33,7 +33,7 @@ export default function Home({
 
   const userId = session?.user?.id
   const userEmail = session?.user?.email
-  const { suggestions, pendingRequests, sendRequest, acceptRequest, declineRequest } = useFriendships(userId)
+  const { suggestions, pendingRequests, sendRequest, dismissSuggestion, acceptRequest, declineRequest } = useFriendships(userId)
   const { invitations, refetchInvitations, myEvents, profileName, profileAvatar } = useHomeData(userId, userEmail)
   const { feed: availabilityFeed } = useAvailability(userId)
   const [toast, setToast] = useState(null)
@@ -165,7 +165,7 @@ export default function Home({
         {suggestions.length > 0 && (
           <>
             <SectionHeader title="Suggestions" />
-            <FriendSuggestions suggestions={suggestions} onAdd={sendRequest} />
+            <FriendSuggestions suggestions={suggestions} onAdd={sendRequest} onDismiss={dismissSuggestion} />
           </>
         )}
 

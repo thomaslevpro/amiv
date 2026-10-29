@@ -48,9 +48,9 @@ function countStatuses(rows = []) {
 }
 
 function formatEventDate(dateStr) {
-  if (!dateStr) return 'Date à préciser'
+  if (!dateStr) return 'Date à définir'
   const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return 'Date à préciser'
+  if (Number.isNaN(d.getTime())) return 'Date à définir'
   const datePart = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' })
   const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0
   return hasTime ? `${datePart} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : datePart

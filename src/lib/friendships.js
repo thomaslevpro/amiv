@@ -4,6 +4,14 @@ export async function getFriendSuggestions(userId) {
   return supabase.rpc('get_friend_suggestions', { p_user_id: userId })
 }
 
+export async function dismissFriendSuggestion(dismissedUserId) {
+  const { error } = await supabase
+    .from('suggestion_dismissals')
+    .insert({ dismissed_user_id: dismissedUserId })
+  // 23505 : déjà masqué, rien à faire.
+  return { error: error?.code === '23505' ? null : error }
+}
+
 export async function searchUsers(query, currentUserId) {
   const search = query?.trim()
   if (!search || search.length < 2 || !currentUserId) return { data: [], error: null }

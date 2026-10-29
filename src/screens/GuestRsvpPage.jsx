@@ -16,9 +16,9 @@ const responseOptions = [
 ]
 
 function formatDate(dateStr) {
-  if (!dateStr) return 'Date non précisée'
+  if (!dateStr) return 'Date à définir'
   const d = new Date(dateStr)
-  if (isNaN(d)) return dateStr
+  if (isNaN(d)) return 'Date à définir'
   return d.toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit',

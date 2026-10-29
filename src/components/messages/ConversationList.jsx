@@ -52,7 +52,7 @@ export default function ConversationList({
   const username = currentUsername || 'amiv'
   const tabs = [
     { id: 'all', label: 'Tous' },
-    { id: 'events', label: 'Événements 🎉' },
+    { id: 'events', label: 'Événements' },
     { id: 'directs', label: 'Directs' },
     { id: 'unread', label: 'Non lus', badge: unreadTotal },
   ]

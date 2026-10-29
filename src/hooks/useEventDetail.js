@@ -4,6 +4,7 @@ import { APP_URL } from '../lib/native'
 import { addCoOrganizerById, isOrganizer } from '../lib/organizers'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
+import { uploadEventCover } from '../lib/eventCover'
 import { keepsBirthdayPerson } from '../components/event/eventUtils'
 
 function readSeen(key) {
@@ -362,10 +363,7 @@ export default function useEventDetail(event, onBack) {
     let coverImagePath = event.cover_image ?? null
 
     if (coverFile) {
-      const ext = coverFile.name.split('.').pop()
-      const filePath = `${event.id}/cover_${Date.now()}.${ext}`
-      const { error: uploadError, data: uploadData } = await supabase.storage.from('event-covers').upload(filePath, coverFile, { upsert: true })
-      console.log('Upload result:', { uploadError, uploadData })
+      const { path: filePath, error: uploadError } = await uploadEventCover(event.id, coverFile)
       if (uploadError) {
         console.log('Upload error details:', JSON.stringify(uploadError))
         captureSupabaseError(uploadError, { operation: 'upload_event_cover' })
@@ -414,11 +412,7 @@ export default function useEventDetail(event, onBack) {
   async function handleHeroCoverChange(e) {
     const file = e.target.files?.[0]
     if (!file || !event?.id || !canManage) return
-    const ext = file.name.split('.').pop()
-    const filePath = `${event.id}/cover_${Date.now()}.${ext}`
-    const { error: uploadError, data: uploadData } = await supabase.storage.from('event-covers').upload(filePath, file, { upsert: true })
-
-    console.log('Upload result:', { uploadError, uploadData })
+    const { path: filePath, error: uploadError } = await uploadEventCover(event.id, file)
     if (uploadError) {
       console.log('Upload error details:', JSON.stringify(uploadError))
       captureSupabaseError(uploadError, { operation: 'upload_event_hero_cover' })

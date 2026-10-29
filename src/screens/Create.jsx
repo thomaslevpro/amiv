@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Cake, PartyPopper, CookingPot, Coffee, Pencil, CalendarDays, MapPin, FileText, Link } from 'lucide-react'
+import { Cake, PartyPopper, CookingPot, Coffee, Pencil, CalendarDays, MapPin, FileText, Link, ImagePlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriends } from '../lib/friendships'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
+import { uploadEventCover } from '../lib/eventCover'
 import { EVENT_TYPES } from '../components/event/eventUtils'
 import { avatarInitial } from '../utils/avatar'
 
@@ -62,6 +63,10 @@ export default function Create({ onBack, session, initialData = null }) {
   const [type, setType] = useState(initialType >= 0 ? initialType : 3)
   const [form, setForm] = useState({ name: initialData?.title ?? '', date: '', location: '', desc: initialData?.desc ?? initialData?.description ?? '' })
   const [coverImage, setCoverImage] = useState(initialData?.coverImage ?? initialData?.cover_image ?? '')
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverPreview, setCoverPreview] = useState(null)
+  const [coverUploadFailed, setCoverUploadFailed] = useState(false)
+  const [coverRetrying, setCoverRetrying] = useState(false)
   const [birthdayPersonId, setBirthdayPersonId] = useState(initialData?.birthday_person_user_id ?? null)
   const [birthdayFriends, setBirthdayFriends] = useState([])
   const [usePoll, setUsePoll] = useState(false)
@@ -87,6 +92,10 @@ export default function Create({ onBack, session, initialData = null }) {
   useEffect(() => {
     if (type !== 0) setBirthdayPersonId(null)
   }, [type])
+
+  useEffect(() => () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview)
+  }, [coverPreview])
 
   useEffect(() => {
     if (!userId) return
@@ -141,6 +150,48 @@ export default function Create({ onBack, session, initialData = null }) {
     setBirthdayPersonId(prev => prev === id ? null : id)
   }
 
+  function handleCoverPick(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setCoverFile(file)
+    setCoverPreview(URL.createObjectURL(file))
+  }
+
+  function removeCover() {
+    setCoverFile(null)
+    setCoverPreview(null)
+    setCoverImage('')
+  }
+
+  // Après création : l'upload a besoin de l'id de l'événement (policies du bucket).
+  // Un échec n'annule pas l'événement, l'écran de succès propose de réessayer.
+  async function uploadCoverFor(eventId) {
+    const { path, error: uploadError } = await uploadEventCover(eventId, coverFile)
+    const { error: updateError } = uploadError
+      ? { error: null }
+      : await supabase.from('events').update({ cover_image: path }).eq('id', eventId)
+    const failure = uploadError || updateError
+    if (failure) {
+      captureSupabaseError(failure, { operation: uploadError ? 'upload_event_cover' : 'update_event_cover' })
+      track('event_cover_upload_failed', {
+        event_id: eventId,
+        reason: uploadError ? 'cover_upload' : 'event_update',
+        error_code: failure.code,
+        error_status: failure.status ?? failure.statusCode,
+      })
+    }
+    setCoverUploadFailed(Boolean(failure))
+    return !failure
+  }
+
+  async function retryCoverUpload() {
+    if (!createdEvent?.id || !coverFile || coverRetrying) return
+    setCoverRetrying(true)
+    await uploadCoverFor(createdEvent.id)
+    setCoverRetrying(false)
+  }
+
   function updatePollDate(i, field, value) {
     setPollDates(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: value } : d))
   }
@@ -160,7 +211,7 @@ export default function Create({ onBack, session, initialData = null }) {
       event_type: typeValues[type],
       has_date_poll: usePoll,
       invited_count: selectedFriendIds.length,
-      has_cover_image: Boolean(coverImage),
+      has_cover_image: Boolean(coverImage || coverFile),
       has_birthday_person: Boolean(birthdayPersonId),
     }
     track('event_create_started', eventProperties)
@@ -182,7 +233,7 @@ export default function Create({ onBack, session, initialData = null }) {
         p_description: form.desc,
         p_type: typeValues[type],
         p_visibility: 'Sur invitation',
-        p_cover_image: coverImage || null,
+        p_cover_image: coverFile ? null : (coverImage || null),
         p_birthday_person_user_id: birthdayPersonId,
         p_date_options: dateOptions,
         p_invited_user_ids: selectedFriendIds,
@@ -194,6 +245,7 @@ export default function Create({ onBack, session, initialData = null }) {
         ...eventProperties,
         event_id: eventData?.id,
       })
+      if (coverFile) await uploadCoverFor(eventData.id)
       setCreatedEvent(eventData)
     } catch (err) {
       console.error('Erreur lors de la création de l\'événement :', err)
@@ -272,22 +324,43 @@ export default function Create({ onBack, session, initialData = null }) {
         </div>
 
         {/* Cover */}
-        {coverImage && (
-          <div style={{ padding: '0 16px', marginTop: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 8 }}>Cover</div>
-            <img
-              src={coverImage}
-              alt=""
-              style={{
-                width: '100%',
-                height: 200,
-                objectFit: 'cover',
-                borderRadius: 16,
-                display: 'block',
-              }}
-            />
-          </div>
-        )}
+        <div style={{ padding: '0 16px', marginTop: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 8 }}>Photo de couverture</div>
+          {coverPreview || coverImage ? (
+            <>
+              <img
+                src={coverPreview || coverImage}
+                alt="Aperçu de la photo de couverture"
+                style={{
+                  width: '100%',
+                  height: 200,
+                  objectFit: 'cover',
+                  borderRadius: 16,
+                  display: 'block',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <label style={{ flex: 1, padding: 10, borderRadius: 12, background: '#F5F5F5', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#1C1C1E', cursor: 'pointer' }}>
+                  Changer
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverPick} />
+                </label>
+                <button type="button" onClick={removeCover} style={{ flex: 1, padding: 10, borderRadius: 12, background: '#F5F5F5', fontSize: 13, fontWeight: 600, color: '#FF3B30' }}>
+                  Retirer
+                </button>
+              </div>
+            </>
+          ) : (
+            <label style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '18px 14px', borderRadius: 14, border: '1.5px dashed #E5E5EA',
+              background: '#fff', color: '#8E8E93', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}>
+              <ImagePlus size={17} color="#e055aa" />
+              Ajouter une photo (facultatif)
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverPick} />
+            </label>
+          )}
+        </div>
 
         {/* Details */}
         <div style={{ padding: '0 16px', marginTop: 14 }}>
@@ -596,6 +669,19 @@ export default function Create({ onBack, session, initialData = null }) {
             <div style={{ fontSize: 48 }}>🎉</div>
             <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>Événement créé !</div>
             <div style={{ fontSize: 14, color: '#8E8E93' }}>Partage le lien pour inviter tes amis</div>
+            {coverUploadFailed && (
+              <div style={{ background: '#FFF4E5', borderRadius: 14, padding: '12px 14px', textAlign: 'left' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1C1C1E' }}>
+                  La photo de couverture n'a pas pu être envoyée.
+                </div>
+                <div
+                  onClick={retryCoverUpload}
+                  style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: '#e055aa', cursor: coverRetrying ? 'default' : 'pointer', opacity: coverRetrying ? 0.6 : 1 }}
+                >
+                  {coverRetrying ? 'Envoi…' : 'Réessayer'}
+                </div>
+              </div>
+            )}
             <div
               onClick={async () => {
                 await navigator.clipboard.writeText(`https://amiv.app/invite/${createdEvent.invite_token}`)
