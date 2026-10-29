@@ -266,7 +266,7 @@ export function PrivacyPage() {
 
       <Section title="4. Suppression de ton compte">
         <P>La suppression automatique des comptes inactifs n'est actuellement pas activée. Après 3 ans sans activité, tu reçois un email pour t'en informer. Ton compte n'est pas supprimé pour autant. Tu peux supprimer ton compte à tout moment depuis Profil → Supprimer mon compte.</P>
-        <P>La suppression est immédiate : ton profil, tes fichiers et ton compte de connexion sont effacés dès ta demande. Seules les sauvegardes peuvent contenir tes données, au maximum 3 mois.</P>
+        <P>La suppression est immédiate : ton profil, tes fichiers et ton compte de connexion sont effacés dès ta demande. Seules les sauvegardes peuvent contenir tes données, 7 jours maximum.</P>
         <P>Sont alors supprimés : ton profil, ta photo, tes amis, tes blocages, les profils que tu as masqués, tes réponses, tes souvenirs, tes mots sur les cartes, tes fichiers, tes demandes d'anniversaire, tes signalements et le jeton de notification de tes appareils.</P>
         <P>Les événements que tu organises sont transférés à un co-organisateur s'il y en a un, sinon supprimés, et les invités en sont prévenus. Tes messages dans les chats d'événement et les messages privés restent visibles par les autres participants, mais apparaissent sous « Utilisateur supprimé » : ces échanges appartiennent aussi aux autres. Les signalements faits par d'autres sur tes messages ou ton profil sont supprimés 12 mois après leur traitement, ou 12 mois après leur création s'ils ne sont pas traités.</P>      </Section>
 
