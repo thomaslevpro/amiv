@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, MessageCircle } from 'lucide-react'
 import EventDatePoll from '../components/event/EventDatePoll'
@@ -16,6 +17,7 @@ import useEventDetail from '../hooks/useEventDetail'
 export default function EventDetail({ event, onBack, onChat, onMessagesClick }) {
   const navigate = useNavigate()
   const detail = useEventDetail(event, onBack)
+  const [pollBannerVisible, setPollBannerVisible] = useState(false)
 
   if (!event) return null
 
@@ -71,7 +73,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
       <EventHero event={heroEvent} eventOverrides={eventOverrides} canManage={canManage} rsvpStatus={rsvpStatus} loading={loading} onBack={onBack} onEdit={handleEditOpen} onCoverChange={handleHeroCoverChange} coverInputRef={coverInputRef} onRsvp={handleRsvp} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-        <PendingPollsBanner polls={myPolls} myVotes={myVotes} allVoteCounts={allVoteCounts} onVote={handleDateVote} />
+        <PendingPollsBanner polls={myPolls} myVotes={myVotes} allVoteCounts={allVoteCounts} onVote={handleDateVote} onVisibleChange={setPollBannerVisible} />
         {canManage && <EventStatsRow rsvpStats={rsvpStats} />}
 
         {canManage && (
@@ -123,7 +125,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
             <EventGuestList participants={participants} guestRsvps={guestRsvps} eventGuests={eventGuests} canManage={canManage} userId={userId} invitedIds={invitedIds} onInvite={handleInviteFriend} onAddFriend={handleAddFriend} myRsvp={myRsvp} currentUserName={currentUserName} eventId={event.id} embedded />
           </div>
         )}
-        {isPollActive && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
+        {isPollActive && !pollBannerVisible && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
         {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
         {canManage && <EventInviteSection friends={friends} invitedIds={invitedIds} copySuccess={copySuccess} onInvite={handleInviteFriend} onCopyLink={handleCopyLink} />}
         {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}

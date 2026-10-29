@@ -12,8 +12,9 @@ function isAnswered(poll, myVotes) {
 
 // Bandeau en haut de la page d'un événement : se déplie pour voter sur place
 // (mêmes votes que le sondage plus bas), affiche une confirmation avec les
-// résultats, puis se replie et disparaît.
-export default function PendingPollsBanner({ polls, myVotes, allVoteCounts, onVote }) {
+// résultats, puis se replie et disparaît. onVisibleChange prévient la page,
+// qui masque le sondage du bas tant que le bandeau est là (pas de doublon).
+export default function PendingPollsBanner({ polls, myVotes, allVoteCounts, onVote, onVisibleChange }) {
   const [openKeys, setOpenKeys] = useState(null)
   const [confirmed, setConfirmed] = useState(false)
 
@@ -31,7 +32,13 @@ export default function PendingPollsBanner({ polls, myVotes, allVoteCounts, onVo
     return () => clearTimeout(timer)
   }, [confirmed])
 
-  if (pending.length === 0 && !openKeys) return null
+  const visible = pending.length > 0 || !!openKeys
+
+  useEffect(() => {
+    onVisibleChange?.(visible)
+  }, [visible, onVisibleChange])
+
+  if (!visible) return null
 
   const isOpen = !!openKeys
   const count = openKeys ? openKeys.length : pending.length
