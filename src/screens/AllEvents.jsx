@@ -200,7 +200,7 @@ function EventCard({ event, onClick }) {
   )
 }
 
-export default function AllEvents({ onBack, onEventClick }) {
+export default function AllEvents({ onBack, onEventClick, onInvitationAccepted }) {
   const [events, setEvents] = useState([])
   const [invitations, setInvitations] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
@@ -309,7 +309,7 @@ export default function AllEvents({ onBack, onEventClick }) {
           <>
             {invitations.length > 0 && (
               <div style={{ marginBottom: 8 }}>
-                <InvitationsSection title="Invitations" invitations={invitations} userId={currentUser?.id} userEmail={currentUser?.email} onUpdate={fetchAll} />
+                <InvitationsSection title="Invitations" invitations={invitations} userId={currentUser?.id} userEmail={currentUser?.email} onUpdate={fetchAll} onAccepted={onInvitationAccepted} />
               </div>
             )}
             {upcoming.length > 0 && (

@@ -146,7 +146,7 @@ export default function Home({
           </>
         )}
 
-        <InvitationsSection invitations={invitations} userId={userId} userEmail={userEmail} onUpdate={refetchInvitations} />
+        <InvitationsSection invitations={invitations} userId={userId} userEmail={userEmail} onUpdate={refetchInvitations} onAccepted={onNotifEventClick ?? onEventClick} />
 
         <BirthdaySection
           user={session?.user}

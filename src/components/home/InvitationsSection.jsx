@@ -25,7 +25,8 @@ export function normalizeStatus(status) {
   return status || null
 }
 
-async function handleAcceptInvitation({ eventId, userId, userEmail, onUpdate }) {
+// Une fois acceptée, l'invitation ouvre la page de l'événement (onAccepted).
+async function handleAcceptInvitation({ eventId, userId, userEmail, onUpdate, onAccepted }) {
   if (!userId) return
   const orParts = [`invited_user_id.eq.${userId}`]
   if (userEmail) orParts.push(`invited_email.eq.${userEmail}`)
@@ -39,7 +40,10 @@ async function handleAcceptInvitation({ eventId, userId, userEmail, onUpdate }) 
   const { error } = await supabase
     .from('rsvps')
     .upsert({ event_id: eventId, user_id: userId, status: 'going' }, { onConflict: 'event_id,user_id' })
-  if (!error) onUpdate?.()
+  if (!error) {
+    onUpdate?.()
+    onAccepted?.({ id: eventId })
+  }
 }
 
 async function handleDeclineInvitation({ eventId, userId, userEmail, onUpdate }) {
@@ -59,7 +63,7 @@ async function handleDeclineInvitation({ eventId, userId, userEmail, onUpdate })
   if (!error) onUpdate?.()
 }
 
-export default function InvitationsSection({ invitations, userId, userEmail, onUpdate, title = 'INVITATIONS EN ATTENTE' }) {
+export default function InvitationsSection({ invitations, userId, userEmail, onUpdate, onAccepted, title = 'INVITATIONS EN ATTENTE' }) {
   if (invitations.length === 0) return null
 
   return (
@@ -145,7 +149,7 @@ export default function InvitationsSection({ invitations, userId, userEmail, onU
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               <button
                 type="button"
-                onClick={() => handleAcceptInvitation({ eventId: inv.event_id, userId, userEmail, onUpdate })}
+                onClick={() => handleAcceptInvitation({ eventId: inv.event_id, userId, userEmail, onUpdate, onAccepted })}
                 aria-label="Accepter l'invitation"
                 style={{
                   width: 44,

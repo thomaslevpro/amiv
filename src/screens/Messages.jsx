@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ConversationList from '../components/messages/ConversationList'
 import MessageThread from '../components/messages/MessageThread'
 import { typeEmoji } from '../components/messages/constants'
-import { applyIncomingMessage, buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, sortConversationsByActivity, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
+import { applyIncomingMessage, buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, isConversationHidden, notificationConversationId, readChannelLastRead, readHiddenConversations, readSeen, sortConversationsByActivity, sortConversationsForInbox, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 import { findOrCreateDirectConversation } from '../lib/conversations'
@@ -201,10 +201,12 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   async function fetchEventConversations() {
-    const [rsvpResult, { data: ownRows }] = await Promise.all([supabase.from('rsvps').select('event_id, last_read_at').eq('user_id', userId), supabase.from('events').select('id').eq('user_id', userId)])
+    const [rsvpResult, { data: ownRows }] = await Promise.all([supabase.from('rsvps').select('event_id, status, last_read_at').eq('user_id', userId), supabase.from('events').select('id').eq('user_id', userId)])
     let rsvpRows = rsvpResult.data ?? []
-    if (rsvpResult.error) rsvpRows = (await supabase.from('rsvps').select('event_id').eq('user_id', userId)).data ?? []
-    const allIds = [...new Set([...(rsvpRows?.map(r => r.event_id) ?? []), ...(ownRows?.map(e => e.id) ?? [])])]
+    if (rsvpResult.error) rsvpRows = (await supabase.from('rsvps').select('event_id, status').eq('user_id', userId)).data ?? []
+    // Invitation refusée : la conversation disparaît (elle revient si j'accepte)
+    const joinedIds = rsvpRows.filter(r => r.status !== 'declined').map(r => r.event_id)
+    const allIds = [...new Set([...joinedIds, ...(ownRows?.map(e => e.id) ?? [])])]
     if (!allIds.length) return []
     const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, created_at, birthday_person_user_id, user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
     const lastByEvent = {}, generalLastByEvent = {}, secretLastByEvent = {}, generalUnreadByEvent = {}, secretUnreadByEvent = {}
@@ -277,7 +279,9 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     conversations.filter(conv => conv.kind === 'direct' && !isConversationHidden(conv, hiddenConversations)).forEach(conv => { if (conv.friend?.friend_id) map.set(conv.friend.friend_id, conv) })
     return map
   }, [conversations, hiddenConversations])
-  const inboxConversations = conversations.filter(conv => !isConversationHidden(conv, hiddenConversations))
+  const inboxConversations = sortConversationsForInbox(conversations
+    .filter(conv => !isConversationHidden(conv, hiddenConversations))
+    .map(conv => conv.kind === 'direct' ? { ...conv, unreadCount: unreadByConversation.get(conv.conversationId) ?? 0 } : conv))
   const visibleConversations = inboxConversations.filter(conv => {
     if (conv.kind === 'event' && hiddenEventIds.has(String(conv.eventId))) return false
     if (conv.kind === 'event' && deletedEventConversationIds.has(String(conv.eventId))) return false
@@ -347,6 +351,12 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       writeSeen(`last_seen_event_${conv.eventId}`)
       writeChannelLastRead(conv.eventId, secretChannel)
       for (const id of notifications.filter(n => n.type === 'message_received' && !n.read && n.data?.event_id === conv.eventId).map(n => n.id)) markAsRead?.(id)
+      setConversations(prev => prev.map(c => {
+        if (c.id !== conv.id) return c
+        const generalUnreadCount = secretChannel ? c.generalUnreadCount : 0
+        const secretUnreadCount = secretChannel ? 0 : c.secretUnreadCount
+        return { ...c, generalUnreadCount, secretUnreadCount, unreadCount: generalUnreadCount + secretUnreadCount }
+      }))
       onEventOpen?.({ ...conv.event, initialIsSecret: secretChannel })
       return
     }

@@ -397,7 +397,7 @@ function MainApp() {
         onCreateEvent={handleCreateFromDispo}
       />
     )
-    if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} />
+    if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} />
     if (screen === 'dispoCalendar') return <DispoCalendarPage userId={session.user.id} onBack={() => setScreen('home')} />
     if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} initialData={createInitialData} />
     if (screen === 'editProfile') return (
@@ -419,7 +419,7 @@ function MainApp() {
 
     switch (tab) {
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => setDispoDetailId(id)} onDispoCalendarClick={() => setScreen('dispoCalendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
-      case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
+      case 'calendar': return <Calendar onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
           return (

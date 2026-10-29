@@ -177,8 +177,9 @@ export default function useEventDetail(event, onBack) {
       const guestParts = guestsData.map(g => ({ id: `guest_${g.id}`, name: g.guest_name, status: g.response === 'yes' ? 'going' : g.response === 'no' ? 'declined' : 'pending' }))
       setParticipants([...userParts, ...guestParts])
 
+      // Dates affichées avec mes votes, pour que le bandeau « sondage en
+      // attente » n'apparaisse pas avant leur chargement.
       const optionsData = optRes.data ?? []
-      setDateOptions(optionsData)
 
       if (optionsData.length > 0) {
         const optionIds = optionsData.map(o => o.id)
@@ -194,6 +195,7 @@ export default function useEventDetail(event, onBack) {
           setAllVoteCounts(counts)
         }
       }
+      setDateOptions(optionsData)
 
       const { data: friendshipsData } = await supabase.from('friendships').select('requester_id, addressee_id').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status', 'accepted')
       const friendIds = (friendshipsData || []).map(f => f.requester_id === user.id ? f.addressee_id : f.requester_id)

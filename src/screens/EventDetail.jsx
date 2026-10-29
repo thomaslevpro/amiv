@@ -1,5 +1,6 @@
+import { useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, MessageCircle } from 'lucide-react'
+import { ChevronRight, MessageCircle, Vote } from 'lucide-react'
 import EventDatePoll from '../components/event/EventDatePoll'
 import EventEditForm from '../components/event/EventEditForm'
 import EventGuestList from '../components/event/EventGuestList'
@@ -15,6 +16,7 @@ import useEventDetail from '../hooks/useEventDetail'
 export default function EventDetail({ event, onBack, onChat, onMessagesClick }) {
   const navigate = useNavigate()
   const detail = useEventDetail(event, onBack)
+  const pollRef = useRef(null)
 
   if (!event) return null
 
@@ -38,6 +40,8 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
   const isPollActive = dateOptions.length > 0 && !pollClosed
   const heroEvent = { ...event, type: currentType, __isPollActive: isPollActive }
   const isBirthdayEvent = currentType === 'Anniversaire' || !!birthdayPersonId
+  const hasDeclined = !canManage && rsvpStatus === 'declined'
+  const pollAwaitsMyAnswer = isPollActive && !canManage && !hasDeclined && !!userId && Object.keys(myVotes).length === 0
   void onMessagesClick
 
   function renderChatBanner() {
@@ -62,11 +66,27 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
     )
   }
 
+  function renderPollBanner() {
+    return (
+      <div role="button" onClick={() => pollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} style={{ borderRadius: 16, padding: '12px 14px', marginBottom: 14, background: 'rgba(224,85,170,0.10)', border: '1.5px solid rgba(224,85,170,0.35)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg,#e055aa,#f5a623)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Vote size={18} strokeWidth={2} color="#fff" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#1C1C1E' }}>Un sondage attend ta réponse</div>
+          <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Indique tes disponibilités pour choisir la date</div>
+        </div>
+        <ChevronRight size={16} strokeWidth={2.5} color="#e055aa" />
+      </div>
+    )
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden' }}>
       <EventHero event={heroEvent} eventOverrides={eventOverrides} canManage={canManage} rsvpStatus={rsvpStatus} loading={loading} onBack={onBack} onEdit={handleEditOpen} onCoverChange={handleHeroCoverChange} coverInputRef={coverInputRef} onRsvp={handleRsvp} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+        {pollAwaitsMyAnswer && renderPollBanner()}
         {canManage && <EventStatsRow rsvpStats={rsvpStats} />}
 
         {canManage && (
@@ -83,7 +103,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
         {userId && birthdayPersonId === userId && <RevealedMemoriesEntry eventId={event.id} />}
 
-        {renderChatBanner()}
+        {!hasDeclined && renderChatBanner()}
 
         {canAccessSecretSpace && isBirthdayEvent && (
           <div style={{ marginBottom: 14 }}>
@@ -118,7 +138,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
             <EventGuestList participants={participants} guestRsvps={guestRsvps} eventGuests={eventGuests} canManage={canManage} userId={userId} invitedIds={invitedIds} onInvite={handleInviteFriend} onAddFriend={handleAddFriend} myRsvp={myRsvp} currentUserName={currentUserName} eventId={event.id} embedded />
           </div>
         )}
-        {isPollActive && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
+        {isPollActive && <div ref={pollRef} style={{ scrollMarginTop: 16 }}><EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} /></div>}
         {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
         {canManage && <EventInviteSection friends={friends} invitedIds={invitedIds} copySuccess={copySuccess} onInvite={handleInviteFriend} onCopyLink={handleCopyLink} />}
         {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}

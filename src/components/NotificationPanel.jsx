@@ -14,7 +14,7 @@ const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const AVATAR_COLORS = ['#FBBF9A', '#7c5cbf', '#4D96FF', '#FF6B9D', '#34C759', '#FFD93D']
 const FILTERS = [
   { key: 'all', label: 'Tout', types: null },
-  { key: 'events', label: 'Événements', types: ['rsvp_received', 'event_invitation', 'invitation_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed', 'memories_surprise'] },
+  { key: 'events', label: 'Événements', types: ['rsvp_received', 'event_invitation', 'invitation_reminder', 'poll_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed', 'memories_surprise'] },
   { key: 'messages', label: 'Messages', types: ['message_received'] },
   { key: 'friends', label: 'Amis', types: ['friend_request', 'friend_accepted', 'birthday_reminder', 'birthday_today'] },
 ]
@@ -134,7 +134,7 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
   const title = notification.title || 'Activité'
   const body = notification.body || ''
   const isBirthdayReminder = notification.type === 'birthday_reminder'
-  const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'invitation_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed'].includes(notification.type)
+  const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'invitation_reminder', 'poll_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed'].includes(notification.type)
     // message privé : pas d'événement à afficher
     && (notification.type !== 'message_received' || !!notification.data?.event_id)
   const friendshipId = notification.data?.friendship_id || notification.data?.request_id
@@ -413,7 +413,7 @@ export default function NotificationPanel({
       navigate(`/events/${notification.data.event_id}/souvenirs`)
       return
     }
-    if ((notification.type === 'rsvp_received' || notification.type === 'event_invitation' || notification.type === 'invitation_reminder' || notification.type === 'co_organizer_added' || notification.type.startsWith('guest_leader_') || notification.type === 'plus_one_response' || notification.type === 'memories_revealed') && notification.data?.event_id) {
+    if ((notification.type === 'rsvp_received' || notification.type === 'event_invitation' || notification.type === 'invitation_reminder' || notification.type === 'poll_reminder' || notification.type === 'co_organizer_added' || notification.type.startsWith('guest_leader_') || notification.type === 'plus_one_response' || notification.type === 'memories_revealed') && notification.data?.event_id) {
       onClose?.()
       onEventOpen?.({ id: notification.data.event_id })
       return

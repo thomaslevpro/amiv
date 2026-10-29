@@ -182,6 +182,14 @@ export function sortConversationsByActivity(conversations) {
   return [...conversations].sort((a, b) => time(b) - time(a))
 }
 
+// Ordre de la messagerie : conversations non lues d'abord, puis les autres,
+// chaque groupe du dernier message au plus ancien.
+export function sortConversationsForInbox(conversations) {
+  const time = conv => new Date(conv.lastAt || 0).getTime() || 0
+  const unread = conv => (conv.unreadCount > 0 ? 1 : 0)
+  return [...conversations].sort((a, b) => unread(b) - unread(a) || time(b) - time(a))
+}
+
 // Message reçu en temps réel : met à jour l'aperçu de sa conversation et la
 // remonte, sans attendre le rechargement complet. Renvoie la liste telle
 // quelle si la conversation n'est pas encore connue.

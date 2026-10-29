@@ -329,7 +329,7 @@ function WeekStrip({ weekOffset, setWeekOffset, selectedDate, setSelectedDate, c
   )
 }
 
-export default function Calendar({ onEventClick, onCreateClick, onMessagesClick }) {
+export default function Calendar({ onEventClick, onCreateClick, onMessagesClick, onInvitationAccepted }) {
   const navigate = useNavigate()
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState(null)
@@ -617,6 +617,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick 
         }
       })
       setGuestEvents(prev => prev.map(row => row.events?.id === item.event.id ? { ...row, status: invitationStatus } : row))
+      if (status === 'going') onInvitationAccepted?.({ id: item.event.id })
     }
   }
 
