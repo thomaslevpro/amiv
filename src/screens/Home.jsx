@@ -55,10 +55,6 @@ export default function Home({
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden', position: 'relative' }}>
       <style>{`
-        @keyframes pulse-border {
-          0%, 100% { box-shadow: 0 0 0 0px rgba(224,85,170,0.4), 0 0 0 0px rgba(245,166,35,0.2); }
-          50% { box-shadow: 0 0 0 6px rgba(224,85,170,0.15), 0 0 0 12px rgba(245,166,35,0.05); }
-        }
         @keyframes pulse-dot {
           0%, 100% { transform: scale(1); opacity: 0.9; }
           50% { transform: scale(1.6); opacity: 0.5; }

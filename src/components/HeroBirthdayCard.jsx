@@ -308,7 +308,7 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
             background: 'radial-gradient(circle at 86% 12%, rgba(255, 201, 112, 0.62) 0%, rgba(255, 160, 64, 0.26) 28%, rgba(255, 160, 64, 0) 48%), linear-gradient(135deg, #f06292 0%, #ff8a50 60%, #ffa040 100%)',
             borderRadius: 19,
             padding: '20px 18px',
-            boxShadow: '0 4px 24px rgba(224,85,170,0.28)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             color: '#fff',
             cursor: 'pointer',
           }}

@@ -25,12 +25,12 @@ const HERO_CARD_THEMES = {
   availability: {
     border: 'linear-gradient(135deg, #0A84FF, #64D2FF, #0A84FF)',
     background: 'radial-gradient(circle at 86% 12%, rgba(122, 205, 255, 0.64) 0%, rgba(10, 132, 255, 0.28) 28%, rgba(10, 132, 255, 0) 48%), linear-gradient(135deg, #007AFF 0%, #0A84FF 58%, #64D2FF 100%)',
-    shadow: '0 4px 24px rgba(0,122,255,0.26)',
+    shadow: '0 2px 8px rgba(0,0,0,0.08)',
   },
   event: {
     border: 'linear-gradient(135deg, #30D158, #34C759, #00C7BE)',
     background: 'radial-gradient(circle at 86% 12%, rgba(128, 255, 194, 0.56) 0%, rgba(52, 199, 89, 0.25) 28%, rgba(52, 199, 89, 0) 48%), linear-gradient(135deg, #28B463 0%, #34C759 58%, #00C7BE 100%)',
-    shadow: '0 4px 24px rgba(52,199,89,0.25)',
+    shadow: '0 2px 8px rgba(0,0,0,0.08)',
   },
 }
 

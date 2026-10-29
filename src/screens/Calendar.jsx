@@ -167,7 +167,7 @@ function CalendarBottomSheet({ isOpen, onClose, currentMonth, onPrevMonth, onNex
                   color: isSelected ? '#fff' : '#1C1C1E',
                   background: isSelected ? GRADIENT : isToday ? '#fff' : 'transparent',
                   border: isToday && !isSelected ? '1.5px solid #1C1C1E' : '1.5px solid transparent',
-                  boxShadow: isSelected ? '0 8px 18px rgba(224,85,170,0.24)' : 'none',
+                  boxShadow: 'none',
                 }}>
                   {day}
                 </span>
@@ -312,7 +312,7 @@ function WeekStrip({ weekOffset, setWeekOffset, selectedDate, setSelectedDate, c
                 fontSize: 15, fontWeight: isSelected ? 700 : isToday ? 600 : 400,
                 color: isSelected ? '#fff' : '#1C1C1E',
                 background: isSelected ? GRADIENT : 'transparent',
-                boxShadow: isSelected ? '0 4px 12px rgba(224,85,170,0.35)' : 'none',
+                boxShadow: 'none',
                 border: isToday && !isSelected ? '1.5px solid #1C1C1E' : '1.5px solid transparent',
               }}>
                 {d.getDate()}
@@ -482,6 +482,10 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
 
   const items = useMemo(() => {
     const userId = currentUser?.id
+    const participantProfiles = rows => rows
+      .filter(row => normalizeRsvpStatus(row.status) === 'yes')
+      .map(row => profilesById[row.user_id])
+      .filter(Boolean)
     const organized = organizedEvents.map(event => {
       const memberRows = rsvpsByEvent[event.id] ?? []
       const publicRows = publicRsvpsByEvent[event.id] ?? []
@@ -499,6 +503,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
         myStatus: 'organizer',
         stats,
         memberProfiles: memberRows.map(row => profilesById[row.user_id]).filter(Boolean),
+        participantProfiles: participantProfiles(memberRows),
       })
     })
 
@@ -522,6 +527,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
         myStatus,
         stats,
         memberProfiles: memberRows.map(row => profilesById[row.user_id]).filter(Boolean),
+        participantProfiles: participantProfiles(memberRows),
         invitationStatus: item.status,
       })
     })
@@ -529,7 +535,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
     return [...organized, ...guests].sort((a, b) => new Date(a.event.date || '9999-12-31') - new Date(b.event.date || '9999-12-31'))
   }, [organizedEvents, guestEvents, rsvpsByEvent, publicRsvpsByEvent, profilesById, currentUser?.id])
 
-  function buildItem({ event, filter, isOrganizer, myStatus, stats, memberProfiles, invitationStatus }) {
+  function buildItem({ event, filter, isOrganizer, myStatus, stats, memberProfiles, participantProfiles, invitationStatus }) {
     const date = event.date ? new Date(event.date) : null
     const isPast = date ? date <= new Date() : false
     return {
@@ -540,6 +546,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
       myStatus,
       stats,
       memberProfiles,
+      participantProfiles,
       invitationStatus,
       isPast,
       title: titleCase(event.name, 'Amiv'),
@@ -657,24 +664,11 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
             <div
               key={item.id}
               style={{
-                borderRadius: 22,
-                overflow: 'hidden',
-                marginBottom: 14,
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                transition: 'transform 0.22s ease, box-shadow 0.22s ease',
                 animationName: 'fadeInUp',
                 animationDuration: '0.4s',
                 animationFillMode: 'both',
                 animationTimingFunction: 'ease',
                 animationDelay: `${index * 0.08}s`,
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.12)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)'
               }}
             >
               <EventCard
@@ -703,9 +697,9 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
       position: 'relative',
       fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
     }}>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 14px 106px' }}>
-        <header style={{ padding: '0 2px 12px' }}>
-          <div style={{ padding: '18px 22px 22px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 16px 106px' }}>
+        <header style={{ paddingBottom: 12 }}>
+          <div style={{ padding: '18px 0 22px' }}>
             <h1 style={{
               margin: 0,
               fontSize: 26,
@@ -726,14 +720,6 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
 
           <button
             onClick={() => onCreateClick?.()}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'scale(1.015)'
-              e.currentTarget.style.boxShadow = '0 18px 38px rgba(224,85,170,0.34)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'scale(1)'
-              e.currentTarget.style.boxShadow = '0 14px 32px rgba(224,85,170,0.28)'
-            }}
             style={{
               width: '100%',
               minHeight: 68,
@@ -745,9 +731,9 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
               gridTemplateColumns: '38px 1fr 22px',
               alignItems: 'center',
               gap: 12,
-              boxShadow: '0 14px 32px rgba(224,85,170,0.28)',
+              border: 'none',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
               textAlign: 'left',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
             }}
           >
             <span style={{

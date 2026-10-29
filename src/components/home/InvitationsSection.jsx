@@ -102,12 +102,11 @@ export default function InvitationsSection({ invitations, userId, userEmail, onU
             borderRadius: 20,
             padding: '18px 16px',
             marginBottom: 14,
-            boxShadow: '0 2px 12px rgba(18,31,46,0.12)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
             border: '1px solid rgba(18,31,46,0.06)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
-            animation: inv.isPending ? 'pulse-border 2s ease-in-out infinite' : 'none',
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{

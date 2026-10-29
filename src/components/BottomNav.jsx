@@ -122,7 +122,7 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
             height: 48,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #e055aa, #f5a623)',
-            boxShadow: '0 4px 12px rgba(224,85,170,0.40)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

@@ -65,7 +65,7 @@ function Avatar({ profile, friend, size = 84, isCloseFriend = false }) {
       fontSize: 26,
       fontWeight: 850,
       flexShrink: 0,
-      boxShadow: '0 8px 22px rgba(224,85,170,0.20)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
       position: 'relative',
     }}>
       {avatarUrl ? (

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { getAvatarColor, getInitials } from './messages/utils'
 
 const AMIV_GRADIENT = 'linear-gradient(160deg, #e055aa, #f5a623)'
 const AMIV_GRADIENT_135 = 'linear-gradient(135deg, #e055aa, #f5a623)'
@@ -82,18 +83,28 @@ function normalizeStatus(status) {
   return status || null
 }
 
-function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
+const MAX_PARTICIPANT_AVATARS = 3
+
+function ParticipantAvatar({ profile, overlap }) {
+  const name = profile.first_name || profile.name || ''
+  const style = { width: 28, height: 28, borderRadius: '50%', border: '2px solid #fff', marginLeft: overlap ? -8 : 0, flexShrink: 0, boxSizing: 'border-box' }
+  if (profile.avatar_url) return <img src={profile.avatar_url} alt={name} style={{ ...style, objectFit: 'cover', display: 'block' }} />
+  return (
+    <div style={{ ...style, background: getAvatarColor(name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+      {getInitials(name)}
+    </div>
+  )
+}
+
+function OrganizerEventCard({ event, stats, participants, dateParts, openEvent, openChat }) {
   const [hovering, setHovering] = useState(false)
   const coverUrl = getCoverUrl(event.cover_image)
   const yesCount = getYesCount(stats, event)
   const title = titleCase(event.name, 'Événement')
   const details = [dateParts.longDate, dateParts.time, event.location].filter(Boolean).join(' · ')
   const isDeclined = normalizeStatus(event.rsvpStatus) === 'no'
-  const avatarGradients = [
-    'linear-gradient(135deg,#e055aa,#f5a623)',
-    'linear-gradient(135deg,#f5a623,#e055aa)',
-    'linear-gradient(135deg,#c044aa,#e8821a)',
-  ]
+  const shownParticipants = participants.slice(0, MAX_PARTICIPANT_AVATARS)
+  const moreCount = Math.max(0, yesCount - shownParticipants.length)
 
   return (
     <article
@@ -195,7 +206,7 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
             fontSize: 12,
             fontWeight: 800,
             lineHeight: 1.2,
-            boxShadow: '0 3px 10px rgba(224,85,170,0.4)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
           }}>
             {dateParts.badge}
           </div>
@@ -251,25 +262,29 @@ function OrganizerEventCard({ event, stats, dateParts, openEvent, openChat }) {
 
       <div style={{ padding: '12px 16px 14px', background: '#fff' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            {avatarGradients.map((background, i) => (
-              <div
-                key={background}
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background,
-                  border: '2px solid #fff',
-                  marginLeft: i === 0 ? 0 : -8,
-                  flexShrink: 0,
-                }}
-              />
-            ))}
-          </div>
-          <div style={{ color: '#3D3D3D', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', minWidth: 0 }}>
-            {yesCount} participants
-          </div>
+          {yesCount === 0 ? (
+            <div style={{ color: '#8E8E93', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', minWidth: 0 }}>
+              Aucun participant pour l'instant
+            </div>
+          ) : (
+            <>
+              {shownParticipants.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  {shownParticipants.map((profile, i) => (
+                    <ParticipantAvatar key={profile.id} profile={profile} overlap={i > 0} />
+                  ))}
+                  {moreCount > 0 && (
+                    <div style={{ height: 28, minWidth: 28, padding: '0 6px', boxSizing: 'border-box', borderRadius: 14, background: '#F2F2F7', border: '2px solid #fff', marginLeft: -8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#3D3D3D' }}>
+                      +{moreCount}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{ color: '#3D3D3D', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', minWidth: 0 }}>
+                {yesCount} participant{yesCount > 1 ? 's' : ''}
+              </div>
+            </>
+          )}
           <button
             type="button"
             onClick={(event) => {
@@ -317,6 +332,7 @@ export default function EventCard({
       }
     : baseEvent
   const stats = item?.stats ?? event.rsvpStats ?? {}
+  const participants = item?.participantProfiles ?? event.participantProfiles ?? []
   const dateParts = getLocalDateParts(event.date)
 
   const openEvent = () => {
@@ -334,6 +350,7 @@ export default function EventCard({
     <OrganizerEventCard
       event={event}
       stats={stats}
+      participants={participants}
       dateParts={dateParts}
       openEvent={openEvent}
       openChat={openChat}
