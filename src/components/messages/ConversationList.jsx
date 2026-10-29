@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { MoreHorizontal, Search, SquarePen, UserPlus } from 'lucide-react'
+import { EyeOff, MoreHorizontal, Search, SquarePen, Trash2, UserPlus } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, GRAY2, PAGE_BG, WHITE } from './constants'
 import { friendFirstName } from './utils'
-import { Avatar, EmptyState, SkeletonRow } from './MessageUI'
-import ConversationRow from './ConversationRow'
-import EventConversationCard from './EventConversationCard'
+import { Avatar, EmptyState } from './MessageUI'
+import ConversationRow, { ConversationRowSkeleton } from './ConversationRow'
 import NewMessageSheet from './NewMessageSheet'
 import FriendSearchSheet from './FriendSearchSheet'
 
@@ -184,35 +183,29 @@ export default function ConversationList({
             </div>
           )}
           {listLoading ? (
-            <div>
-              <SkeletonRow />
-              <SkeletonRow />
-              <SkeletonRow isLast />
+            <div style={{ margin: '0 -16px' }}>
+              <ConversationRowSkeleton />
+              <ConversationRowSkeleton />
+              <ConversationRowSkeleton isLast />
             </div>
           ) : visibleConversations.length === 0 ? (
             <EmptyState activeTab={activeTab} onNewMessage={openNewMessage} />
           ) : (
-            <div>
+            <div style={{ margin: '0 -16px' }}>
               {visibleConversations.map((conv, index) => (
-                conv.kind === 'event' ? (
-                  <EventConversationCard
-                    key={conv.id}
-                    conversation={conv}
-                    onOpenChannel={secretChannel => handleConversationTap(conv, secretChannel)}
-                    onHide={() => hideEventCard(conv.eventId)}
-                    onDelete={() => deleteEventConversation(conv)}
-                    currentUserId={effectiveUserId}
-                  />
-                ) : (
-                  <ConversationRow
-                    key={conv.id}
-                    conversation={{ ...conv, unreadCount: unreadByConversation.get(conv.conversationId) ?? 0 }}
-                    isLast={index === visibleConversations.length - 1}
-                    onClick={() => handleConversationTap(conv)}
-                    onDelete={() => hideConversation(conv)}
-                    currentUserId={effectiveUserId}
-                  />
-                )
+                <ConversationRow
+                  key={conv.id}
+                  conversation={conv.kind === 'event' ? conv : { ...conv, unreadCount: unreadByConversation.get(conv.conversationId) ?? 0 }}
+                  isLast={index === visibleConversations.length - 1}
+                  onClick={secretChannel => handleConversationTap(conv, secretChannel)}
+                  actions={conv.kind === 'event' ? [
+                    { label: 'Masquer la conversation', swipeLabel: 'Masquer', icon: <EyeOff size={17} strokeWidth={2} />, swipeIcon: <EyeOff size={18} strokeWidth={2.2} />, swipeColor: '#8E8E93', onSelect: () => hideEventCard(conv.eventId) },
+                    { label: 'Supprimer définitivement', swipeLabel: 'Supprimer', icon: <Trash2 size={17} strokeWidth={2} />, swipeIcon: <Trash2 size={18} strokeWidth={2.2} />, onSelect: () => deleteEventConversation(conv) },
+                  ] : [
+                    { label: 'Supprimer la conversation', swipeLabel: 'Supprimer', icon: <Trash2 size={17} strokeWidth={2} />, swipeIcon: <Trash2 size={18} strokeWidth={2.2} />, onSelect: () => hideConversation(conv) },
+                  ]}
+                  currentUserId={effectiveUserId}
+                />
               ))}
             </div>
           )}

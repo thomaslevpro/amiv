@@ -1,130 +1,241 @@
-import { useRef, useState } from 'react'
-import { BellOff, Mic, Trash2 } from 'lucide-react'
-import { BLACK, CARD_SHADOW, DELETE_REVEAL_WIDTH, FONT, GRADIENT, GRAY1, GRAY2, WHITE } from './constants'
-import { formatConvTime, isOwnMessage, previewMessage } from './utils'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { BellOff, CalendarFold, Lock, MessageCircle, Mic } from 'lucide-react'
+import { BG, BLACK, DELETE_REVEAL_WIDTH, FONT, GRADIENT, GRAY1, WHITE } from './constants'
+import { formatConvTime, formatEventDateTime, isOwnMessage, previewMessage } from './utils'
 import { Avatar } from './MessageUI'
+import { getCoverUrl } from '../home/MyEventsSection'
 
-function EventAvatar({ emoji, size = 50 }) {
+// Géométrie commune à toutes les lignes de la messagerie
+export const ROW_HEIGHT = 72
+export const ROW_PADDING_X = 16
+export const ROW_IMAGE_SIZE = 52
+export const ROW_GAP = 12
+const LONG_PRESS_MS = 500
+
+// Trait de 0,5 px qui commence au niveau du texte
+function RowSeparator() {
+  return <div style={{ position: 'absolute', left: ROW_PADDING_X + ROW_IMAGE_SIZE + ROW_GAP, right: 0, bottom: 0, height: 1, background: '#D8D8DC', transform: 'scaleY(0.5)', transformOrigin: 'bottom', pointerEvents: 'none' }} />
+}
+
+function EventImage({ coverUrl }) {
+  const [failed, setFailed] = useState(false)
   return (
-    <div style={{
-      width: size,
-      height: size,
-      borderRadius: 18,
-      background: 'linear-gradient(135deg, rgba(224,85,170,0.10), rgba(245,166,35,0.10))',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: size > 52 ? 24 : 22,
-      flexShrink: 0,
-    }}>
-      {emoji || '🎉'}
-    </div>
+    <span style={{ width: ROW_IMAGE_SIZE, height: ROW_IMAGE_SIZE, borderRadius: 14, background: GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      {coverUrl && !failed
+        ? <img src={coverUrl} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        : <CalendarFold size={24} strokeWidth={1.7} color={WHITE} />}
+    </span>
   )
 }
 
-export default function ConversationRow({ conversation, isLast, onClick, onDelete, currentUserId }) {
-  const unread = conversation.unreadCount > 0
+function UnreadBadge({ variant, count, label }) {
+  const styles = {
+    direct: { background: GRADIENT, color: WHITE },
+    general: { background: '#FCE4F1', color: '#B8287A' },
+    secret: { background: BLACK, color: WHITE },
+  }[variant]
+  const Icon = variant === 'secret' ? Lock : variant === 'general' ? MessageCircle : null
+  return (
+    <span aria-label={label} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, fontSize: 12, fontWeight: 700, lineHeight: 1, ...styles }}>
+      {Icon && <Icon size={11} strokeWidth={2.4} color={styles.color} />}
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
+
+function unreadLabel(count, where) {
+  return `${count} non lu${count > 1 ? 's' : ''}${where ? ` dans ${where}` : ''}`
+}
+
+// Canal ouvert au toucher : celui qui a des non lus, Général en priorité.
+export function initialEventChannelIsSecret(conversation, canSeeSecret) {
+  return canSeeSecret && !(conversation.generalUnreadCount > 0) && conversation.secretUnreadCount > 0
+}
+
+function ActionSheet({ title, actions, onClose }) {
+  return createPortal(
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'flex-end', fontFamily: FONT }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', padding: '0 8px calc(8px + env(safe-area-inset-bottom, 0px))', boxSizing: 'border-box' }}>
+        <div style={{ background: WHITE, borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', fontSize: 13, color: GRAY1, textAlign: 'center', borderBottom: '0.5px solid rgba(60,60,67,0.18)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+          {actions.map((action, index) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={() => { onClose(); action.onSelect() }}
+              style={{ width: '100%', border: 'none', borderTop: index ? '0.5px solid rgba(60,60,67,0.18)' : 'none', background: WHITE, padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 17, color: action.color || '#FF3B30', fontFamily: FONT, cursor: 'pointer' }}
+            >
+              {action.icon}
+              {action.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={onClose} style={{ width: '100%', marginTop: 8, border: 'none', borderRadius: 14, background: WHITE, padding: 16, fontSize: 17, fontWeight: 600, color: '#007AFF', fontFamily: FONT, cursor: 'pointer' }}>
+          Annuler
+        </button>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// Ligne de la messagerie, identique pour un événement et une discussion
+// privée. actions : [{ label, icon, color, onSelect }] proposées par un appui
+// long et révélées par un balayage vers la gauche.
+export default function ConversationRow({ conversation, isLast, onClick, actions = [], currentUserId }) {
+  const isEvent = conversation.kind === 'event'
+  const event = conversation.event ?? {}
+  // Le canal secret n'existe pas pour la personne fêtée
+  const canSeeSecret = isEvent && !!event.birthday_person_user_id && currentUserId !== event.birthday_person_user_id
+  const generalUnread = isEvent ? conversation.generalUnreadCount || 0 : 0
+  const secretUnread = canSeeSecret ? conversation.secretUnreadCount || 0 : 0
+  const directUnread = isEvent ? 0 : conversation.unreadCount || 0
+  const unread = generalUnread + secretUnread + directUnread > 0
   const preview = previewMessage(conversation.lastMessage?.content)
-  const previewPrefix = isOwnMessage(conversation.lastMessage, currentUserId) ? 'Toi : ' : ''
+  const hasMessage = !!conversation.lastMessage?.id
+  const subtitle = isEvent
+    ? [formatEventDateTime(event.date), event.location?.trim()].filter(Boolean).join(' · ')
+    : `${isOwnMessage(conversation.lastMessage, currentUserId) ? 'Toi : ' : ''}${preview.text}`
+
+  const revealWidth = DELETE_REVEAL_WIDTH * actions.length
   const [offset, setOffset] = useState(0)
   const [dragging, setDragging] = useState(false)
+  const [showActions, setShowActions] = useState(false)
   const pointerRef = useRef(null)
   const suppressClickRef = useRef(false)
+  const longPressRef = useRef(null)
 
-  function handlePointerDown(event) {
-    pointerRef.current = { x: event.clientX, y: event.clientY, offset, active: true }
-    suppressClickRef.current = false
-    event.currentTarget.setPointerCapture?.(event.pointerId)
+  useEffect(() => () => clearTimeout(longPressRef.current), [])
+
+  function cancelLongPress() {
+    clearTimeout(longPressRef.current)
+    longPressRef.current = null
   }
 
-  function handlePointerMove(event) {
+  function handlePointerDown(e) {
+    pointerRef.current = { x: e.clientX, y: e.clientY, offset, active: true }
+    suppressClickRef.current = false
+    if (actions.length && offset === 0) {
+      longPressRef.current = setTimeout(() => {
+        longPressRef.current = null
+        suppressClickRef.current = true
+        pointerRef.current = null
+        navigator.vibrate?.(10)
+        setShowActions(true)
+      }, LONG_PRESS_MS)
+    }
+  }
+
+  function handlePointerMove(e) {
     const pointer = pointerRef.current
     if (!pointer?.active) return
-    const dx = event.clientX - pointer.x
-    const dy = event.clientY - pointer.y
-    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
-    if (Math.abs(dy) > Math.abs(dx) && offset === 0) return
-    const nextOffset = Math.min(0, Math.max(-DELETE_REVEAL_WIDTH, pointer.offset + dx))
-    setOffset(nextOffset)
+    const dx = e.clientX - pointer.x
+    const dy = e.clientY - pointer.y
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+    cancelLongPress()
+    if (!revealWidth || (Math.abs(dy) > Math.abs(dx) && offset === 0)) return
+    if (!dragging) e.currentTarget.setPointerCapture?.(e.pointerId)
+    setOffset(Math.min(0, Math.max(-revealWidth, pointer.offset + dx)))
     setDragging(true)
     if (Math.abs(dx) > 8) suppressClickRef.current = true
   }
 
-  function handlePointerUp(event) {
+  function handlePointerUp() {
+    cancelLongPress()
+    if (!pointerRef.current) return
     pointerRef.current = null
-    event.currentTarget.releasePointerCapture?.(event.pointerId)
-    setOffset(current => (current < -DELETE_REVEAL_WIDTH / 2 ? -DELETE_REVEAL_WIDTH : 0))
+    setOffset(current => (current < -revealWidth / 2 ? -revealWidth : 0))
     window.setTimeout(() => setDragging(false), 0)
   }
 
-  function handleClick(event) {
+  function handleClick(e) {
     if (suppressClickRef.current || offset < 0) {
-      event.preventDefault()
+      e.preventDefault()
       setOffset(0)
       suppressClickRef.current = false
       return
     }
-    onClick()
-  }
-
-  function handleDelete(event) {
-    event.stopPropagation()
-    setOffset(0)
-    onDelete()
+    onClick(isEvent ? initialEventChannelIsSecret(conversation, canSeeSecret) : undefined)
   }
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', background: '#FF3B30', borderRadius: 20, boxShadow: CARD_SHADOW, marginBottom: 10 }}>
-      <button
-        type="button"
-        aria-label={`Supprimer ${conversation.title}`}
-        onClick={handleDelete}
-        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: DELETE_REVEAL_WIDTH, border: 'none', background: '#FF3B30', color: WHITE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11, fontWeight: 750, fontFamily: FONT, cursor: 'pointer' }}
-      >
-        <Trash2 size={18} strokeWidth={2.2} color={WHITE} />
-        Supprimer
-      </button>
+    <div style={{ position: 'relative', overflow: 'hidden', background: WHITE }}>
+      {actions.length > 0 && (
+        <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, display: 'flex' }}>
+          {actions.map(action => (
+            <button
+              key={action.label}
+              type="button"
+              tabIndex={offset < 0 ? 0 : -1}
+              onClick={e => { e.stopPropagation(); setOffset(0); action.onSelect() }}
+              style={{ width: DELETE_REVEAL_WIDTH, border: 'none', background: action.swipeColor || '#FF3B30', color: WHITE, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11, fontWeight: 700, fontFamily: FONT, cursor: 'pointer' }}
+            >
+              {action.swipeIcon}
+              {action.swipeLabel || action.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        style={{ transform: `translateX(${offset}px)`, transition: dragging ? 'none' : 'transform 0.18s ease', touchAction: 'pan-y', background: WHITE, borderRadius: 20 }}
+        onContextMenu={e => { if (actions.length) e.preventDefault() }}
+        style={{ position: 'relative', transform: `translateX(${offset}px)`, transition: dragging ? 'none' : 'transform 0.18s ease', touchAction: 'pan-y', background: WHITE, userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
       >
         <button
           type="button"
           onClick={handleClick}
-          style={{ width: '100%', border: 'none', background: WHITE, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', cursor: 'pointer', fontFamily: FONT, borderRadius: 20, minHeight: 82 }}
+          style={{ width: '100%', height: ROW_HEIGHT, border: 'none', background: WHITE, padding: `0 ${ROW_PADDING_X}px`, display: 'flex', alignItems: 'center', gap: ROW_GAP, textAlign: 'left', cursor: 'pointer', fontFamily: FONT, boxSizing: 'border-box' }}
         >
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            {conversation.kind === 'event'
-              ? <EventAvatar emoji={conversation.emoji} size={56} />
-              : <Avatar name={conversation.title} url={conversation.avatarUrl} size={56} isCloseFriend={conversation.isCloseFriend} />}
-            {unread && (
-              <div style={{ position: 'absolute', top: -4, right: -4, minWidth: 22, height: 22, padding: '0 6px', borderRadius: 11, background: GRADIENT, border: `2px solid ${WHITE}`, color: WHITE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, lineHeight: 1 }}>
-                {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
-              </div>
-            )}
-          </div>
+          <span style={{ position: 'relative', width: ROW_IMAGE_SIZE, height: ROW_IMAGE_SIZE, flexShrink: 0, display: 'block' }}>
+            {isEvent
+              ? <EventImage coverUrl={getCoverUrl(event.cover_image)} />
+              : <Avatar name={conversation.title} url={conversation.avatarUrl} size={ROW_IMAGE_SIZE} isCloseFriend={conversation.isCloseFriend} />}
+          </span>
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <div style={{ flex: 1, minWidth: 0, fontSize: 17, fontWeight: 800, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+              <span style={{ minWidth: 0, fontSize: 16, lineHeight: '21px', fontWeight: unread ? 700 : 600, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {conversation.title}
-              </div>
-              {conversation.isMuted && <BellOff size={14} strokeWidth={1.8} color={GRAY2} />}
-              <div style={{ fontSize: 14, color: GRAY2, flexShrink: 0 }}>{formatConvTime(conversation.lastAt)}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 15, color: unread ? BLACK : GRAY1, fontWeight: unread ? 800 : 400, minWidth: 0 }}>
-              {preview.voice && <Mic size={16} strokeWidth={2} color={unread ? BLACK : GRAY1} />}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {previewPrefix}{preview.text}
               </span>
-            </div>
-          </div>
+              {conversation.isMuted && <BellOff size={13} strokeWidth={1.8} color={GRAY1} style={{ flexShrink: 0 }} />}
+            </span>
+            <span style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, fontSize: 14, lineHeight: '19px', color: GRAY1, minWidth: 0 }}>
+              {!isEvent && preview.voice && <Mic size={14} strokeWidth={2} color={GRAY1} style={{ flexShrink: 0 }} />}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</span>
+            </span>
+          </span>
+
+          <span style={{ alignSelf: 'stretch', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: 5 }}>
+            <span style={{ fontSize: 13, lineHeight: '18px', minHeight: 18, color: GRAY1 }}>{hasMessage ? formatConvTime(conversation.lastAt) : ''}</span>
+            <span style={{ display: 'flex', gap: 4, minHeight: 20 }}>
+              {directUnread > 0 && <UnreadBadge variant="direct" count={directUnread} label={unreadLabel(directUnread)} />}
+              {generalUnread > 0 && <UnreadBadge variant="general" count={generalUnread} label={unreadLabel(generalUnread, 'Général')} />}
+              {secretUnread > 0 && <UnreadBadge variant="secret" count={secretUnread} label={unreadLabel(secretUnread, 'Secret')} />}
+            </span>
+          </span>
         </button>
+        {!isLast && <RowSeparator />}
       </div>
+
+      {showActions && <ActionSheet title={conversation.title} actions={actions} onClose={() => setShowActions(false)} />}
+    </div>
+  )
+}
+
+export function ConversationRowSkeleton({ isLast }) {
+  return (
+    <div style={{ position: 'relative', height: ROW_HEIGHT, padding: `0 ${ROW_PADDING_X}px`, display: 'flex', alignItems: 'center', gap: ROW_GAP, background: WHITE }}>
+      <div style={{ width: ROW_IMAGE_SIZE, height: ROW_IMAGE_SIZE, borderRadius: '50%', background: BG, flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ width: '55%', height: 15, borderRadius: 8, background: BG, marginBottom: 8 }} />
+        <div style={{ width: '80%', height: 13, borderRadius: 7, background: BG }} />
+      </div>
+      {!isLast && <RowSeparator />}
     </div>
   )
 }
