@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
-import FriendSuggestions from '../components/FriendSuggestions'
 import TrendingNow from '../components/TrendingNow'
 import BirthdaySection from '../components/home/BirthdaySection'
 import InvitationsSection from '../components/home/InvitationsSection'
@@ -34,7 +33,7 @@ export default function Home({
 
   const userId = session?.user?.id
   const userEmail = session?.user?.email
-  const { suggestions, pendingRequests, sendRequest, dismissSuggestion, acceptRequest, declineRequest } = useFriendships(userId)
+  const { pendingRequests, acceptRequest, declineRequest } = useFriendships(userId)
   const { invitations, refetchInvitations, myEvents, profileName, profileAvatar } = useHomeData(userId, userEmail)
   const { feed: availabilityFeed } = useAvailability(userId)
   const [toast, setToast] = useState(null)
@@ -158,13 +157,6 @@ export default function Home({
           }}
           onEventClick={onNotifEventClick ?? onEventClick}
         />
-
-        {suggestions.length > 0 && (
-          <>
-            <SectionHeader title="Suggestions" />
-            <FriendSuggestions suggestions={suggestions} onAdd={sendRequest} onDismiss={dismissSuggestion} />
-          </>
-        )}
 
         <MyEventsSection
           events={myEvents}

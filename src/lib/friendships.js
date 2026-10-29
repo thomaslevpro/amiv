@@ -12,54 +12,12 @@ export async function dismissFriendSuggestion(dismissedUserId) {
   return { error: error?.code === '23505' ? null : error }
 }
 
-export async function searchUsers(query, currentUserId) {
+// search_people : nom, prénom ou pseudo (partiel), ou email exact. Mêmes exclusions
+// que les suggestions ; les amis reviennent avec is_friend = true.
+export async function searchPeople(query) {
   const search = query?.trim()
-  if (!search || search.length < 2 || !currentUserId) return { data: [], error: null }
-
-  const friendshipsRes = await supabase
-    .from('friendships')
-    .select('requester_id, addressee_id, status, id')
-    .or(`requester_id.eq.${currentUserId},addressee_id.eq.${currentUserId}`)
-    .in('status', ['pending', 'accepted'])
-
-  if (friendshipsRes.error) return { data: null, error: friendshipsRes.error }
-
-  const excludedIds = [
-    currentUserId,
-    ...(friendshipsRes.data ?? [])
-      .filter(f => {
-        const iSent = f.requester_id === currentUserId
-        return f.status === 'accepted' || (f.status === 'pending' && !iSent)
-      })
-      .map(f => f.requester_id === currentUserId ? f.addressee_id : f.requester_id),
-  ].filter(Boolean)
-
-  const pendingSentMap = Object.fromEntries(
-    (friendshipsRes.data ?? [])
-      .filter(f => f.status === 'pending' && f.requester_id === currentUserId)
-      .map(f => [f.addressee_id, { friendshipId: f.id, status: 'pending_sent' }])
-  )
-
-  // search_profiles : pseudo / nom (partiel) ou email exact, sans exposer les emails
-  let profilesQuery = supabase
-    .rpc('search_profiles', { p_query: search })
-    .select('id, name, first_name, username, avatar_url')
-    .limit(10)
-
-  if (excludedIds.length > 0) {
-    profilesQuery = profilesQuery.not('id', 'in', `(${excludedIds.join(',')})`)
-  }
-
-  const { data, error } = await profilesQuery
-  if (error) return { data: null, error }
-
-  return {
-    data: (data ?? []).map(profile => ({
-      ...profile,
-      ...(pendingSentMap[profile.id] ?? {}),
-    })),
-    error: null,
-  }
+  if (!search || search.length < 2) return { data: [], error: null }
+  return supabase.rpc('search_people', { p_query: search })
 }
 
 export async function sendFriendRequest(requesterId, addresseeId, eventContextId = null) {

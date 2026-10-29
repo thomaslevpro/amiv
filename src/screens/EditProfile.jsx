@@ -6,6 +6,7 @@ import { uploadAvatar } from '../lib/avatar'
 export default function EditProfile({ onSave, onBack, isOnboarding = false, initialFocus = null }) {
   const [name, setName] = useState('')
   const [birthday, setBirthday] = useState('')
+  const [city, setCity] = useState('')
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [existingAvatarUrl, setExistingAvatarUrl] = useState(null)
@@ -22,10 +23,11 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.rpc('get_my_profile').select('name, first_name, birthday, avatar_url, username').maybeSingle()
+      const { data } = await supabase.rpc('get_my_profile').select('name, first_name, birthday, avatar_url, username, city').maybeSingle()
       if (data?.name) setName(data.name)
       else if (data?.first_name) setName(data.first_name)
       if (data?.birthday) setBirthday(data.birthday)
+      if (data?.city) setCity(data.city)
       if (data?.avatar_url) { setAvatarPreview(data.avatar_url); setExistingAvatarUrl(data.avatar_url) }
       if (data?.username) {
         setUsername(data.username)
@@ -62,6 +64,7 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
         name: name.trim(),
         first_name: name.trim(),
         birthday: birthday || null,
+        city: city.trim() || null,
         avatar_url: avatar_url ?? null,
         username: username.trim() || null,
       }).eq('id', user.id)
@@ -171,6 +174,25 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
               boxShadow: '0 1px 8px rgba(0,0,0,0.07)', boxSizing: 'border-box',
             }}
           />
+        </div>
+
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 7, paddingLeft: 4, fontWeight: 500 }}>Ville</div>
+          <input
+            value={city}
+            onChange={e => setCity(e.target.value)}
+            placeholder="Ta ville"
+            autoComplete="address-level2"
+            maxLength={80}
+            style={{
+              width: '100%', padding: '15px 16px', borderRadius: 14, border: 'none',
+              background: '#fff', fontSize: 16, color: '#1C1C1E', outline: 'none',
+              boxShadow: '0 1px 8px rgba(0,0,0,0.07)', boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ fontSize: 11, color: '#AEAEB2', marginTop: 5, paddingLeft: 4 }}>
+            Visible par toi seul·e · aide à te proposer des amis
+          </div>
         </div>
 
         <div style={{ marginBottom: 24 }}>

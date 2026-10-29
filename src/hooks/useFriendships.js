@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  getFriendSuggestions,
-  dismissFriendSuggestion,
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
@@ -11,19 +9,16 @@ import {
 } from '../lib/friendships'
 
 export function useFriendships(userId) {
-  const [suggestions, setSuggestions] = useState([])
   const [friends, setFriends] = useState([])
   const [pendingRequests, setPendingRequests] = useState([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     if (!userId) return
-    const [sugRes, friendsRes, pendingRes] = await Promise.all([
-      getFriendSuggestions(userId),
+    const [friendsRes, pendingRes] = await Promise.all([
       getFriends(userId),
       getPendingRequests(userId),
     ])
-    if (sugRes.data) setSuggestions(sugRes.data)
     if (friendsRes.data) setFriends(friendsRes.data)
     if (pendingRes.data) setPendingRequests(pendingRes.data)
     setLoading(false)
@@ -60,18 +55,6 @@ export function useFriendships(userId) {
 
   const sendRequest = async (addresseeId, eventContextId = null) => {
     const { error } = await sendFriendRequest(userId, addresseeId, eventContextId)
-    if (!error) setSuggestions(prev => prev.filter(s => s.user_id !== addresseeId))
-    return { error }
-  }
-
-  const dismissSuggestion = async (dismissedUserId) => {
-    const dismissed = suggestions.find(s => s.user_id === dismissedUserId)
-    setSuggestions(prev => prev.filter(s => s.user_id !== dismissedUserId))
-    const { error } = await dismissFriendSuggestion(dismissedUserId)
-    if (error && dismissed) {
-      console.error('[Friendships] dismiss suggestion failed:', error)
-      setSuggestions(prev => prev.some(s => s.user_id === dismissedUserId) ? prev : [...prev, dismissed])
-    }
     return { error }
   }
 
@@ -105,5 +88,5 @@ export function useFriendships(userId) {
     return { error }
   }
 
-  return { suggestions, friends, pendingRequests, loading, sendRequest, dismissSuggestion, acceptRequest, declineRequest, toggleCloseFriend }
+  return { friends, pendingRequests, loading, sendRequest, acceptRequest, declineRequest, toggleCloseFriend }
 }

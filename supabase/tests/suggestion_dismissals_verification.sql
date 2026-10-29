@@ -15,6 +15,7 @@ declare
   E uuid := '00000000-0000-4000-a000-000000000026'; -- ni nom ni pseudo
   X uuid := '00000000-0000-4000-a000-000000000027'; -- bloqué par A
   Y uuid := '00000000-0000-4000-a000-000000000028'; -- a bloqué A
+  W uuid := '00000000-0000-4000-a000-000000000029'; -- ami de tous (ami en commun)
   cases text[][] := array[
     ['anon lit suggestion_dismissals', 'anon', 'select count(*) from suggestion_dismissals', 'ERR 42501'],
     ['A voit B, C, N (pseudo seul), U (nom seul) ; pas E, X, Y', 'A', $s$select string_agg(coalesce(name, '-') || '/' || coalesce(username, '-'), ',' order by user_id) from get_friend_suggestions('00000000-0000-4000-a000-000000000021') where user_id::text like '00000000-0000-4000-a000-00000000002_'$s$, 'Bob Dry/drybob,Chloé Dry/drychloe,-/drynoname,Ugo Dry/-'],
@@ -49,7 +50,8 @@ begin
     (U, 'dry-su@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
     (E, 'dry-se@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
     (X, 'dry-sx@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
-    (Y, 'dry-sy@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
+    (Y, 'dry-sy@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
+    (W, 'dry-sw@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
   insert into profiles (id, email, first_name, name, username) values
     (A, 'dry-sa@amiv.test', 'Alice', 'Dry', 'dryalice'),
     (B, 'dry-sb@amiv.test', 'Bob', 'Dry', 'drybob'),
@@ -58,10 +60,14 @@ begin
     (U, 'dry-su@amiv.test', 'Ugo', 'Dry', null),
     (E, 'dry-se@amiv.test', null, ' ', null),
     (X, 'dry-sx@amiv.test', 'Xavier', 'Dry', 'dryxavier'),
-    (Y, 'dry-sy@amiv.test', 'Yann', 'Dry', 'dryyann')
+    (Y, 'dry-sy@amiv.test', 'Yann', 'Dry', 'dryyann'),
+    (W, 'dry-sw@amiv.test', 'Wendy', 'Dry', 'drywendy')
   on conflict (id) do update
     set first_name = excluded.first_name, name = excluded.name, username = excluded.username;
   insert into user_blocks (blocker_id, blocked_id) values (A, X), (Y, A);
+  -- Les suggestions exigent un lien : W est ami de tout le monde.
+  insert into friendships (requester_id, addressee_id, status)
+  select W, t.id, 'accepted' from unnest(array[A, B, C, N, U, E, X, Y]) t(id);
 
   for i in 1 .. array_length(cases, 1) loop
     who := cases[i][2];
