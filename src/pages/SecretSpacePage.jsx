@@ -261,7 +261,7 @@ export default function SecretSpacePage() {
   const revealDate = useMemo(() => addDays(event?.date, 1), [event?.date])
   const revealDays = useMemo(() => daysUntil(revealDate), [revealDate])
   const revealed = useMemo(() => isRevealed(event?.date), [event?.date])
-  const birthdayFirstName = firstName(event?.birthdayProfile, 'Thomas')
+  const birthdayFirstName = firstName(event?.birthdayProfile, 'la personne fêtée')
   const contributorCount = contributors.filter(contributor => contributor.nb_memories > 0).length
   const guestCount = contributors.length
   const {

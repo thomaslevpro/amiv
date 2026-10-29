@@ -1,0 +1,61 @@
+workflows:
+  ios-release:
+    name: iOS → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: amiv_asc
+    environment:
+      # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY et APP_STORE_APPLE_ID
+      groups:
+        - amiv_env
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.amiv
+      node: 22
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: release
+          include: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Vérifier les variables
+        script: |
+          for var in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY APP_STORE_APPLE_ID; do
+            eval "value=\${$var}"
+            if [ -z "$value" ]; then
+              echo "Variable $var manquante dans le groupe amiv_env"
+              exit 1
+            fi
+          done
+      - name: Installer les dépendances
+        script: npm ci
+      - name: Build web
+        script: npm run build
+      - name: Copier le build dans le projet iOS
+        script: npx cap sync ios
+      - name: Préparer la signature
+        script: xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          # Numéro de build = dernier build TestFlight + 1 (0 si aucun build encore)
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" --all-versions 2>/dev/null || echo 0)
+          case "$LATEST" in ''|*[!0-9]*) LATEST=0 ;; esac
+          NEXT=$((LATEST + 1))
+          echo "Numéro de build : $NEXT"
+          xcode-project build-ipa \
+            --project ios/App/App.xcodeproj \
+            --scheme App \
+            --archive-xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$NEXT"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

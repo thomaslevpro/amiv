@@ -5,7 +5,7 @@
 	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>fr</string>
 	<key>CFBundleDisplayName</key>
 	<string>Amiv</string>
 	<key>CFBundleExecutable</key>
@@ -14,6 +14,10 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>fr</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -33,8 +37,16 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Amiv utilise l’appareil photo pour que tu puisses prendre ta photo de profil, un souvenir ou une photo de couverture d’événement.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Amiv a besoin de cet accès pour enregistrer dans ta photothèque les images que tu choisis de sauvegarder.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Amiv accède à tes photos pour que tu puisses choisir ta photo de profil, ajouter des souvenirs à un événement ou une photo de couverture.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -60,7 +72,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
