@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom'
 const EVENT = { id: '11111111-1111-1111-1111-111111111111', name: 'Soirée' }
 
 vi.mock('@capacitor/app', () => ({ App: { addListener: () => Promise.resolve({ remove() {} }) } }))
-vi.mock('./lib/native', () => ({ isNative: false, parseDeepLink: () => null }))
+vi.mock('./lib/native', () => ({ isNative: false, parseDeepLink: () => null, setStatusBarDark() {} }))
 vi.mock('./lib/analytics', () => ({ identifyUser() {}, resetAnalyticsUser() {}, track() {} }))
 vi.mock('./lib/monitoring', () => ({ captureSupabaseError() {}, clearMonitoringUser() {}, setMonitoringUser() {} }))
 vi.mock('./lib/push', () => ({
@@ -57,13 +57,35 @@ vi.mock('./screens/Calendar', () => ({
   ),
 }))
 vi.mock('./screens/EventDetail', () => ({
-  default: ({ event, onBack, onChat }) => (
-    <div><h1>Page de l'événement</h1><button onClick={() => onChat(event)}>Chat</button><Back onBack={onBack} /></div>
+  default: ({ event, onBack, onChat, onSecretSpace }) => (
+    <div>
+      <h1>Page de l'événement</h1>
+      <button onClick={() => onChat(event)}>Chat</button>
+      <button onClick={() => onSecretSpace(event)}>Espace secret</button>
+      <Back onBack={onBack} />
+    </div>
+  ),
+}))
+vi.mock('./pages/SecretSpacePage', () => ({
+  default: ({ initialTab, onBack, onOpenSecretChat }) => (
+    <div>
+      <h1>Espace secret</h1>
+      <p>Onglet {initialTab}</p>
+      <button onClick={() => onOpenSecretChat(EVENT)}>Discussion secrète</button>
+      <Back onBack={() => onBack(EVENT)} />
+    </div>
   ),
 }))
 vi.mock('./screens/Messages', () => ({
-  default: ({ event, onBack, onEventOpen, onDirectConvOpen }) => event
-    ? <div><h1>Chat de l'événement</h1><Back onBack={onBack} /></div>
+  default: ({ event, onBack, onEventOpen, onDirectConvOpen, onOpenSecretSpace }) => event
+    ? (
+      <div>
+        <h1>Chat de l'événement</h1>
+        <p>Canal {event.initialIsSecret ? 'Secret' : 'Général'}</p>
+        <button onClick={() => onOpenSecretSpace({ eventId: event.id, tab: 'gifts' })}>Ouvrir l'espace secret</button>
+        <Back onBack={onBack} />
+      </div>
+    )
     : (
       <div>
         <h1>Messages</h1>
@@ -235,6 +257,87 @@ it('écran ouvert sans historique (lien direct) : le retour de l\'app ramène à
   render(<App />)
   await expectPage('Page de l\'événement')
   expectNav(false)
+  tap('Retour')
+  await expectPage('Accueil')
+  expectNav(true)
+})
+
+// Espace secret ↔ chat Secret : l'un ouvre l'autre, le retour ramène à
+// l'autre puis à la page de départ, barre du bas comprise.
+describe.each(Object.entries(BACKS))('espace secret et chat Secret — %s', (_, back) => {
+  const expectText = text => waitFor(() => expect(screen.getByText(text)).toBeTruthy())
+
+  it('événement → espace secret → discussion secrète → retour ×3', async () => {
+    await start()
+    tap('Ouvrir l\'événement')
+    await expectPage('Page de l\'événement')
+    tap('Espace secret')
+    await expectPage('Espace secret')
+    await expectText('Onglet flashback')
+    expectNav(false)
+    tap('Discussion secrète')
+    await expectPage('Chat de l\'événement')
+    await expectText('Canal Secret')
+    expectNav(false)
+    await back()
+    await expectPage('Espace secret')
+    await back()
+    await expectPage('Page de l\'événement')
+    await back()
+    await expectPage('Accueil')
+    expectNav(true)
+  })
+
+  it('chat → espace secret → discussion secrète revient au même chat, sans empiler', async () => {
+    await start()
+    tap('Ouvrir l\'événement')
+    await expectPage('Page de l\'événement')
+    tap('Chat')
+    await expectPage('Chat de l\'événement')
+    await expectText('Canal Général')
+    tap('Ouvrir l\'espace secret')
+    await expectPage('Espace secret')
+    await expectText('Onglet gifts')
+    tap('Discussion secrète')
+    await expectPage('Chat de l\'événement')
+    await expectText('Canal Secret')
+    tap('Ouvrir l\'espace secret')
+    await expectPage('Espace secret')
+    await back()
+    await expectPage('Chat de l\'événement')
+    await expectText('Canal Secret')
+    await back()
+    await expectPage('Page de l\'événement')
+    await back()
+    await expectPage('Accueil')
+    expectNav(true)
+  })
+
+  it('Messages → conversation → espace secret → retour ×2 : barre visible', async () => {
+    await start()
+    tapTab(3)
+    await expectPage('Messages')
+    tap('Conversation d\'événement')
+    await expectPage('Chat de l\'événement')
+    tap('Ouvrir l\'espace secret')
+    await expectPage('Espace secret')
+    expectNav(false)
+    await back()
+    await expectPage('Chat de l\'événement')
+    await expectText('Canal Secret')
+    await back()
+    await expectPage('Messages')
+    expectNav(true)
+  })
+})
+
+it('lien direct vers l\'espace secret : retour vers la page de l\'événement puis l\'onglet', async () => {
+  window.history.replaceState(null, '', `/events/${EVENT.id}/secret-space`)
+  render(<App />)
+  await expectPage('Espace secret')
+  expectNav(false)
+  tap('Retour')
+  await expectPage('Page de l\'événement')
   tap('Retour')
   await expectPage('Accueil')
   expectNav(true)

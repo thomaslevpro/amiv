@@ -11,8 +11,9 @@ import { RSVP_CHANGED_EVENT } from '../lib/eventGuests'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
+import { canLinkSecretSpace, fetchSecretSpaceSummary, mostRelevantSecretTab, secretSummaryParts } from '../lib/secretSpace'
 
-export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead }) {
+export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onOpenSecretSpace }) {
   const [messages, setMessages] = useState([]), [input, setInput] = useState('')
   const [userId, setUserId] = useState(null), [isSecret, setIsSecret] = useState(false)
   const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null), [myRsvpStatus, setMyRsvpStatus] = useState(null)
@@ -31,7 +32,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const { unreadByConversation, totalUnread: unreadTotal } = useUnreadCounts(userId)
   const { guestLeaders } = useGuestLeader(event?.id)
   const guestLeaderIds = useMemo(() => new Set(guestLeaders.map(guestLeader => guestLeader.user_id)), [guestLeaders])
-  const canUseSecretChannel = !!event?.birthday_person_user_id && !!userId && userId !== event.birthday_person_user_id
+  const canUseSecretChannel = canLinkSecretSpace(event, userId)
+  const [secretSummary, setSecretSummary] = useState(null)
   const birthdayPersonFirstName = event?.birthdayFirstName || event?.birthday_person?.first_name || event?.birthdayPerson?.first_name || birthdayPersonProfile?.first_name || (birthdayPersonProfile?.name ? firstName(birthdayPersonProfile.name) : null) || 'La personne fêtée'
 
   useEffect(() => {
@@ -70,7 +72,25 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     return () => { cancelled = true }
   }, [event?.birthday_person_user_id, event?.birthdayFirstName, event?.birthday_person?.first_name, event?.birthdayPerson?.first_name])
 
-  useEffect(() => { if (!canUseSecretChannel && isSecret) setIsSecret(false) }, [canUseSecretChannel, isSecret])
+  // Attend l'utilisateur : avant, canUseSecretChannel est faux pour tout le monde
+  useEffect(() => { if (userId && !canUseSecretChannel && isSecret) setIsSecret(false) }, [userId, canUseSecretChannel, isSecret])
+
+  // Résumé de l'espace secret sous le bandeau du chat Secret
+  useEffect(() => {
+    if (!event?.id || !canUseSecretChannel || !isSecret) { setSecretSummary(null); return undefined }
+    let cancelled = false
+    refreshSecretSummary(() => cancelled)
+    return () => { cancelled = true }
+  }, [event?.id, canUseSecretChannel, isSecret])
+
+  async function refreshSecretSummary(isCancelled = () => false) {
+    try {
+      const summary = await fetchSecretSpaceSummary(event.id)
+      if (!isCancelled()) setSecretSummary(summary)
+    } catch (error) {
+      captureSupabaseError(error, { operation: 'fetch_secret_space_summary' })
+    }
+  }
 
   useEffect(() => {
     if (!event?.id || !userId) { setMyRsvpStatus(null); return undefined }
@@ -92,6 +112,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         message = (await enrichMessagesWithProfiles([fallback.data]))[0]
       } else message = { ...data, profile: data.profiles ?? null }
       if (!message) return
+      if (message.system_type) refreshSecretSummary()
       setMessages(prev => {
         if (prev.find(m => m.id === message.id)) return prev
         const withoutOptimistic = prev.filter(m => !(m.isOptimistic && m.user_id === message.user_id && m.content === message.content))
@@ -227,7 +248,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     if (memberError) { console.error('[Messages] event conversations error:', memberError); captureSupabaseError(memberError, { operation: 'get_my_event_conversation_ids' }) }
     const allIds = [...new Set(memberIds ?? [])]
     if (!allIds.length) return []
-    const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, location, cover_image, created_at, birthday_person_user_id, user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
+    const [{ data: eventsData }, { data: msgs }] = await Promise.all([supabase.from('events').select('id, name, emoji, type, date, location, cover_image, created_at, birthday_person_user_id, user_id').in('id', allIds), supabase.from('messages').select('id, event_id, content, created_at, user_id, is_secret, system_type').in('event_id', allIds).order('created_at', { ascending: false }).limit(500)])
     const lastByEvent = {}, generalLastByEvent = {}, secretLastByEvent = {}, generalUnreadByEvent = {}, secretUnreadByEvent = {}
     const lastReadByEvent = Object.fromEntries((rsvpRows ?? []).map(row => [row.event_id, row.last_read_at]))
     ;(msgs ?? []).forEach(message => {
@@ -237,7 +258,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       const dbSeenAt = lastReadByEvent[message.event_id] ? new Date(lastReadByEvent[message.event_id]).getTime() : 0
       const channelSeenAt = Math.max(dbSeenAt, readChannelLastRead(message.event_id, message.is_secret))
       const seenAt = channelSeenAt || (message.is_secret ? 0 : readSeen(`last_seen_event_${message.event_id}`))
-      if (message.user_id !== userId && new Date(message.created_at).getTime() > seenAt) {
+      // Messages système de l'espace secret : discrets, jamais « non lus »
+      if (!message.system_type && message.user_id !== userId && new Date(message.created_at).getTime() > seenAt) {
         if (message.is_secret) secretUnreadByEvent[message.event_id] = (secretUnreadByEvent[message.event_id] || 0) + 1
         else generalUnreadByEvent[message.event_id] = (generalUnreadByEvent[message.event_id] || 0) + 1
       }
@@ -411,5 +433,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} deleteEventConversation={deleteEventConversation} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
-  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} />
+  const openSecretSpace = onOpenSecretSpace && canUseSecretChannel
+    ? (tab, focusItemId = null) => onOpenSecretSpace({ eventId: event.id, tab: tab ?? mostRelevantSecretTab(messages), focusItemId })
+    : null
+  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} secretSummaryParts={secretSummary ? secretSummaryParts(secretSummary, event.date) : null} onOpenSecretSpace={openSecretSpace} />
 }

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, ExternalLink, Gift, Image, Plus, Sparkles, Upload, Users, X } from 'lucide-react'
+import { Check, ChevronLeft, ExternalLink, Gift, Image, Lock, MessageCircle, Plus, Sparkles, Upload, Users, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { setStatusBarDark } from '../lib/native'
+import { captureSupabaseError } from '../lib/monitoring'
+import { daysUntil, fetchSecretUnreadCount, formatEuros, hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_ON_DARK, SECRET_ACCENT_SOFT, SECRET_SPACE_TABS, secretRevealDate } from '../lib/secretSpace'
 import GuestLeaderBanner from '../components/GuestLeaderBanner'
 import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 import { uploadMemoryImage, withMemoryImageUrls } from '../lib/memories'
+import { sortGuests } from '../lib/eventGuests'
 
 const COLORS = {
   bg: '#F5F5F5',
@@ -57,25 +58,6 @@ function formatHeroDate(value) {
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 }
 
-function addDays(value, amount) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  date.setDate(date.getDate() + amount)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-function daysUntil(value) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  date.setHours(0, 0, 0, 0)
-  return Math.ceil((date - today) / 86400000)
-}
-
 function isRevealed(value) {
   const days = daysUntil(value)
   return days !== null && days <= 0
@@ -83,9 +65,7 @@ function isRevealed(value) {
 
 function formatMoney(value) {
   if (value === null || value === undefined || value === '') return null
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return null
-  return `${numeric.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`
+  return formatEuros(value)
 }
 
 function firstName(profile, fallback = 'Quelqu’un') {
@@ -220,19 +200,21 @@ function EmptyCard({ children }) {
   )
 }
 
-export default function SecretSpacePage() {
-  const { id: eventId } = useParams()
-  const navigate = useNavigate()
-  const eventDetailPath = `/events/${eventId}`
+// Écran de MainApp (App.jsx) : le retour et le lien vers le chat Secret
+// passent par l'historique de l'app.
+export default function SecretSpacePage({ eventId, initialTab = 'flashback', focusItemId = null, onTabChange, onBack, onOpenSecretChat }) {
   const memoryFileInputRef = useRef(null)
   const [event, setEvent] = useState(null)
-
-  useEffect(() => {
-    setStatusBarDark(true)
-    return () => setStatusBarDark(false)
-  }, [])
   const [currentUserId, setCurrentUserId] = useState(null)
-  const [activeTab, setActiveTab] = useState('flashback')
+  const [activeTab, setActiveTabState] = useState(SECRET_SPACE_TABS.includes(initialTab) ? initialTab : 'flashback')
+  const [highlightedId, setHighlightedId] = useState(focusItemId)
+  const [secretUnread, setSecretUnread] = useState(0)
+  const [remindedIds, setRemindedIds] = useState(() => new Set())
+  const [remindingId, setRemindingId] = useState(null)
+  const [contributions, setContributions] = useState([])
+  const [contributionSheetOpen, setContributionSheetOpen] = useState(false)
+  const [contributionAmount, setContributionAmount] = useState('')
+  const [contributionSaving, setContributionSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [toast, setToast] = useState(null)
@@ -258,10 +240,12 @@ export default function SecretSpacePage() {
   const [cagnotteGiftId, setCagnotteGiftId] = useState('')
   const [cagnotteSaving, setCagnotteSaving] = useState(false)
 
-  const revealDate = useMemo(() => addDays(event?.date, 1), [event?.date])
+  const revealDate = useMemo(() => secretRevealDate(event?.date), [event?.date])
   const revealDays = useMemo(() => daysUntil(revealDate), [revealDate])
   const revealed = useMemo(() => isRevealed(event?.date), [event?.date])
   const birthdayFirstName = firstName(event?.birthdayProfile, 'la personne fêtée')
+  const myContribution = contributions.find(contribution => contribution.user_id === currentUserId) ?? null
+  const contributionTotal = contributions.reduce((sum, contribution) => sum + (Number(contribution.amount) || 0), 0)
   const contributorCount = contributors.filter(contributor => contributor.nb_memories > 0).length
   const guestCount = contributors.length
   const {
@@ -282,6 +266,120 @@ export default function SecretSpacePage() {
     setToast({ message, isError })
     window.setTimeout(() => setToast(null), 2200)
   }, [])
+
+  function setActiveTab(tab) {
+    setActiveTabState(tab)
+    setHighlightedId(null)
+    onTabChange?.(tab)
+  }
+
+  // Bouton « Discussion secrète » : non lus du chat Secret, en direct
+  const refreshSecretChat = useCallback(async () => {
+    if (!eventId || !currentUserId) return
+    try {
+      setSecretUnread(await fetchSecretUnreadCount(eventId, currentUserId))
+    } catch (error) {
+      captureSupabaseError(error, { operation: 'fetch_secret_unread_count' })
+    }
+    // Personnes déjà relancées (une relance par 24 h, règle du serveur)
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data, error } = await supabase
+      .from('messages')
+      .select('system_data')
+      .eq('event_id', eventId)
+      .eq('is_secret', true)
+      .eq('system_type', 'secret_reminder')
+      .gt('created_at', since)
+    if (error) { captureSupabaseError(error, { operation: 'fetch_secret_reminders' }); return }
+    setRemindedIds(new Set((data ?? []).map(row => row.system_data?.target_id).filter(Boolean)))
+  }, [eventId, currentUserId])
+
+  useEffect(() => {
+    if (!event || !currentUserId) return undefined
+    refreshSecretChat()
+    const suffix = Math.random().toString(36).slice(2, 8)
+    const channel = supabase
+      .channel(`secret-space-chat:${eventId}:${suffix}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `event_id=eq.${eventId}` }, payload => {
+        if (payload.new?.is_secret) refreshSecretChat()
+      })
+      .subscribe()
+    const handleVisibility = () => { if (document.visibilityState === 'visible') refreshSecretChat() }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [event, currentUserId, eventId, refreshSecretChat])
+
+  const fetchContributions = useCallback(async () => {
+    if (!eventId) return
+    const { data, error } = await supabase
+      .from('cagnotte_contributions')
+      .select('id, user_id, amount')
+      .eq('event_id', eventId)
+    if (error) throw error
+    setContributions(data ?? [])
+  }, [eventId])
+
+  // Élément ouvert depuis un message du chat Secret : visible et surligné
+  useEffect(() => {
+    if (!highlightedId) return undefined
+    const element = document.getElementById(`secret-item-${highlightedId}`)
+    if (!element) return undefined
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const timer = window.setTimeout(() => setHighlightedId(null), 2400)
+    return () => window.clearTimeout(timer)
+  }, [highlightedId, memories, giftItems, activeTab])
+
+  async function handleRemind(contributor) {
+    if (!contributor.invited_user_id || remindingId) return
+    setRemindingId(contributor.invited_user_id)
+    const { data, error } = await supabase.rpc('remind_secret_space_guest', { p_event_id: eventId, p_user_id: contributor.invited_user_id })
+    setRemindingId(null)
+    if (error) {
+      captureSupabaseError(error, { operation: 'remind_secret_space_guest' })
+      showToast('Impossible de relancer pour le moment.', true)
+      return
+    }
+    setRemindedIds(prev => new Set([...prev, contributor.invited_user_id]))
+    const name = firstName(contributor.profile, 'Cette personne')
+    showToast(data === 'too_soon' ? `${name} a déjà été relancé·e aujourd’hui` : `Relance envoyée dans la discussion secrète`)
+  }
+
+  async function handleContributionSubmit(event) {
+    event.preventDefault()
+    if (!currentUserId || contributionSaving || myContribution) return
+    const amount = contributionAmount === '' ? null : Math.round(Number(contributionAmount))
+    if (amount !== null && (!Number.isFinite(amount) || amount < 0)) return
+    setContributionSaving(true)
+    const { error } = await supabase
+      .from('cagnotte_contributions')
+      .insert({ event_id: eventId, user_id: currentUserId, amount })
+    setContributionSaving(false)
+    if (error) {
+      captureSupabaseError(error, { operation: 'insert_cagnotte_contribution' })
+      setErrorMessage("Impossible d'enregistrer ta participation.")
+      return
+    }
+    setContributionSheetOpen(false)
+    setContributionAmount('')
+    showToast('Participation notée ✓')
+    await fetchContributions()
+  }
+
+  async function handleContributionRemove() {
+    if (!myContribution || contributionSaving) return
+    setContributionSaving(true)
+    const { error } = await supabase.from('cagnotte_contributions').delete().eq('id', myContribution.id)
+    setContributionSaving(false)
+    if (error) {
+      captureSupabaseError(error, { operation: 'delete_cagnotte_contribution' })
+      setErrorMessage('Impossible de retirer ta participation.')
+      return
+    }
+    await fetchContributions()
+  }
 
   const fetchFlashback = useCallback(async () => {
     if (!eventId) return
@@ -314,16 +412,11 @@ export default function SecretSpacePage() {
 
     if (memoriesError) throw memoriesError
     const loadedMemories = memoryRows ?? []
-    const { data: invitationRows, error: invitationError } = await supabase
-      .from('invitations')
-      .select('id, invited_user_id, status')
-      .eq('event_id', eventId)
-
-    if (invitationError) throw invitationError
-    const profilesById = await fetchProfilesByIds([
-      ...loadedMemories.map(memory => memory.contributor_id),
-      ...(invitationRows ?? []).map(invitation => invitation.invited_user_id),
-    ])
+    // Liste complète pour tout membre (les invitations des autres ne sont
+    // lisibles que par les organisateurs)
+    const { data: guestRows, error: guestError } = await supabase.rpc('get_event_guest_list', { p_event_id: eventId })
+    if (guestError) throw guestError
+    const profilesById = await fetchProfilesByIds(loadedMemories.map(memory => memory.contributor_id))
     const memoriesWithImages = await withMemoryImageUrls(loadedMemories)
     setMemories(memoriesWithImages.map(memory => ({
       ...memory,
@@ -336,12 +429,19 @@ export default function SecretSpacePage() {
       return acc
     }, {})
 
-    setContributors((invitationRows ?? []).map(invitation => ({
-      ...invitation,
-      profile: profilesById[invitation.invited_user_id] ?? null,
-      nb_memories: counts[invitation.invited_user_id] ?? 0,
-    })))
-  }, [eventId])
+    // Comptes Amiv seulement ; la personne fêtée n'est jamais listée (ni
+    // relancée) dans son propre espace secret
+    const birthdayPersonId = event?.birthday_person_user_id
+    setContributors(sortGuests(guestRows ?? [])
+      .filter(guest => guest.user_id && guest.user_id !== birthdayPersonId)
+      .map(guest => ({
+        id: guest.guest_key,
+        invited_user_id: guest.user_id,
+        status: guest.status,
+        profile: { name: guest.display_name, avatar_url: guest.avatar_url },
+        nb_memories: counts[guest.user_id] ?? 0,
+      })))
+  }, [eventId, event?.birthday_person_user_id])
 
   const fetchGifts = useCallback(async () => {
     if (!eventId) return
@@ -381,9 +481,10 @@ export default function SecretSpacePage() {
   }, [eventId])
 
   const fetchEvent = useCallback(async (userId) => {
+    // Ligne complète : elle sert aussi à ouvrir le chat de l'événement
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, date, user_id, birthday_person_user_id')
+      .select('*')
       .eq('id', eventId)
       .maybeSingle()
 
@@ -433,11 +534,7 @@ export default function SecretSpacePage() {
       try {
         const { data: { user }, error } = await supabase.auth.getUser()
         if (error) throw error
-        if (!user) {
-          navigate(`/login?redirect=/events/${eventId}/secret-space`)
-          return
-        }
-        if (cancelled) return
+        if (!user || cancelled) return
         setCurrentUserId(user.id)
         await fetchEvent(user.id)
       } catch (error) {
@@ -450,7 +547,7 @@ export default function SecretSpacePage() {
 
     init()
     return () => { cancelled = true }
-  }, [eventId, fetchEvent, navigate])
+  }, [eventId, fetchEvent])
 
   useEffect(() => {
     if (!event) return
@@ -462,7 +559,11 @@ export default function SecretSpacePage() {
       console.error('[SecretSpace] gifts error:', error)
       setErrorMessage('Impossible de charger les cadeaux.')
     })
-  }, [event, fetchFlashback, fetchGifts])
+    fetchContributions().catch(error => {
+      console.error('[SecretSpace] contributions error:', error)
+      captureSupabaseError(error, { operation: 'fetch_cagnotte_contributions' })
+    })
+  }, [event, fetchFlashback, fetchGifts, fetchContributions])
 
   useEffect(() => {
     if (!memoryImageFile) {
@@ -591,7 +692,7 @@ export default function SecretSpacePage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100dvh', background: COLORS.bg, display: 'grid', placeItems: 'center', color: COLORS.muted, fontSize: 14 }}>
+      <div style={{ flex: 1, minHeight: 0, background: COLORS.bg, display: 'grid', placeItems: 'center', color: COLORS.muted, fontSize: 14 }}>
         Chargement...
       </div>
     )
@@ -599,38 +700,42 @@ export default function SecretSpacePage() {
 
   if (errorMessage && !event) {
     return (
-      <div style={{ minHeight: '100dvh', background: COLORS.bg, padding: 16, paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))' }}>
-        <button type="button" onClick={() => navigate(eventDetailPath, { replace: true })} style={{ color: '#007AFF', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Retour</button>
+      <div style={{ flex: 1, minHeight: 0, background: COLORS.bg, padding: 16 }}>
+        <button type="button" onClick={() => onBack?.(null)} style={{ color: '#007AFF', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Retour</button>
         <EmptyCard>{errorMessage}</EmptyCard>
       </div>
     )
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: COLORS.bg, color: COLORS.text, display: 'flex', justifyContent: 'center' }}>
-      <main style={{ width: '100%', maxWidth: 430, minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', background: COLORS.bg, color: COLORS.text }}>
+      <main style={{ width: '100%', maxWidth: 430, minHeight: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
         <style>{`
+          @keyframes secretHighlight {
+            0%, 60% { box-shadow: 0 0 0 3px ${SECRET_ACCENT_ON_DARK}; }
+            100% { box-shadow: 0 0 0 0 rgba(175,169,236,0); }
+          }
           @keyframes secretPulse {
             0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(245,166,35,0.35); }
             50% { transform: scale(1.15); opacity: 0.78; box-shadow: 0 0 0 7px rgba(245,166,35,0); }
           }
         `}</style>
-        <header style={{ position: 'relative', overflow: 'hidden', background: '#1c1c1e', padding: 'calc(16px + env(safe-area-inset-top, 0px)) 16px 18px' }}>
+        <header style={{ position: 'relative', overflow: 'hidden', background: '#1c1c1e', padding: '12px 16px 18px' }}>
           <div style={{ position: 'absolute', top: -68, right: -62, width: 184, height: 184, borderRadius: '50%', background: 'radial-gradient(circle, rgba(224,85,170,0.35) 0%, rgba(224,85,170,0.16) 38%, rgba(224,85,170,0) 70%)', pointerEvents: 'none' }} />
 
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button type="button" aria-label="Retour" onClick={() => navigate(eventDetailPath, { replace: true })} style={{ width: 34, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.10)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <button type="button" aria-label="Retour" onClick={() => onBack?.(event)} style={{ width: 34, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.10)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <ChevronLeft size={23} />
             </button>
             <div style={{ minWidth: 0, flex: 1, color: 'rgba(255,255,255,0.68)', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Amiv de {birthdayFirstName} · {formatHeroDate(event?.date)}
+              Anniv de {birthdayFirstName} · {formatHeroDate(event?.date)}
             </div>
           </div>
 
           {!revealed && (
-            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 18, borderRadius: 999, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.74)', padding: '6px 12px', fontSize: 11, fontWeight: 600 }}>
-              <span aria-hidden="true">🔒</span>
-              Espace secret · caché de {birthdayFirstName}
+            <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 18, borderRadius: 999, background: 'rgba(175,169,236,0.14)', border: '1px solid rgba(175,169,236,0.30)', color: SECRET_ACCENT_ON_DARK, padding: '6px 12px', fontSize: 11, fontWeight: 700 }}>
+              <Lock size={12} strokeWidth={2.4} />
+              Espace secret · {hiddenFromLabel(birthdayFirstName)}
             </div>
           )}
 
@@ -650,6 +755,20 @@ export default function SecretSpacePage() {
               {revealDays === null ? 'J-?' : revealDays > 0 ? `J-${revealDays}` : 'J'}
             </span>
           </div>
+
+          {onOpenSecretChat && (
+            <button type="button" onClick={() => onOpenSecretChat(event)} style={{ position: 'relative', width: '100%', minHeight: 44, marginTop: 10, borderRadius: 14, background: 'rgba(175,169,236,0.14)', border: '1px solid rgba(175,169,236,0.30)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, color: '#fff', cursor: 'pointer' }}>
+              <Lock size={15} strokeWidth={2.4} color={SECRET_ACCENT_ON_DARK} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0, textAlign: 'left', fontSize: 13, fontWeight: 800 }}>Discussion secrète</span>
+              {secretUnread > 0 ? (
+                <span aria-label={`${secretUnread} message${secretUnread > 1 ? 's' : ''} non lu${secretUnread > 1 ? 's' : ''}`} style={{ minWidth: 22, height: 22, borderRadius: 11, padding: '0 7px', background: SECRET_ACCENT_ON_DARK, color: '#1c1c1e', fontSize: 12, fontWeight: 800, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  {secretUnread > 99 ? '99+' : secretUnread}
+                </span>
+              ) : (
+                <MessageCircle size={16} strokeWidth={2.2} color="rgba(255,255,255,0.55)" style={{ flexShrink: 0 }} />
+              )}
+            </button>
+          )}
         </header>
 
         <div style={{ background: '#1c1c1e', padding: '0 16px 14px' }}>
@@ -724,7 +843,7 @@ export default function SecretSpacePage() {
                     const color = avatarColor(memory.contributor_id || author)
 
                     return (
-                      <article key={memory.id} style={{ background: COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
+                      <article key={memory.id} id={`secret-item-${memory.id}`} style={{ background: COLORS.card, borderRadius: 16, overflow: 'hidden', animation: highlightedId === memory.id ? 'secretHighlight 2.4s ease-out' : undefined }}>
                         <div style={{ height: 110, background: palette.bg, display: 'grid', placeItems: 'center' }}>
                         {memory.display_image_url ? (
                           <img src={memory.display_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -773,6 +892,9 @@ export default function SecretSpacePage() {
                     {contributors.map((contributor, index) => {
                       const name = firstName(contributor.profile, 'Invité')
                       const contributed = contributor.nb_memories > 0
+                      // Relance seulement pour qui a accepté (le serveur vérifie)
+                      const canRemind = !contributed && contributor.status === 'confirmed' && !!contributor.invited_user_id && contributor.invited_user_id !== currentUserId
+                      const reminded = remindedIds.has(contributor.invited_user_id)
 
                       return (
                         <div key={contributor.id} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px' }}>
@@ -790,9 +912,20 @@ export default function SecretSpacePage() {
                             </div>
                             <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 500, marginTop: 2 }}>{contributor.nb_memories} souvenir{contributor.nb_memories > 1 ? 's' : ''}</div>
                           </div>
-                          <span style={{ borderRadius: 999, background: contributed ? 'rgba(52,199,89,0.12)' : COLORS.bg, color: contributed ? '#1e7a35' : COLORS.muted, fontSize: 11, fontWeight: 700, padding: '5px 9px', flexShrink: 0 }}>
-                            {contributed ? 'Contribué' : 'À relancer'}
-                          </span>
+                          {canRemind ? (
+                            <button
+                              type="button"
+                              disabled={reminded || remindingId === contributor.invited_user_id}
+                              onClick={() => handleRemind(contributor)}
+                              style={{ borderRadius: 999, background: reminded ? COLORS.bg : SECRET_ACCENT_SOFT, color: reminded ? COLORS.muted : SECRET_ACCENT, fontSize: 11, fontWeight: 800, padding: '6px 10px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, cursor: reminded ? 'default' : 'pointer' }}
+                            >
+                              {reminded ? <><Check size={12} strokeWidth={2.6} /> Relancé</> : remindingId === contributor.invited_user_id ? 'Envoi…' : 'À relancer'}
+                            </button>
+                          ) : (
+                            <span style={{ borderRadius: 999, background: contributed ? 'rgba(52,199,89,0.12)' : COLORS.bg, color: contributed ? '#1e7a35' : COLORS.muted, fontSize: 11, fontWeight: 700, padding: '5px 9px', flexShrink: 0 }}>
+                              {contributed ? 'Contribué' : contributor.invited_user_id === currentUserId ? 'Toi' : contributor.status === 'declined' ? 'Absent' : 'Pas encore confirmé'}
+                            </span>
+                          )}
                         </div>
                       )
                     })}
@@ -814,7 +947,7 @@ export default function SecretSpacePage() {
               {giftItems.length === 0 ? (
                 <EmptyCard>Aucune idée cadeau ajoutée.</EmptyCard>
               ) : giftItems.map(item => (
-                <article key={item.id} style={{ background: COLORS.card, borderRadius: 16, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+                <article key={item.id} id={`secret-item-${item.id}`} style={{ background: COLORS.card, borderRadius: 16, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', animation: highlightedId === item.id ? 'secretHighlight 2.4s ease-out' : undefined }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                     <div style={{ width: 38, height: 38, borderRadius: 13, background: 'rgba(224,85,170,0.11)', color: COLORS.pink, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                       <Gift size={18} />
@@ -863,9 +996,29 @@ export default function SecretSpacePage() {
                     Objectif : {formatMoney(cagnotte.goal)}
                   </div>
                 )}
+                {contributions.length > 0 && (
+                  <div style={{ fontSize: 13, color: COLORS.text, fontWeight: 700, marginBottom: 14 }}>
+                    {contributions.length} participant{contributions.length > 1 ? 's' : ''}
+                    {contributionTotal > 0 && <> · {formatMoney(contributionTotal)} réunis</>}
+                  </div>
+                )}
                 <a href={cagnotte.url} target="_blank" rel="noreferrer" style={{ minHeight: 48, borderRadius: 14, background: COLORS.gradient, color: '#fff', fontSize: 14, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}>
                   Accéder à la cagnotte <ExternalLink size={17} />
                 </a>
+                {myContribution ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#1e7a35', fontSize: 13, fontWeight: 800 }}>
+                      <Check size={16} strokeWidth={2.6} /> Tu as participé
+                    </span>
+                    <button type="button" disabled={contributionSaving} onClick={handleContributionRemove} style={{ color: COLORS.muted, fontSize: 12, fontWeight: 700 }}>
+                      Retirer
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setContributionSheetOpen(true)} style={{ width: '100%', minHeight: 44, marginTop: 10, borderRadius: 14, border: `1.5px solid ${COLORS.line}`, background: COLORS.card, color: COLORS.text, fontSize: 14, fontWeight: 800 }}>
+                    J’ai participé
+                  </button>
+                )}
               </div>
             ) : guestLeaderLoading ? (
               <EmptyCard>Chargement...</EmptyCard>
@@ -979,6 +1132,20 @@ export default function SecretSpacePage() {
             <Input label="Prix estimé" type="number" min="0" step="0.01" value={giftForm.price_estimate} onChange={event => setGiftForm(current => ({ ...current, price_estimate: event.target.value }))} placeholder="€" />
             <PrimaryButton disabled={giftSaving || !giftForm.label.trim()} style={{ marginTop: 2 }} type="submit">
               {giftSaving ? 'Ajout...' : 'Ajouter'}
+            </PrimaryButton>
+          </form>
+        </Sheet>
+      )}
+
+      {contributionSheetOpen && (
+        <Sheet title="J’ai participé" onClose={() => { if (!contributionSaving) setContributionSheetOpen(false) }}>
+          <form onSubmit={handleContributionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <Input autoFocus label="Montant (facultatif)" type="number" inputMode="numeric" min="0" step="1" value={contributionAmount} onChange={event => setContributionAmount(event.target.value)} placeholder="€" />
+            <div style={{ fontSize: 12, color: COLORS.muted, lineHeight: 1.4 }}>
+              Seul le total est affiché. La discussion secrète indique que tu as participé, sans le montant.
+            </div>
+            <PrimaryButton disabled={contributionSaving} style={{ marginTop: 2 }} type="submit">
+              {contributionSaving ? 'Enregistrement...' : 'Valider'}
             </PrimaryButton>
           </form>
         </Sheet>

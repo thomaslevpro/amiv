@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, MessageCircle } from 'lucide-react'
+import { ChevronRight, Lock, MessageCircle } from 'lucide-react'
 import EventDatePoll from '../components/event/EventDatePoll'
 import EventEditForm from '../components/event/EventEditForm'
 import EventGuestsSection from '../components/event/EventGuestsSection'
@@ -12,8 +12,9 @@ import RevealedMemoriesEntry from '../components/event/RevealedMemoriesEntry'
 import InviteFriendsSheet from '../components/InviteFriendsSheet'
 import PlusOneReviewList from '../components/PlusOneReviewList'
 import useEventDetail from '../hooks/useEventDetail'
+import { hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_SOFT } from '../lib/secretSpace'
 
-export default function EventDetail({ event, onBack, onChat, onMessagesClick }) {
+export default function EventDetail({ event, onBack, onChat, onMessagesClick, onSecretSpace }) {
   const navigate = useNavigate()
   const detail = useEventDetail(event, onBack)
   const [pollBannerVisible, setPollBannerVisible] = useState(false)
@@ -94,14 +95,14 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick }) 
 
         {canAccessSecretSpace && isBirthdayEvent && (
           <div style={{ marginBottom: 14 }}>
-            <div onClick={() => navigate(`/events/${event.id}/secret-space`)} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: 'rgba(224,85,170,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="18" height="22" viewBox="0 0 18 22" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="9" width="16" height="12" rx="2.5" stroke="#e055aa" strokeWidth="1.5" /><path d="M5 9V6a4 4 0 0 1 8 0v3" stroke="#e055aa" strokeWidth="1.5" strokeLinecap="round" /><circle cx="9" cy="15" r="1.5" fill="#e055aa" /></svg>
+            <div onClick={() => (onSecretSpace ? onSecretSpace(event) : navigate(`/events/${event.id}/secret-space`))} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+              <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: SECRET_ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Lock size={18} strokeWidth={2.2} color={SECRET_ACCENT} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Espace secret</div>
-                <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Cadeaux · Cagnotte · Carte</div>
-                {birthdayPersonName && <div style={{ display: 'inline-flex', alignItems: 'center', marginTop: 6, padding: '3px 10px', borderRadius: 20, background: 'rgba(224,85,170,0.08)', border: '1px solid rgba(224,85,170,0.20)', fontSize: 10, fontWeight: 600, color: '#993556' }}>🔒 Caché de {birthdayPersonName}</div>}
+                <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Flashback · Cadeaux · Cagnotte</div>
+                {birthdayPersonName && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: '3px 10px', borderRadius: 20, background: SECRET_ACCENT_SOFT, fontSize: 10, fontWeight: 700, color: SECRET_ACCENT }}><Lock size={10} strokeWidth={2.4} />{hiddenFromLabel(birthdayPersonName)}</div>}
               </div>
               <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>

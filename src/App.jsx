@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { App as CapacitorApp } from '@capacitor/app'
 import { supabase } from './lib/supabase'
-import { isNative, parseDeepLink } from './lib/native'
+import { isNative, parseDeepLink, setStatusBarDark } from './lib/native'
 import { initPushListeners, onPushTarget, refreshPushRegistration, setPendingPushTarget, shouldShowPushPrompt, takePendingPushTarget } from './lib/push'
 import { identifyUser, resetAnalyticsUser, track } from './lib/analytics'
 import { captureSupabaseError, clearMonitoringUser, setMonitoringUser } from './lib/monitoring'
@@ -61,7 +61,6 @@ export default function App() {
       {isNative && <NativePushListener />}
       <Suspense fallback={<SplashScreen />}>
       <Routes>
-        <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
         <Route path="/events/:id/souvenirs" element={<MemoriesPage />} />
         <Route path="/events/:id/manage" element={<OrganizerSpacePage />} />
         <Route path="/events/:id/organizer-space" element={<OrganizerSpacePage />} />
@@ -165,6 +164,12 @@ const ROOT_NAV = {
   dispoDetailId: null,
   createInitialData: null,
   editProfileFocus: null,
+  // Espace secret d'un anniversaire : { eventId, tab, focusItemId }
+  secretSpace: null,
+  // Espace secret ↔ chat Secret : entrée d'historique de l'autre écran quand
+  // l'un a été ouvert depuis l'autre (le lien y revient au lieu d'empiler).
+  secretSpaceReturnKey: null,
+  secretChatReturnKey: null,
   // Nombre d'écrans de MainApp ouverts avant celui-ci dans l'historique
   depth: 0,
 }
@@ -172,12 +177,20 @@ const TAB_VIEWS = ['home', 'calendar', 'messages', 'profile']
 const navEntries = new Map()
 let navKeySeq = 0
 
+// Conversation d'événement d'une entrée, rouverte sur l'onglet Secret
+function withSecretChannel(entry) {
+  if (entry.selectedEvent && entry.screen === 'messages') return { ...entry, selectedEvent: { ...entry.selectedEvent, initialIsSecret: true } }
+  if (entry.conversationEvent) return { ...entry, conversationEvent: { ...entry.conversationEvent, initialIsSecret: true } }
+  return entry
+}
+
 // Page réellement affichée : décide à la fois de l'écran rendu et de la
 // visibilité de la barre du bas (visible seulement sur les onglets).
 function currentView(nav) {
   if (nav.showCloseFriends) return 'closeFriends'
   if (nav.showCreateDispo) return 'createDispo'
   if (nav.dispoDetailId) return 'dispoDetail'
+  if (nav.secretSpace) return 'secretSpace'
   if (['allEvents', 'dispoCalendar', 'create', 'editProfile'].includes(nav.screen)) return nav.screen
   if (nav.selectedEvent) {
     if (nav.screen === 'messages') return 'eventChat'
@@ -239,10 +252,42 @@ function MainApp() {
     if (navRef.current.depth > 0) routerNavigate(-1)
     else replaceScreen(fallback)
   }
+  // Revient à une entrée précédente (l'écran juste avant) après l'avoir modifiée
+  const returnTo = (key, patchEntry) => {
+    const entry = navEntries.get(key)
+    if (!entry || navRef.current.depth === 0) return false
+    navEntries.set(key, patchEntry(entry))
+    routerNavigate(-1)
+    return true
+  }
+
+  // Chat de l'événement → espace secret
+  const openSecretSpace = ({ eventId, tab = 'flashback', focusItemId = null }) => {
+    const current = navRef.current
+    const secretSpace = { eventId, tab, focusItemId }
+    if (current.secretSpaceReturnKey && returnTo(current.secretSpaceReturnKey, entry => ({ ...entry, secretSpace }))) return
+    const currentKey = location.state?.amivNavKey
+    // Au retour, le chat se rouvre sur l'onglet Secret
+    if (currentKey && navEntries.has(currentKey)) navEntries.set(currentKey, withSecretChannel(navEntries.get(currentKey)))
+    openScreen({ secretSpace, secretChatReturnKey: currentKey ?? null, secretSpaceReturnKey: null })
+  }
+  // Espace secret → chat de l'événement, onglet Secret
+  const openSecretChat = (event) => {
+    const current = navRef.current
+    if (current.secretChatReturnKey && returnTo(current.secretChatReturnKey, withSecretChannel)) return
+    openScreen({
+      secretSpace: null,
+      secretChatReturnKey: null,
+      secretSpaceReturnKey: location.state?.amivNavKey ?? null,
+      selectedEvent: { ...event, initialIsSecret: true },
+      screen: 'messages',
+    })
+  }
 
   const pendingEventId = useRef(
     window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
   )
+  const pendingSecretSpace = useRef(/^\/events\/[^/]+\/secret-space\/?$/.test(window.location.pathname))
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -310,6 +355,11 @@ function MainApp() {
       if (data) {
         window.history.replaceState(window.history.state, '', '/')
         replaceScreen({ selectedEvent: data, screen: 'eventDetail' })
+        // Lien direct vers l'espace secret : par-dessus la fiche, le retour y mène
+        if (pendingSecretSpace.current) {
+          pendingSecretSpace.current = false
+          pushNavEntry({ ...ROOT_NAV, selectedEvent: data, screen: 'eventDetail', secretSpace: { eventId: data.id, tab: 'flashback', focusItemId: null }, depth: 1 }, false)
+        }
       }
     })
   }, [session])
@@ -379,6 +429,13 @@ function MainApp() {
       })
     })
   }, [appReady, pushTarget])
+
+  // En-tête sombre de l'espace secret jusque sous la barre d'état
+  useEffect(() => {
+    if (view !== 'secretSpace') return undefined
+    setStatusBarDark(true)
+    return () => setStatusBarDark(false)
+  }, [view])
 
   const isLoading = loading || (!!session && (onboardingCompleted === null || hasUsername === null))
 
@@ -452,8 +509,19 @@ function MainApp() {
           onSave={() => goBack({ editProfileFocus: null, tab: 'profile', screen: 'home' })}
         />
       )
+      case 'secretSpace': return (
+        <SecretSpacePage
+          key={nav.secretSpace.eventId}
+          eventId={nav.secretSpace.eventId}
+          initialTab={nav.secretSpace.tab}
+          focusItemId={nav.secretSpace.focusItemId}
+          onTabChange={tab => replaceScreen({ secretSpace: { ...navRef.current.secretSpace, tab, focusItemId: null } })}
+          onBack={event => goBack({ ...ROOT_NAV, tab: navRef.current.tab, selectedEvent: event ?? null, screen: event ? 'eventDetail' : navRef.current.tab })}
+          onOpenSecretChat={openSecretChat}
+        />
+      )
       case 'eventChat': return (
-        <Messages event={selectedEvent} onBack={() => goBack({ screen: 'eventDetail' })} notifications={notifications} markAsRead={markAsRead} />
+        <Messages event={selectedEvent} onBack={() => goBack({ screen: 'eventDetail' })} notifications={notifications} markAsRead={markAsRead} onOpenSecretSpace={openSecretSpace} />
       )
       case 'eventDetail': return (
         <EventDetail
@@ -462,6 +530,7 @@ function MainApp() {
           onInvitation={() => openScreen({ screen: 'invitation' })}
           onChat={ev => openScreen({ selectedEvent: ev, screen: 'messages' })}
           onMessagesClick={ev => openScreen({ selectedEvent: ev, screen: 'messages' })}
+          onSecretSpace={ev => openScreen({ secretSpace: { eventId: ev.id, tab: 'flashback', focusItemId: null }, secretSpaceReturnKey: null, secretChatReturnKey: null })}
         />
       )
       case 'invitation': return (
@@ -479,7 +548,7 @@ function MainApp() {
         />
       )
       case 'eventConversation': return (
-        <Messages event={conversationEvent} onBack={() => goBack({ conversationEvent: null })} notifications={notifications} markAsRead={markAsRead} />
+        <Messages event={conversationEvent} onBack={() => goBack({ conversationEvent: null })} notifications={notifications} markAsRead={markAsRead} onOpenSecretSpace={openSecretSpace} />
       )
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={openCreate} onTrendingClick={openCreate} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => openScreen({ screen: 'allEvents' })} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => openScreen({ dispoDetailId: id })} onDispoCalendarClick={() => openScreen({ screen: 'dispoCalendar' })} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} onCreateClick={() => openCreate()} onMessagesClick={ev => openScreen({ selectedEvent: ev, screen: 'messages' })} />
@@ -497,7 +566,7 @@ function MainApp() {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', maxWidth: 430, margin: '0 auto', width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', maxWidth: 430, margin: '0 auto', width: '100%', paddingTop: 'env(safe-area-inset-top, 0px)', background: view === 'secretSpace' ? '#1c1c1e' : undefined }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
         {renderCurrentScreen()}
       </div>

@@ -102,7 +102,7 @@ export function buildEventMessageRows(messages, currentUserId) {
   return messages.flatMap((msg, index) => {
     const previous = messages[index - 1]
     const next = messages[index + 1]
-    const isSystem = Boolean(msg.event)
+    const isSystem = Boolean(msg.event || msg.system_type)
     const showDate = index === 0 || !isSameDay(previous?.created_at, msg.created_at)
     const rows = []
     if (showDate) rows.push({ id: `date-${msg.id}`, type: 'date', label: formatDateSeparator(msg.created_at) })
@@ -110,8 +110,8 @@ export function buildEventMessageRows(messages, currentUserId) {
       rows.push({ id: msg.id, type: 'system', message: msg })
       return rows
     }
-    const prevGroupable = previous && !previous.event && previous.user_id === msg.user_id && Math.abs(new Date(msg.created_at) - new Date(previous.created_at)) < GROUP_INTERVAL_MS
-    const nextGroupable = next && !next.event && next.user_id === msg.user_id && Math.abs(new Date(next.created_at) - new Date(msg.created_at)) < GROUP_INTERVAL_MS
+    const prevGroupable = previous && !previous.event && !previous.system_type && previous.user_id === msg.user_id && Math.abs(new Date(msg.created_at) - new Date(previous.created_at)) < GROUP_INTERVAL_MS
+    const nextGroupable = next && !next.event && !next.system_type && next.user_id === msg.user_id && Math.abs(new Date(next.created_at) - new Date(msg.created_at)) < GROUP_INTERVAL_MS
     rows.push({
       id: msg.id,
       type: 'message',

@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
-import { Calendar as CalendarIcon, ChevronLeft, Lock, MapPin, MessageCircle, MoreHorizontal, Send } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Lock, MapPin, MessageCircle, MoreHorizontal, Send } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { DELETED_USER_LABEL, formatEventHeaderDate, profileDisplayName } from './utils'
 import { Avatar } from './MessageUI'
 import { MessageSafetySheet } from '../safety/SafetySheets'
+import { hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_SOFT, secretTabForMessage } from '../../lib/secretSpace'
 
 const LONG_PRESS_MS = 450
 
@@ -29,6 +30,8 @@ export default function MessageThread({
   guestLeaderIds = new Set(),
   closeFriendIds = new Set(),
   onAuthorBlocked,
+  secretSummaryParts = null,
+  onOpenSecretSpace = null,
 }) {
   const inputRef = useRef(null)
   const longPressRef = useRef(null)
@@ -104,7 +107,7 @@ export default function MessageThread({
                 <MessageCircle size={13} strokeWidth={2} />
                 Général
               </button>
-              <button type="button" onClick={() => setIsSecret(true)} style={{ flex: 1, minHeight: 32, border: 'none', borderRadius: 13, background: isSecret ? 'rgba(255,255,255,0.90)' : 'transparent', color: isSecret ? '#534AB7' : 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, fontWeight: 800, fontFamily: FONT, cursor: 'pointer' }}>
+              <button type="button" onClick={() => setIsSecret(true)} style={{ flex: 1, minHeight: 32, border: 'none', borderRadius: 13, background: isSecret ? 'rgba(255,255,255,0.90)' : 'transparent', color: isSecret ? SECRET_ACCENT : 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, fontWeight: 800, fontFamily: FONT, cursor: 'pointer' }}>
                 <Lock size={13} strokeWidth={2.2} />
                 Secret
               </button>
@@ -114,10 +117,26 @@ export default function MessageThread({
       </div>
 
       {isSecret && (
-        <div style={{ background: '#EEEDFE', color: '#534AB7', padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-          <Lock size={14} strokeWidth={2.2} color="#534AB7" />
-          {birthdayPersonFirstName} ne peut pas voir ces messages
+        <div style={{ background: SECRET_ACCENT_SOFT, color: SECRET_ACCENT, padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+          <Lock size={14} strokeWidth={2.2} color={SECRET_ACCENT} />
+          {hiddenFromLabel(birthdayPersonFirstName)}
+          <span style={{ fontWeight: 500, opacity: 0.8 }}>· ces messages ne lui sont jamais montrés</span>
         </div>
+      )}
+
+      {isSecret && onOpenSecretSpace && (
+        <button type="button" onClick={() => onOpenSecretSpace()} style={{ margin: '10px 14px 0', padding: '10px 12px', border: 'none', borderRadius: 14, background: WHITE, boxShadow: '0 1px 6px rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', flexShrink: 0, fontFamily: FONT }}>
+          <span style={{ width: 32, height: 32, borderRadius: 10, background: SECRET_ACCENT_SOFT, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <Lock size={16} strokeWidth={2.2} color={SECRET_ACCENT} />
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 800, color: BLACK }}>Espace secret</span>
+            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 12, lineHeight: 1.35, color: GRAY1, fontWeight: 500, marginTop: 1 }}>
+              {secretSummaryParts?.length ? secretSummaryParts.join(' · ') : 'Flashback · Cadeaux · Cagnotte'}
+            </span>
+          </span>
+          <ChevronRight size={16} strokeWidth={2.4} color={SECRET_ACCENT} style={{ flexShrink: 0 }} />
+        </button>
       )}
 
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '10px 14px 14px', display: 'flex', flexDirection: 'column' }}>
@@ -128,6 +147,22 @@ export default function MessageThread({
         ) : (
           eventMessageRows.map(row => {
             if (row.type === 'date') return <div key={row.id} style={{ textAlign: 'center', color: GRAY1, fontSize: 11, fontWeight: 600, margin: '12px 0 4px' }}>{row.label}</div>
+            if (row.type === 'system' && row.message.system_type) {
+              // Activité de l'espace secret : discrète, avec un lien vers l'élément
+              const { message: sm } = row
+              if (sm.is_hidden) return null
+              const tab = secretTabForMessage(sm)
+              const canOpen = !!(onOpenSecretSpace && tab)
+              return (
+                <div key={sm.id} style={{ display: 'flex', justifyContent: 'center', margin: '6px 0' }}>
+                  <button type="button" disabled={!canOpen} onClick={() => canOpen && onOpenSecretSpace(tab, sm.system_data?.item_id ?? null)} style={{ border: 'none', background: 'transparent', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '86%', fontSize: 11.5, fontWeight: 600, color: GRAY1, fontFamily: FONT, cursor: canOpen ? 'pointer' : 'default', textAlign: 'center' }}>
+                    <Lock size={11} strokeWidth={2.4} color={SECRET_ACCENT} style={{ flexShrink: 0 }} />
+                    <span>{sm.content}</span>
+                    {canOpen && <span style={{ color: SECRET_ACCENT, fontWeight: 700, flexShrink: 0 }}>Voir</span>}
+                  </button>
+                </div>
+              )
+            }
             if (row.type === 'system') {
               const { message: sm } = row
               return (
