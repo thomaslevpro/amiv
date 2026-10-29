@@ -92,7 +92,7 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         paddingBottom: 4,
         color: current === 'home' ? '#1C1C1E' : '#8E8E93',
       }}>
-        <Home size={26} strokeWidth={1.5} fill={current === 'home' ? 'currentColor' : 'none'} />
+        <Home size={26} strokeWidth={1.7} />
       </div>
 
       {/* Calendar */}
@@ -105,7 +105,7 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         paddingBottom: 4,
         color: current === 'calendar' ? '#1C1C1E' : '#8E8E93',
       }}>
-        <Calendar size={26} strokeWidth={1.5} fill={current === 'calendar' ? 'currentColor' : 'none'} />
+        <Calendar size={26} strokeWidth={1.7} />
       </div>
 
       {/* Create (+) */}
@@ -163,7 +163,7 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         position: 'relative',
         color: current === 'profile' ? '#1C1C1E' : '#8E8E93',
       }}>
-        <User size={26} strokeWidth={1.5} fill={current === 'profile' ? 'currentColor' : 'none'} />
+        <User size={26} strokeWidth={1.7} />
         {hasUnreadNotifications && <Badge />}
       </div>
 
