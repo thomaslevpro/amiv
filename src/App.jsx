@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { App as CapacitorApp } from '@capacitor/app'
 import { supabase } from './lib/supabase'
 import { isNative, parseDeepLink } from './lib/native'
+import { initPushListeners, onPushTarget, refreshPushRegistration, setPendingPushTarget, shouldShowPushPrompt, takePendingPushTarget } from './lib/push'
 import { identifyUser, resetAnalyticsUser, track } from './lib/analytics'
 import { captureSupabaseError, clearMonitoringUser, setMonitoringUser } from './lib/monitoring'
 import { useNotifications } from './hooks/useNotifications'
@@ -30,6 +31,7 @@ import ConversationScreen from './screens/ConversationScreen'
 import EventPage from './pages/EventPage'
 import DispoCalendarPage from './pages/DispoCalendarPage'
 import UsernamePrompt from './components/UsernamePrompt'
+import PushPermissionPrompt from './components/PushPermissionPrompt'
 
 // Écrans secondaires chargés à la demande (hors premier écran)
 const SecretSpacePage = lazy(() => import('./pages/SecretSpacePage'))
@@ -54,6 +56,7 @@ export default function App() {
   return (
     <BrowserRouter>
       {isNative && <NativeDeepLinks />}
+      {isNative && <NativePushListener />}
       <Suspense fallback={<SplashScreen />}>
       <Routes>
         <Route path="/events/:id/secret-space" element={<SecretSpacePage />} />
@@ -112,6 +115,37 @@ function NativeDeepLinks() {
   return null
 }
 
+// Appui sur une notification push : profil et souvenirs sont des routes ;
+// événement, conversation d'événement et message privé sont des écrans de
+// MainApp, qui les ouvre dès que la session et l'onboarding sont chargés.
+function NativePushListener() {
+  const navigate = useNavigate()
+  const navigateRef = useRef(navigate)
+  navigateRef.current = navigate
+
+  useEffect(() => initPushListeners((target, notificationId) => {
+    if (target?.screen === 'event' || target?.screen === 'messages' || target?.screen === 'conversation') {
+      if (window.location.pathname !== '/') navigateRef.current('/')
+      setPendingPushTarget({ ...target, notificationId })
+      return
+    }
+    if (notificationId) {
+      supabase.from('notifications').update({ read: true }).eq('id', notificationId).then(({ error }) => {
+        if (error) captureSupabaseError(error, { operation: 'mark_push_notification_read' })
+      })
+    }
+    if (target?.screen === 'profile' && target.username) {
+      navigateRef.current(`/u/${encodeURIComponent(target.username)}`)
+    } else if (target?.screen === 'memories' && target.event_id) {
+      navigateRef.current(`/events/${target.event_id}/souvenirs`)
+    } else if (window.location.pathname !== '/') {
+      navigateRef.current('/')
+    }
+  }), [])
+
+  return null
+}
+
 function MainApp() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
@@ -142,6 +176,8 @@ function MainApp() {
   const notificationUnreadCount = notifications.filter(
     n => !n.read && n.type !== 'message_received'
   ).length
+  const [pushTarget, setPushTarget] = useState(() => takePendingPushTarget())
+  const [showPushPrompt, setShowPushPrompt] = useState(false)
   const pendingEventId = useRef(
     window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
   )
@@ -216,6 +252,75 @@ function MainApp() {
       }
     })
   }, [session])
+
+  useEffect(() => {
+    const off = onPushTarget(() => setPushTarget(takePendingPushTarget()))
+    // Cible arrivée entre le premier rendu et cet abonnement
+    const missed = takePendingPushTarget()
+    if (missed) setPushTarget(missed)
+    return off
+  }, [])
+
+  // À chaque lancement (et connexion) : met à jour le jeton de l'appareil.
+  useEffect(() => {
+    if (session?.user?.id) refreshPushRegistration()
+  }, [session?.user?.id])
+
+  const appReady = !!session && onboardingCompleted === true && hasUsername === true
+
+  useEffect(() => {
+    if (!appReady) return
+    let cancelled = false
+    shouldShowPushPrompt().then(show => { if (!cancelled) setShowPushPrompt(show) })
+    return () => { cancelled = true }
+  }, [appReady])
+
+  // Message privé : ouvre la conversation avec l'expéditeur (forme « friend »
+  // attendue par ConversationScreen) et marque ses notifications comme lues.
+  const openDirectConversation = async (conversationId, senderId) => {
+    const { data, error } = await supabase.from('profiles').select('id, first_name, name, avatar_url').eq('id', senderId).maybeSingle()
+    if (error) captureSupabaseError(error, { operation: 'load_direct_message_sender' })
+    notifications
+      .filter(n => n.type === 'message_received' && !n.read && n.data?.conversation_id === conversationId)
+      .forEach(n => markAsRead(n.id))
+    setShowCloseFriends(false)
+    setShowCreateDispo(false)
+    setDispoDetailId(null)
+    setSelectedEvent(null)
+    setConversationEvent(null)
+    setTab('messages')
+    setScreen('messages')
+    setDirectConv({
+      conversationId,
+      friend: {
+        friend_id: senderId,
+        friend_name: [data?.first_name, data?.name].filter(Boolean).join(' ') || 'Ami',
+        friend_avatar: data?.avatar_url ?? '',
+      },
+    })
+  }
+
+  useEffect(() => {
+    if (!appReady || !pushTarget) return
+    const { screen: targetScreen, event_id: eventId, notificationId } = pushTarget
+    setPushTarget(null)
+    if (notificationId) markAsRead(notificationId)
+    if (targetScreen === 'conversation') {
+      openDirectConversation(pushTarget.conversation_id, pushTarget.sender_id)
+      return
+    }
+    supabase.from('events').select('*').eq('id', eventId).maybeSingle().then(({ data, error }) => {
+      if (error) captureSupabaseError(error, { operation: 'load_push_notification_event' })
+      if (!data) return
+      setShowCloseFriends(false)
+      setShowCreateDispo(false)
+      setDispoDetailId(null)
+      setConversationEvent(null)
+      setDirectConv(null)
+      setSelectedEvent(data)
+      setScreen(targetScreen === 'messages' ? 'messages' : 'eventDetail')
+    })
+  }, [appReady, pushTarget])
 
   const isLoading = loading || (!!session && (onboardingCompleted === null || hasUsername === null))
 
@@ -313,7 +418,7 @@ function MainApp() {
     )
 
     switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => setDispoDetailId(id)} onDispoCalendarClick={() => setScreen('dispoCalendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => setDispoDetailId(id)} onDispoCalendarClick={() => setScreen('dispoCalendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
       case 'messages':
         if (directConv) {
@@ -368,6 +473,7 @@ function MainApp() {
           onSaved={() => { setShowAddAmiv(false); setBirthdayRefreshTrigger(t => t + 1) }}
         />
       )}
+      {showPushPrompt && <PushPermissionPrompt onDone={() => setShowPushPrompt(false)} />}
     </div>
   )
 }

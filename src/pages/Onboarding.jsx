@@ -7,13 +7,15 @@ import OnboardingBirthday from '../components/onboarding/OnboardingBirthday'
 import OnboardingNotifications from '../components/onboarding/OnboardingNotifications'
 import OnboardingDone from '../components/onboarding/OnboardingDone'
 import { captureSupabaseError } from '../lib/monitoring'
+import { isNative } from '../lib/native'
 
 // step mapping:
 //   0–1  → slides (welcome)
 //   2    → profile form  (saved when profile submitted)
 //   3    → username form (saved when username submitted)
 //   4    → birthday form (saved when birthday submitted/skipped)
-//   5    → notifications (no DB write per spec)
+//   5    → notifications (no DB write per spec) — web only; on iOS the
+//          PushPermissionPrompt is shown after onboarding instead
 //   6    → done          (saved onboarding_completed=true)
 
 export default function OnboardingFlow({ session, onComplete }) {
@@ -42,7 +44,7 @@ export default function OnboardingFlow({ session, onComplete }) {
   const handleUsernameNext = () => setStep(4)
 
   // Birthday component upserts step=3 itself (or skip)
-  const handleBirthdayNext = () => setStep(5)
+  const handleBirthdayNext = () => setStep(isNative ? 6 : 5)
 
   // Notifications: no DB write per spec — just advance locally
   const handleNotificationsNext = () => setStep(6)
@@ -82,6 +84,6 @@ export default function OnboardingFlow({ session, onComplete }) {
   if (step === 2) return <OnboardingProfile userId={userId} onNext={handleProfileNext} />
   if (step === 3) return <OnboardingUsername userId={userId} onNext={handleUsernameNext} />
   if (step === 4) return <OnboardingBirthday userId={userId} onNext={handleBirthdayNext} />
-  if (step === 5) return <OnboardingNotifications onNext={handleNotificationsNext} />
+  if (step === 5 && !isNative) return <OnboardingNotifications onNext={handleNotificationsNext} />
   return <OnboardingDone onComplete={handleDoneComplete} />
 }

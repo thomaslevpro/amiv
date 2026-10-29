@@ -20,6 +20,10 @@ const config: CapacitorConfig = {
     SplashScreen: {
       backgroundColor: '#faf9fb',
     },
+    // Notification reçue app ouverte : bannière + son, comme app fermée.
+    PushNotifications: {
+      presentationOptions: ['sound', 'banner', 'list'],
+    },
   },
 }
 

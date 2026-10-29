@@ -17,6 +17,7 @@ export default function Home({
   onCreateClick,
   onNotifEventClick,
   onNotifMessageClick,
+  onNotifDirectMessageClick,
   onNotificationsRead,
   notificationUnreadCount = 0,
   onMessagesClick,
@@ -186,6 +187,7 @@ export default function Home({
         currentUser={session?.user}
         onEventOpen={onNotifEventClick ?? onEventClick}
         onMessagesOpen={onNotifMessageClick}
+        onDirectMessageOpen={onNotifDirectMessageClick}
         onCreateEvent={onCreateClick}
         onNotificationsRead={onNotificationsRead}
         onAcceptFriend={acceptRequest}

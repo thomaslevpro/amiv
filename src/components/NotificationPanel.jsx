@@ -135,6 +135,8 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
   const body = notification.body || ''
   const isBirthdayReminder = notification.type === 'birthday_reminder'
   const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'invitation_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed'].includes(notification.type)
+    // message privé : pas d'événement à afficher
+    && (notification.type !== 'message_received' || !!notification.data?.event_id)
   const friendshipId = notification.data?.friendship_id || notification.data?.request_id
 
   async function handleFriendAction(action, event) {
@@ -266,6 +268,7 @@ export default function NotificationPanel({
   currentUser,
   onEventOpen,
   onMessagesOpen,
+  onDirectMessageOpen,
   onNotificationsRead,
   onAcceptFriend,
   onDeclineFriend,
@@ -393,6 +396,11 @@ export default function NotificationPanel({
     if (notification.type === 'message_received' && notification.data?.event_id) {
       onClose?.()
       onMessagesOpen?.({ id: notification.data.event_id })
+      return
+    }
+    if (notification.type === 'message_received' && notification.data?.conversation_id && notification.data?.sender_id) {
+      onClose?.()
+      onDirectMessageOpen?.(notification.data.conversation_id, notification.data.sender_id)
       return
     }
     if (notification.type === 'plus_one_request' && notification.data?.event_id) {

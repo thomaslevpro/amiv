@@ -35,6 +35,7 @@ import FriendsListModal from '../components/profile/FriendsListModal'
 import BlockedUsersModal from '../components/profile/BlockedUsersModal'
 import SupportMessageModal from '../components/profile/SupportMessageModal'
 import { LEGAL_URLS, openExternalUrl } from '../lib/native'
+import { unregisterPushToken } from '../lib/push'
 
 dayjs.locale('fr')
 
@@ -72,7 +73,7 @@ async function fetchProfile(user) {
     share_token: data?.share_token ?? user.id,
     notif_birthdays: data?.notif_birthdays ?? true,
     notif_invitations: data?.notif_invitations ?? true,
-    notif_messages: data?.notif_messages ?? false,
+    notif_messages: data?.notif_messages ?? true,
   }
 }
 
@@ -197,7 +198,7 @@ function IconBubble({ children, background, size = 34, radius = 9 }) {
 
 export default function Profile({ session, onCalendarClick }) {
   const navigate = useNavigate()
-  const [notifs, setNotifs] = useState({ notif_birthdays: true, notif_invitations: true, notif_messages: false })
+  const [notifs, setNotifs] = useState({ notif_birthdays: true, notif_invitations: true, notif_messages: true })
   const [profile, setProfile] = useState(null)
   const [stats, setStats] = useState({ eventsCount: null, birthdaysCount: null, friendsCount: null })
   const [loading, setLoading] = useState(true)
@@ -281,7 +282,10 @@ export default function Profile({ session, onCalendarClick }) {
     window.setTimeout(() => setToastMsg(null), 2000)
   }
 
-  const handleSignOut = () => supabase.auth.signOut()
+  const handleSignOut = async () => {
+    await unregisterPushToken()
+    supabase.auth.signOut()
+  }
 
   const openEditProfile = () => {
     setShowEditProfile(true)

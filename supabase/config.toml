@@ -101,3 +101,7 @@ backend = "postgres"
 [functions.delete-account]
 enabled = true
 verify_jwt = false
+
+[functions.send-push]
+enabled = true
+verify_jwt = false
