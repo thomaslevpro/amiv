@@ -47,7 +47,7 @@ const InstagramDmIcon = ({ size = 26 }) => (
 
 export default function BottomNav({ current, onChange, onCreateClick, hasUnreadMessages, hasUnreadNotifications, hidden }) {
   return (
-    <div style={{
+    <div role="navigation" aria-label="Navigation principale" style={{
       position: 'fixed',
       bottom: 0,
       left: 0,

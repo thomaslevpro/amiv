@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect, useRef } from 'react'
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { App as CapacitorApp } from '@capacitor/app'
 import { supabase } from './lib/supabase'
 import { isNative, parseDeepLink } from './lib/native'
@@ -146,6 +146,47 @@ function NativePushListener() {
   return null
 }
 
+// Écran affiché par MainApp. Chaque écran ouvert est une entrée de
+// l'historique (location.state.amivNavKey) : le bouton retour de l'app, le
+// balayage iOS et le retour du navigateur restaurent exactement l'écran
+// précédent. Les écrans restent en mémoire (ils contiennent des objets non
+// sérialisables) ; après un rechargement, on repart de l'accueil.
+const ROOT_NAV = {
+  tab: 'home',
+  screen: 'home',
+  selectedEvent: null,
+  conversationEvent: null,
+  directConv: null,
+  showCloseFriends: false,
+  showCreateDispo: false,
+  dispoDetailId: null,
+  createInitialData: null,
+  editProfileFocus: null,
+  // Nombre d'écrans de MainApp ouverts avant celui-ci dans l'historique
+  depth: 0,
+}
+const TAB_VIEWS = ['home', 'calendar', 'messages', 'profile']
+const navEntries = new Map()
+let navKeySeq = 0
+
+// Page réellement affichée : décide à la fois de l'écran rendu et de la
+// visibilité de la barre du bas (visible seulement sur les onglets).
+function currentView(nav) {
+  if (nav.showCloseFriends) return 'closeFriends'
+  if (nav.showCreateDispo) return 'createDispo'
+  if (nav.dispoDetailId) return 'dispoDetail'
+  if (['allEvents', 'dispoCalendar', 'create', 'editProfile'].includes(nav.screen)) return nav.screen
+  if (nav.selectedEvent) {
+    if (nav.screen === 'messages') return 'eventChat'
+    if (nav.screen === 'eventDetail' || nav.screen === 'invitation') return nav.screen
+  }
+  if (nav.tab === 'messages') {
+    if (nav.directConv) return 'directConversation'
+    if (nav.conversationEvent) return 'eventConversation'
+  }
+  return nav.tab
+}
+
 function MainApp() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
@@ -156,19 +197,16 @@ function MainApp() {
   const [loading, setLoading] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(null)
   const [hasUsername, setHasUsername] = useState(null)
-  const [tab, setTab] = useState('home')
-  const [screen, setScreen] = useState('home')
+  const location = useLocation()
+  const routerNavigate = useNavigate()
+  const nav = navEntries.get(location.state?.amivNavKey) ?? ROOT_NAV
+  const navRef = useRef(nav)
+  navRef.current = nav
+  const { tab, selectedEvent, conversationEvent, directConv, createInitialData, editProfileFocus, dispoDetailId } = nav
+  const view = currentView(nav)
   const [showCreateSheet, setShowCreateSheet] = useState(false)
-  const [showCreateDispo, setShowCreateDispo] = useState(false)
-  const [showCloseFriends, setShowCloseFriends] = useState(false)
-  const [dispoDetailId, setDispoDetailId] = useState(null)
   const [showAddAmiv, setShowAddAmiv] = useState(false)
   const [birthdayRefreshTrigger, setBirthdayRefreshTrigger] = useState(0)
-  const [selectedEvent, setSelectedEvent] = useState(null)
-  const [conversationEvent, setConversationEvent] = useState(null)
-  const [directConv, setDirectConv] = useState(null)
-  const [createInitialData, setCreateInitialData] = useState(null)
-  const [editProfileFocus, setEditProfileFocus] = useState(null)
   const appLoadedTracked = useRef(false)
   const { notifications, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
@@ -178,6 +216,26 @@ function MainApp() {
   ).length
   const [pushTarget, setPushTarget] = useState(() => takePendingPushTarget())
   const [showPushPrompt, setShowPushPrompt] = useState(false)
+
+  const pushNavEntry = (next, replace) => {
+    const amivNavKey = `nav-${++navKeySeq}`
+    navEntries.set(amivNavKey, next)
+    routerNavigate(
+      { pathname: window.location.pathname, search: window.location.search },
+      { replace, state: { amivNavKey } }
+    )
+  }
+  // Ouvre un écran par-dessus l'écran actuel (nouvelle entrée d'historique)
+  const openScreen = (patch) => pushNavEntry({ ...navRef.current, ...patch, depth: navRef.current.depth + 1 }, false)
+  // Modifie l'écran actuel sans ajouter d'entrée d'historique
+  const replaceScreen = (patch) => pushNavEntry({ ...navRef.current, ...patch, depth: navRef.current.depth }, true)
+  // Retour : revient à l'entrée précédente, ou, si l'écran a été ouvert
+  // directement (lien, notification au lancement), affiche `fallback`.
+  const goBack = (fallback) => {
+    if (navRef.current.depth > 0) routerNavigate(-1)
+    else replaceScreen(fallback)
+  }
+
   const pendingEventId = useRef(
     window.location.pathname.match(/^\/events\/([^/]+)/)?.[1] ?? null
   )
@@ -246,9 +304,8 @@ function MainApp() {
     supabase.from('events').select('*').eq('id', id).maybeSingle().then(({ data, error }) => {
       if (error) captureSupabaseError(error, { operation: 'load_pending_event' })
       if (data) {
-        setSelectedEvent(data)
-        setScreen('eventDetail')
-        window.history.replaceState(null, '', '/')
+        window.history.replaceState(window.history.state, '', '/')
+        replaceScreen({ selectedEvent: data, screen: 'eventDetail' })
       }
     })
   }, [session])
@@ -283,19 +340,17 @@ function MainApp() {
     notifications
       .filter(n => n.type === 'message_received' && !n.read && n.data?.conversation_id === conversationId)
       .forEach(n => markAsRead(n.id))
-    setShowCloseFriends(false)
-    setShowCreateDispo(false)
-    setDispoDetailId(null)
-    setSelectedEvent(null)
-    setConversationEvent(null)
-    setTab('messages')
-    setScreen('messages')
-    setDirectConv({
-      conversationId,
-      friend: {
-        friend_id: senderId,
-        friend_name: [data?.first_name, data?.name].filter(Boolean).join(' ') || 'Ami',
-        friend_avatar: data?.avatar_url ?? '',
+    openScreen({
+      ...ROOT_NAV,
+      tab: 'messages',
+      screen: 'messages',
+      directConv: {
+        conversationId,
+        friend: {
+          friend_id: senderId,
+          friend_name: [data?.first_name, data?.name].filter(Boolean).join(' ') || 'Ami',
+          friend_avatar: data?.avatar_url ?? '',
+        },
       },
     })
   }
@@ -312,13 +367,12 @@ function MainApp() {
     supabase.from('events').select('*').eq('id', eventId).maybeSingle().then(({ data, error }) => {
       if (error) captureSupabaseError(error, { operation: 'load_push_notification_event' })
       if (!data) return
-      setShowCloseFriends(false)
-      setShowCreateDispo(false)
-      setDispoDetailId(null)
-      setConversationEvent(null)
-      setDirectConv(null)
-      setSelectedEvent(data)
-      setScreen(targetScreen === 'messages' ? 'messages' : 'eventDetail')
+      openScreen({
+        ...ROOT_NAV,
+        tab: navRef.current.tab,
+        selectedEvent: data,
+        screen: targetScreen === 'messages' ? 'messages' : 'eventDetail',
+      })
     })
   }, [appReady, pushTarget])
 
@@ -330,116 +384,107 @@ function MainApp() {
   if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => { track('onboarding_completed'); setOnboardingCompleted(true); setHasUsername(true) }} />
   if (!hasUsername) return <UsernamePrompt session={session} onComplete={() => setHasUsername(true)} />
 
-  const handleEventClick = (event) => { setSelectedEvent(event); setScreen('eventDetail') }
+  const handleEventClick = (event) => openScreen({ selectedEvent: event, screen: 'eventDetail' })
+  // Changer d'onglet ne s'empile pas dans l'historique, comme une app native
   const handleTabChange = (newTab) => {
     track('tab_changed', { tab: newTab })
-    setTab(newTab)
-    setScreen(newTab)
-    setSelectedEvent(null)
-    setConversationEvent(null)
-    setDirectConv(null)
+    replaceScreen({ ...ROOT_NAV, tab: newTab, screen: newTab })
   }
+  const openCreate = (initialData = null) => openScreen({ createInitialData: initialData, screen: 'create' })
   const handleNotifEventClick = async (partialEvent) => {
     const { data, error } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
     if (error) captureSupabaseError(error, { operation: 'load_notification_event' })
-    if (data) { setSelectedEvent(data); setScreen('eventDetail') }
+    if (data) openScreen({ selectedEvent: data, screen: 'eventDetail' })
   }
   const handleNotifMessageClick = async (partialEvent) => {
     const { data, error } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
     if (error) captureSupabaseError(error, { operation: 'load_notification_message_event' })
-    if (data) { setSelectedEvent(data); setScreen('messages') }
+    if (data) openScreen({ selectedEvent: data, screen: 'messages' })
   }
   const handleCreateFromDispo = (post) => {
-    setCreateInitialData({
+    replaceScreen({
+      showCreateDispo: false,
+      dispoDetailId: null,
+      screen: 'create',
+      createInitialData: {
       title: post?.message ? post.message.slice(0, 48) : '',
       desc: post?.message ?? '',
       description: post?.message ?? '',
-      emoji: post?.moods?.includes('cafe') ? '☕' : post?.moods?.includes('diner') ? '🍽️' : post?.moods?.includes('cine') ? '🎬' : undefined,
+        emoji: post?.moods?.includes('cafe') ? '☕' : post?.moods?.includes('diner') ? '🍽️' : post?.moods?.includes('cine') ? '🎬' : undefined,
+      },
     })
-    setShowCreateDispo(false)
-    setDispoDetailId(null)
-    setScreen('create')
   }
 
-  const isDetailScreen =
-    showCloseFriends ||
-    showCreateDispo ||
-    !!dispoDetailId ||
-    screen === 'create' ||
-    screen === 'editProfile' ||
-    screen === 'allEvents' ||
-    screen === 'dispoCalendar' ||
-    (screen === 'invitation' && selectedEvent) ||
-    (screen === 'eventDetail' && selectedEvent) ||
-    (screen === 'messages' && selectedEvent) ||
-    !!directConv ||
-  !!conversationEvent
-
   const renderCurrentScreen = () => {
-    if (showCloseFriends) return (
-      <CloseFriendsScreen
-        onBack={() => setShowCloseFriends(false)}
-        userId={session?.user?.id}
-      />
-    )
-    if (showCreateDispo) return (
-      <CreateDispoScreen
-        onBack={() => setShowCreateDispo(false)}
-        userId={session.user.id}
-        onManageCloseFriends={() => setShowCloseFriends(true)}
-      />
-    )
-    if (dispoDetailId) return (
-      <DispoDetailScreen
-        postId={dispoDetailId}
-        currentUserId={session.user.id}
-        onBack={() => setDispoDetailId(null)}
-        onCreateEvent={handleCreateFromDispo}
-      />
-    )
-    if (screen === 'allEvents') return <AllEvents onBack={() => setScreen('home')} onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} />
-    if (screen === 'dispoCalendar') return <DispoCalendarPage userId={session.user.id} onBack={() => setScreen('home')} />
-    if (screen === 'create') return <Create onBack={() => setScreen('home')} session={session} initialData={createInitialData} />
-    if (screen === 'editProfile') return (
-      <EditProfile
-        initialFocus={editProfileFocus}
-        onBack={() => { setEditProfileFocus(null); setTab('profile'); setScreen('home') }}
-        onSave={() => { setEditProfileFocus(null); setTab('profile'); setScreen('home') }}
-      />
-    )
-    if (screen === 'messages' && selectedEvent) return (
-      <Messages event={selectedEvent} onBack={() => setScreen('eventDetail')} notifications={notifications} markAsRead={markAsRead} />
-    )
-    if (screen === 'eventDetail' && selectedEvent) return (
-      <EventDetail event={selectedEvent} onBack={() => setScreen('home')} onInvitation={() => setScreen('invitation')} onChat={ev => { setConversationEvent(ev); setScreen('messages') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
-    )
-    if (screen === 'invitation' && selectedEvent) return (
-      <Invitation event={selectedEvent} onBack={() => setScreen('eventDetail')} />
-    )
-
-    switch (tab) {
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={(initialData = null) => { setCreateInitialData(initialData); setScreen('create') }} onTrendingClick={(data) => { setCreateInitialData(data); setScreen('create') }} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => setScreen('allEvents')} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => setDispoDetailId(id)} onDispoCalendarClick={() => setScreen('dispoCalendar')} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
-      case 'calendar': return <Calendar onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} onMessagesClick={ev => { setSelectedEvent(ev); setScreen('messages') }} />
-      case 'messages':
-        if (directConv) {
-          return (
-            <ConversationScreen
-              conversationId={directConv.conversationId}
-              friend={directConv.friend}
-              onBack={() => setDirectConv(null)}
-              onFriendChange={friend => setDirectConv(prev => prev ? { ...prev, friend } : prev)}
-            />
-          )
-        }
-        if (conversationEvent) {
-          return <Messages event={conversationEvent} onBack={() => setConversationEvent(null)} notifications={notifications} markAsRead={markAsRead} />
-        }
-        return <Messages onEventOpen={setConversationEvent} onDirectConvOpen={setDirectConv} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => { setCreateInitialData(null); setScreen('create') }} />
+    switch (view) {
+      case 'closeFriends': return (
+        <CloseFriendsScreen
+          onBack={() => goBack({ showCloseFriends: false })}
+          userId={session?.user?.id}
+        />
+      )
+      case 'createDispo': return (
+        <CreateDispoScreen
+          onBack={() => goBack({ showCreateDispo: false })}
+          userId={session.user.id}
+          onManageCloseFriends={() => openScreen({ showCloseFriends: true })}
+        />
+      )
+      case 'dispoDetail': return (
+        <DispoDetailScreen
+          postId={dispoDetailId}
+          currentUserId={session.user.id}
+          onBack={() => goBack({ dispoDetailId: null })}
+          onCreateEvent={handleCreateFromDispo}
+        />
+      )
+      case 'allEvents': return <AllEvents onBack={() => goBack({ screen: 'home' })} onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} />
+      case 'dispoCalendar': return <DispoCalendarPage userId={session.user.id} onBack={() => goBack({ screen: 'home' })} />
+      case 'create': return <Create onBack={() => goBack({ screen: 'home' })} session={session} initialData={createInitialData} />
+      case 'editProfile': return (
+        <EditProfile
+          initialFocus={editProfileFocus}
+          onBack={() => goBack({ editProfileFocus: null, tab: 'profile', screen: 'home' })}
+          onSave={() => goBack({ editProfileFocus: null, tab: 'profile', screen: 'home' })}
+        />
+      )
+      case 'eventChat': return (
+        <Messages event={selectedEvent} onBack={() => goBack({ screen: 'eventDetail' })} notifications={notifications} markAsRead={markAsRead} />
+      )
+      case 'eventDetail': return (
+        <EventDetail
+          event={selectedEvent}
+          onBack={() => goBack({ screen: 'home', selectedEvent: null })}
+          onInvitation={() => openScreen({ screen: 'invitation' })}
+          onChat={ev => openScreen({ selectedEvent: ev, screen: 'messages' })}
+          onMessagesClick={ev => openScreen({ selectedEvent: ev, screen: 'messages' })}
+        />
+      )
+      case 'invitation': return (
+        <Invitation event={selectedEvent} onBack={() => goBack({ screen: 'eventDetail' })} />
+      )
+      case 'directConversation': return (
+        <ConversationScreen
+          conversationId={directConv.conversationId}
+          friend={directConv.friend}
+          onBack={() => goBack({ directConv: null })}
+          onFriendChange={friend => {
+            const current = navRef.current.directConv
+            if (current) replaceScreen({ directConv: { ...current, friend } })
+          }}
+        />
+      )
+      case 'eventConversation': return (
+        <Messages event={conversationEvent} onBack={() => goBack({ conversationEvent: null })} notifications={notifications} markAsRead={markAsRead} />
+      )
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={openCreate} onTrendingClick={openCreate} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => openScreen({ screen: 'allEvents' })} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => openScreen({ dispoDetailId: id })} onDispoCalendarClick={() => openScreen({ screen: 'dispoCalendar' })} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
+      case 'calendar': return <Calendar onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} onCreateClick={() => openCreate()} onMessagesClick={ev => openScreen({ selectedEvent: ev, screen: 'messages' })} />
+      case 'messages': return <Messages onEventOpen={ev => openScreen({ conversationEvent: ev })} onDirectConvOpen={conv => openScreen({ directConv: conv })} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => openCreate()} />
       case 'profile': return (
         <Profile
           session={session}
-          onEdit={() => { setEditProfileFocus(null); setScreen('editProfile') }}
-          onAddBirthday={() => { setEditProfileFocus('birthday'); setScreen('editProfile') }}
+          onEdit={() => openScreen({ editProfileFocus: null, screen: 'editProfile' })}
+          onAddBirthday={() => openScreen({ editProfileFocus: 'birthday', screen: 'editProfile' })}
           onCalendarClick={() => handleTabChange('calendar')}
         />
       )
@@ -458,12 +503,12 @@ function MainApp() {
         onCreateClick={() => setShowCreateSheet(true)}
         hasUnreadMessages={totalUnread > 0}
         hasUnreadNotifications={hasUnreadNotifications}
-        hidden={isDetailScreen}
+        hidden={!TAB_VIEWS.includes(view)}
       />
       {showCreateSheet && (
         <CreateActionSheet
           onClose={() => setShowCreateSheet(false)}
-          onCreateEvent={() => { setCreateInitialData(null); setScreen('create') }}
+          onCreateEvent={() => openCreate()}
           onAddAmiv={() => setShowAddAmiv(true)}
         />
       )}
