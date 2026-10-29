@@ -34,7 +34,6 @@ import AmivQrModal from '../components/profile/AmivQrModal'
 import FriendsListModal from '../components/profile/FriendsListModal'
 import BlockedUsersModal from '../components/profile/BlockedUsersModal'
 import SupportMessageModal from '../components/profile/SupportMessageModal'
-import { LEGAL_URLS, openExternalUrl } from '../lib/native'
 import { unregisterPushToken } from '../lib/push'
 import { birthdayRequestStatus, createBirthdayRequest, listBirthdayRequests, shareBirthdayRequest } from '../lib/birthdayRequests'
 
@@ -535,9 +534,6 @@ export default function Profile({ session, onCalendarClick }) {
     { icon: <UserCheck size={18} strokeWidth={1.7} color="#7c5cbf" />, bg: 'rgba(124,92,191,0.10)', label: 'Informations personnelles', desc: 'Nom, prénom, date de naissance', onClick: openEditProfile },
     { icon: <Key size={18} strokeWidth={1.7} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', label: 'Changer le mot de passe', desc: 'Modifier votre mot de passe actuel', onClick: () => setShowChangePassword(true) },
     { icon: <Ban size={18} strokeWidth={1.7} color="#FF3B30" />, bg: 'rgba(255,59,48,0.08)', label: 'Utilisateurs bloqués', desc: 'Gérer les personnes que tu as bloquées', onClick: () => setShowBlockedUsers(true) },
-    { icon: <FileText size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: "Conditions d'utilisation", desc: "Règles d'utilisation d'Amiv", onClick: () => openExternalUrl(LEGAL_URLS.terms) },
-    { icon: <Shield size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: 'Politique de confidentialité', desc: 'Comment Amiv utilise tes données', onClick: () => openExternalUrl(LEGAL_URLS.privacy) },
-    { icon: <Landmark size={18} strokeWidth={1.7} color="#8E8E93" />, bg: COLORS.page, label: 'Mentions légales', desc: "Éditeur et hébergeurs d'Amiv", onClick: () => openExternalUrl(LEGAL_URLS.legalNotice) },
     { icon: <AlertCircle size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Signaler un bug', desc: 'Décrire un problème rencontré', onClick: () => setSupportCategory('bug') },
     { icon: <Mail size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Nous contacter', desc: "Écrire à l'équipe Amiv", onClick: () => setSupportCategory('contact') },
   ]
@@ -864,6 +860,25 @@ export default function Profile({ session, onCalendarClick }) {
             </div>
           </div>
 
+          <div style={{ marginBottom: 18 }}>
+            <SectionTitle>À propos</SectionTitle>
+            <div style={{ background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
+              {[
+                { icon: <FileText size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: "Conditions d'utilisation", path: '/cgu' },
+                { icon: <Shield size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: 'Politique de confidentialité', path: '/confidentialite' },
+                { icon: <Landmark size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: 'Mentions légales', path: '/mentions-legales' },
+                { icon: <Mail size={18} strokeWidth={1.7} color={COLORS.secondary} />, label: 'Aide et contact', path: '/support' },
+              ].map((row, index, rows) => (
+                <button key={row.path} type="button" onClick={() => navigate(row.path)} style={{ width: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: index < rows.length - 1 ? '0.5px solid rgba(0,0,0,0.07)' : 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+                  <IconBubble background={COLORS.page}>{row.icon}</IconBubble>
+                  <div style={{ flex: 1, fontSize: 14, color: COLORS.text, fontWeight: 600 }}>{row.label}</div>
+                  <ChevronRight size={16} strokeWidth={1.7} color={COLORS.hint} />
+                </button>
+              ))}
+              <div style={{ padding: '12px 16px 14px', textAlign: 'center', fontSize: 11, color: COLORS.secondary, borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>Amiv · version 1.0.0 (build 1)</div>
+            </div>
+          </div>
+
           <div style={{ background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW, marginBottom: 18 }}>
             <button type="button" onClick={handleSignOut} style={{ width: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
               <IconBubble background={COLORS.page}>
@@ -881,9 +896,6 @@ export default function Profile({ session, onCalendarClick }) {
             </button>
           </div>
 
-          <div style={{ textAlign: 'center', fontSize: 11, color: COLORS.hint, fontWeight: 500, padding: '10px 0 32px' }}>
-            Amiv v1.0.0 · Made with ❤️ in France
-          </div>
         </div>
       </div>
 

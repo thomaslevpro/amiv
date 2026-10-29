@@ -24,15 +24,21 @@ const LEGAL_LINKS = [
   { to: '/support', label: 'Support' },
 ]
 
-function LegalLayout({ title, intro, children }) {
+function LegalLayout({ title, description, sections = [], summary = [], children, legal = false }) {
   return (
     <div style={{ height: '100%', flex: 1, minHeight: 0, background: COLORS.page, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif", color: COLORS.text, overflowY: 'auto' }}>
-      <div style={{ width: '100%', maxWidth: 680, padding: 'calc(28px + env(safe-area-inset-top, 0px)) 20px calc(40px + env(safe-area-inset-bottom, 0px))', boxSizing: 'border-box' }}>
-        <a href="/" style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, background: COLORS.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textDecoration: 'none' }}>
+      <div style={{ width: '100%', maxWidth: 680, padding: 'calc(24px + env(safe-area-inset-top, 0px)) 22px calc(40px + env(safe-area-inset-bottom, 0px))', boxSizing: 'border-box' }}>
+        <Link to="/" style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, background: COLORS.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textDecoration: 'none' }}>
           Amiv
-        </a>
-        <h1 style={{ fontSize: 26, fontWeight: 900, margin: '18px 0 10px', lineHeight: 1.2 }}>{title}</h1>
-        {intro && <p style={{ fontSize: 15, lineHeight: 1.6, color: COLORS.body, margin: '0 0 22px' }}>{intro}</p>}
+        </Link>
+        <h1 style={{ fontSize: 28, fontWeight: 900, margin: '20px 0 12px', lineHeight: 1.2 }}>{title}</h1>
+        {legal && <><div style={{ color: COLORS.secondary, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}><div>Date d'effet : 29 octobre 2026</div><div>Dernière mise à jour : 29 octobre 2026</div></div>
+        {description && <div style={{ fontSize: 15, lineHeight: 1.65, color: COLORS.body, margin: '0 0 20px' }}>{description}</div>}
+        <details style={{ background: COLORS.card, borderRadius: 14, padding: '14px 16px', margin: '0 0 22px', fontSize: 14, lineHeight: 1.55 }}>
+          <summary style={{ fontWeight: 800, cursor: 'pointer', color: COLORS.text }}>En bref</summary>
+          <ul style={{ margin: '10px 0 0', paddingLeft: 20, color: COLORS.body }}>{summary.map((item, i) => <li key={i} style={{ marginBottom: 5 }}>{item}</li>)}</ul>
+        </details>
+        {sections.length > 0 && <nav aria-label="Sommaire" style={{ marginBottom: 26, padding: '16px', border: `1px solid ${COLORS.border}`, borderRadius: 14 }}><div style={{ fontWeight: 800, fontSize: 15, marginBottom: 9 }}>Sommaire</div><ol style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.8 }}>{sections.map(([id, label]) => <li key={id}><a href={`#${id}`} style={{ color: COLORS.accent, textDecoration: 'none' }}>{label}</a></li>)}</ol></nav>}</>}
         {children}
         <LegalFooter />
       </div>
@@ -52,10 +58,10 @@ function LegalFooter() {
   )
 }
 
-function Section({ title, children }) {
+function Section({ title, children, id }) {
   return (
-    <section style={{ marginBottom: 22 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px' }}>{title}</h2>
+    <section id={id || title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^[0-9]+[.-]?\s*/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')} style={{ marginBottom: 26, scrollMarginTop: 20 }}>
+      <h2 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 10px', lineHeight: 1.3 }}>{title}</h2>
       <div style={{ fontSize: 15, lineHeight: 1.6, color: COLORS.body }}>{children}</div>
     </section>
   )
@@ -114,21 +120,18 @@ export function LegalNoticePage() {
   return (
     <LegalLayout
       title="Mentions légales"
-      intro="Amiv est édité par un entrepreneur individuel, Thomas LEVY. Ces mentions s'appliquent au site amiv.app et à l'application Amiv sur iOS."
+      legal
+      description={<><P>Amiv est une application et un site qui t'aident à organiser des anniversaires et des moments entre amis.</P><P>Cette page précise qui édite Amiv, qui l'héberge et comment nous contacter. Elle concerne amiv.app et l'application iOS.</P><P>Pour régler tes notifications et ta confidentialité, ouvre Profil → Notifications ou Profil → Confidentialité. Pour effacer ton compte, choisis Profil → Supprimer mon compte.</P></>}
+      summary={['Amiv aide à organiser des événements entre amis.', 'Tu trouveras ici les informations de l’éditeur et des hébergeurs.', 'Pour une question, écris à contact@amiv.app.']}
+      sections={[["objet-du-site", "Amiv et son objet"], ["editeur-et-hebergeur", "Éditeur et hébergeur"]]}
     >
-      <KeyValueTable rows={[
-        ['Éditeur', 'Thomas LEVY, entrepreneur individuel (EI)'],
-        ['Adresse', '53 rue du Moulin Vert, 75014 Paris, France'],
-        ['SIRET', '851 506 204 00037'],
-        ['Code APE', '8299Z'],
-        ['Directeur de la publication', 'Thomas LEVY'],
-        ['Contact', <Contact key="contact" />],
-        ['Hébergement du site', 'Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis, vercel.com'],
-        ['Hébergement des données', 'Supabase Inc., 970 Toa Payoh North #07-04, Singapour 318992, supabase.com. Serveurs situés à Londres (Royaume-Uni).'],
-      ]} />
-      <P>
-        Pour toute question ou réclamation, écris à <Contact /> ou utilise le formulaire « Nous contacter » de l'application.
-      </P>
+      <Section id="objet-du-site" title="1. Amiv et son objet"><P>Amiv est un service qui permet d’organiser des anniversaires et des moments entre amis : invitations, échanges, rappels et souvenirs partagés.</P></Section>
+      <Section id="editeur-et-hebergeur" title="2. Éditeur et hébergeur">
+        <KeyValueTable rows={[
+          ['Éditeur', 'Thomas LEVY, entrepreneur individuel (EI)'], ['SIRET', '851 506 204 00037'], ['Code APE', '8299Z'], ['Adresse', '53 rue du Moulin Vert, 75014 Paris, France'], ['Directeur de la publication', 'Thomas LEVY'], ['Contact', <Contact key="contact" />], ['Hébergement du site', 'Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis, vercel.com'], ['Hébergement des données', 'Supabase Inc., 970 Toa Payoh North #07-04, Singapour 318992, supabase.com. Serveurs situés à Londres (Royaume-Uni).'],
+        ]} />
+        <P>Pour toute question ou réclamation, écris à <Contact /> ou utilise « Nous contacter » dans l'application.</P>
+      </Section>
     </LegalLayout>
   )
 }
@@ -137,7 +140,10 @@ export function TermsPage() {
   return (
     <LegalLayout
       title="Conditions générales d'utilisation"
-      intro="En créant un compte ou en utilisant Amiv, tu acceptes ces conditions. Elles sont en vigueur depuis le 30 octobre 2026."
+      legal
+      description={<><P>Ces conditions expliquent les règles applicables quand tu crées un compte ou utilises Amiv, et les engagements de chacun.</P><P>Elles couvrent les fonctionnalités, ton compte, tes contenus, la modération et les responsabilités liées au service.</P><P>Tu peux gérer Profil → Notifications et Profil → Confidentialité, ou supprimer ton compte depuis Profil → Supprimer mon compte.</P></>}
+      summary={['Amiv sert à organiser des anniversaires et des moments entre amis.', 'Le service est réservé aux personnes de 15 ans et plus.', 'Tu gardes la propriété de tes contenus et dois respecter les autres.', 'Tu peux signaler un contenu et supprimer ton compte depuis ton Profil.', 'Le service est soumis au droit français.']}
+      sections={[["le-service", "Le service"], ["age-minimum", "Âge minimum"], ["ton-compte", "Ton compte"], ["regles-de-conduite", "Règles de conduite"], ["tes-contenus", "Tes contenus"], ["signalement-et-moderation", "Signalement et modération"], ["disponibilite-et-responsabilite", "Disponibilité et responsabilité"], ["propriete-intellectuelle", "Propriété intellectuelle"], ["modifications", "Modifications"], ["droit-applicable", "Droit applicable"]]}
     >
       <Section title="1. Le service">
         <P>Amiv est une application gratuite pour organiser des anniversaires et des moments entre amis. Elle permet notamment de :</P>
@@ -207,13 +213,12 @@ export function PrivacyPage() {
   return (
     <LegalLayout
       title="Politique de confidentialité"
-      intro="Amiv collecte uniquement les données nécessaires pour organiser tes événements, ne les vend jamais et n'affiche aucune publicité. Dernière mise à jour : 29 octobre 2026."
+      legal
+      description={<><P>Cette politique décrit les données utilisées par Amiv, les raisons de leur utilisation, les personnes qui peuvent les voir et les durées de conservation.</P><P>Elle s’applique à ton compte comme aux informations de personnes invitées ou répondant à un lien d’anniversaire.</P><P>Dans l’app, gère Profil → Notifications et Profil → Confidentialité. Tu peux effacer ton compte via Profil → Supprimer mon compte.</P></>}
+      summary={['Amiv utilise les données nécessaires au fonctionnement du service et ne les vend pas.', 'Ton profil et tes interactions sont visibles selon les fonctionnalités utilisées.', 'Tu peux demander l’accès, la correction ou la suppression de tes données.', 'La suppression du compte efface tes données, avec quelques exceptions expliquées ici.', 'Tu peux contacter Amiv à contact@amiv.app.']}
+      sections={[["donnees-collectees-usages-et-durees", "Données collectées, usages et durées"], ["qui-voit-tes-donnees", "Qui voit tes données"], ["suppression-de-ton-compte", "Suppression de ton compte"], ["tes-droits", "Tes droits"], ["mineurs", "Mineurs"], ["securite", "Sécurité"], ["cookies-et-traceurs", "Cookies et traceurs"], ["modifications", "Modifications"], ["qui-est-responsable-de-tes-donnees", "Qui est responsable de tes données ?"]]}
     >
-      <Section title="1. Responsable du traitement">
-        <P>Thomas LEVY, entrepreneur individuel, 53 rue du Moulin Vert, 75014 Paris. Contact : <Contact />.</P>
-      </Section>
-
-      <Section title="2. Données collectées, usages et durées">
+      <Section id="donnees-collectees-usages-et-durees" title="1. Données collectées, usages et durées">
         <CardTable
           columns={['Données', 'Pourquoi', 'Base légale', 'Conservation']}
           rows={[
@@ -240,7 +245,7 @@ export function PrivacyPage() {
         <P>Tu ne reçois aucune publicité, et tes données ne servent à aucun profilage. Les emails envoyés par Amiv servent uniquement au fonctionnement du service, par exemple pour la confirmation d'inscription, la réinitialisation du mot de passe, les invitations et les relances.</P>
       </Section>
 
-      <Section title="3. Qui voit tes données">
+      <Section id="qui-voit-tes-donnees" title="2. Qui voit tes données">
         <List items={[
           <><strong>Les utilisateurs connectés</strong> voient ton nom, ton prénom, ton pseudo et ta photo.</>,
           <><strong>Tes amis</strong> voient en plus ta date de naissance.</>,
@@ -264,32 +269,35 @@ export function PrivacyPage() {
         <P>Le Royaume-Uni bénéficie d'une décision d'adéquation de la Commission européenne. Les transferts vers les États-Unis sont encadrés par les clauses contractuelles types de la Commission européenne ou par le Data Privacy Framework.</P>
       </Section>
 
-      <Section title="4. Suppression de ton compte">
+      <Section id="suppression-de-ton-compte" title="3. Suppression de ton compte">
         <P>La suppression automatique des comptes inactifs n'est actuellement pas activée. Après 3 ans sans activité, tu reçois un email pour t'en informer. Ton compte n'est pas supprimé pour autant. Tu peux supprimer ton compte à tout moment depuis Profil → Supprimer mon compte.</P>
         <P>La suppression est immédiate : ton profil, tes fichiers et ton compte de connexion sont effacés dès ta demande. Seules les sauvegardes peuvent contenir tes données, 7 jours maximum.</P>
         <P>Sont alors supprimés : ton profil, ta photo, tes amis, tes blocages, les profils que tu as masqués, tes réponses, tes souvenirs, tes mots sur les cartes, tes fichiers, tes demandes d'anniversaire, tes signalements et le jeton de notification de tes appareils.</P>
         <P>Les événements que tu organises sont transférés à un co-organisateur s'il y en a un, sinon supprimés, et les invités en sont prévenus. Tes messages dans les chats d'événement et les messages privés restent visibles par les autres participants, mais apparaissent sous « Utilisateur supprimé » : ces échanges appartiennent aussi aux autres. Les signalements faits par d'autres sur tes messages ou ton profil sont supprimés 12 mois après leur traitement, ou 12 mois après leur création s'ils ne sont pas traités.</P>      </Section>
 
-      <Section title="5. Tes droits">
+      <Section id="tes-droits" title="4. Tes droits">
         <P>Tu peux à tout moment demander l'accès à tes données, leur rectification, leur suppression, leur portabilité, ou t'opposer à un traitement fondé sur l'intérêt légitime. Tu peux aussi définir des directives sur le sort de tes données après ton décès.</P>
         <P>Écris à <Contact /> depuis l'adresse de ton compte. La réponse arrive sous un mois au plus. Une personne sans compte, invitée par email, ajoutée dans les anniversaires d'un utilisateur ou qui a donné sa date d'anniversaire par lien, peut demander la suppression de ses données de la même manière.</P>
         <P>Si tu estimes que tes droits ne sont pas respectés, tu peux saisir la CNIL : cnil.fr, 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07.</P>
       </Section>
 
-      <Section title="6. Mineurs">
+      <Section id="mineurs" title="5. Mineurs">
         <P>Amiv est réservé aux personnes de 15 ans et plus. Si tu apprends qu'un enfant de moins de 15 ans a créé un compte, écris à <Contact /> et le compte sera supprimé.</P>
       </Section>
 
-      <Section title="7. Sécurité">
+      <Section id="securite" title="6. Sécurité">
         <P>Les échanges sont chiffrés (HTTPS) et les mots de passe ne sont jamais stockés en clair. L'accès aux données est limité en base : chacun ne voit que ce qui le concerne, et l'espace secret est fermé à la personne fêtée.</P>
       </Section>
 
-      <Section title="8. Cookies et traceurs">
+      <Section id="cookies-et-traceurs" title="7. Cookies et traceurs">
         <P>Amiv n'utilise aucun cookie publicitaire ni outil de mesure d'audience. Seule ta session de connexion est enregistrée sur ton appareil, ce qui est indispensable au fonctionnement du service et ne nécessite pas de consentement. Si un outil de mesure d'audience est ajouté, cette politique sera mise à jour et ton accord sera demandé.</P>
       </Section>
 
-      <Section title="9. Modifications">
+      <Section id="modifications" title="8. Modifications">
         <P>Cette politique peut évoluer. En cas de changement important, tu en seras informé dans l'application.</P>
+      </Section>
+      <Section id="qui-est-responsable-de-tes-donnees" title="9. Qui est responsable de tes données ?">
+        <P>Le responsable du traitement est Thomas LEVY, entrepreneur individuel, 53 rue du Moulin Vert, 75014 Paris, France. Pour toute question relative à tes données ou pour exercer tes droits, écris à <Contact />.</P>
       </Section>
     </LegalLayout>
   )
