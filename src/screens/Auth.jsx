@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Capacitor } from '@capacitor/core'
+import { useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff, KeyRound, Mail } from 'lucide-react'
 import { supabase, AUTH_CALLBACK_URL, AUTH_RESET_URL } from '../lib/supabase'
 import { track } from '../lib/analytics'
@@ -20,6 +19,11 @@ const switchLinkStyle = { background: 'none', border: 'none', padding: 0, font: 
 // n'impose que 6 caractères (valeur par défaut), donc 8 reste compatible.
 const MIN_PASSWORD_LENGTH = 8
 const EMAIL_RE = /^\S+@\S+\.\S+$/
+// Code reçu par email : longueur et durée de validité réglées dans Supabase
+// (Authentication → Providers → Email : « Email OTP Length » et « Email OTP Expiration »).
+const CODE_LENGTH = 6
+const CODE_TTL_MS = 60 * 60 * 1000
+const RESEND_DELAY_MS = 60 * 1000
 
 // Fondu + léger glissement au changement de mode, et repli en hauteur
 // (grid-template-rows 0fr ↔ 1fr) pour les blocs qui apparaissent / disparaissent.
@@ -71,9 +75,266 @@ function Spinner() {
   )
 }
 
+// Écran centré commun aux étapes « code » et « nouveau mot de passe »
+function StepLayout({ icon: Icon, title, children }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflowY: 'auto', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <OnboardingStyles />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center' }}>
+        <div style={{ width: 72, height: 72, borderRadius: 22, background: '#FFF0F7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+          <Icon size={34} strokeWidth={1.8} color="#e055aa" />
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>{title}</div>
+        <div style={{ width: '100%', maxWidth: 340 }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function ErrorBox({ children }) {
+  return (
+    <div role="alert" style={{ background: 'rgba(255,59,48,0.10)', borderRadius: 10, padding: '10px 14px', marginBottom: 10, fontSize: 13, color: '#FF3B30' }}>
+      {children}
+    </div>
+  )
+}
+
+function PrimaryButton({ loading, disabled, children }) {
+  return (
+    <button type="submit" className="ob-press" disabled={disabled || loading} aria-busy={loading} style={{
+      width: '100%', padding: 16, marginTop: 6, border: 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+      background: 'linear-gradient(135deg,#e055aa,#f5a623)',
+      opacity: loading ? 0.75 : disabled ? 0.45 : 1,
+      color: '#fff', fontFamily: 'inherit',
+      borderRadius: 16, fontSize: 16, fontWeight: 700,
+      cursor: disabled || loading ? 'not-allowed' : 'pointer',
+    }}>
+      {loading && <Spinner />}
+      {children}
+    </button>
+  )
+}
+
+// Supabase renvoie la même erreur (otp_expired) pour un code faux ou
+// expiré : on les distingue grâce à l'heure d'envoi du dernier code.
+function codeErrorMessage(e, sentAt) {
+  const msg = (e?.message ?? '').toLowerCase()
+  if (e?.name === 'AuthRetryableFetchError' || msg.includes('failed to fetch') || msg.includes('network') || navigator.onLine === false) {
+    return 'Problème de connexion. Vérifie ton réseau et réessaie.'
+  }
+  if (e?.status === 429 || (e?.code ?? '').startsWith('over_')) return 'Trop de tentatives. Réessaie dans une minute.'
+  if (Date.now() - sentAt > CODE_TTL_MS) return 'Ce code a expiré. Demande un nouveau code ci-dessous.'
+  return 'Code incorrect. Vérifie les 6 chiffres du dernier email reçu.'
+}
+
+function VerifyCodeStep({ email, purpose, sentAt: initialSentAt, onChangeEmail }) {
+  const isRecovery = purpose === 'recovery'
+  const [code, setCode] = useState('')
+  const [sentAt, setSentAt] = useState(initialSentAt)
+  const [now, setNow] = useState(() => Date.now())
+  const [loading, setLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendDone, setResendDone] = useState(false)
+  const [error, setError] = useState(null)
+  const inputRef = useRef(null)
+
+  const cooldown = Math.max(0, Math.ceil((sentAt + RESEND_DELAY_MS - now) / 1000))
+  useEffect(() => {
+    if (cooldown === 0) return undefined
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [cooldown === 0])
+
+  const verify = async token => {
+    if (loading || token.length !== CODE_LENGTH) return
+    setLoading(true)
+    setError(null)
+    // Succès : la session est ouverte. App.jsx prend le relais (suite de
+    // l'inscription, ou écran « nouveau mot de passe » via PASSWORD_RECOVERY).
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: isRecovery ? 'recovery' : 'email' })
+    if (!error) {
+      track(isRecovery ? 'password_reset_code_verified' : 'signup_email_verified')
+      return
+    }
+    track('auth_code_failed', { purpose, error_code: error.code, error_status: error.status })
+    setError(codeErrorMessage(error, sentAt))
+    setCode('')
+    setLoading(false)
+    inputRef.current?.focus()
+  }
+
+  const onChange = e => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH)
+    setCode(digits)
+    if (error) setError(null)
+    // Saisie complète (ou auto-remplissage iOS) : validation directe
+    if (digits.length === CODE_LENGTH) verify(digits)
+  }
+
+  const resend = async () => {
+    if (cooldown > 0 || resendLoading) return
+    setResendLoading(true)
+    setResendDone(false)
+    setError(null)
+    const { error } = isRecovery
+      ? await supabase.auth.resetPasswordForEmail(email, { redirectTo: AUTH_RESET_URL })
+      : await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: AUTH_CALLBACK_URL } })
+    setResendLoading(false)
+    if (error) {
+      if (error.status !== 429) captureSupabaseError(error, { operation: isRecovery ? 'resend_recovery_code' : 'resend_signup_code' })
+      setError(error.status === 429 ? 'Trop de demandes. Réessaie dans une minute.' : authErrorMessage(error))
+      return
+    }
+    track('auth_code_resent', { purpose })
+    setSentAt(Date.now())
+    setNow(Date.now())
+    setCode('')
+    setResendDone(true)
+    inputRef.current?.focus()
+  }
+
+  return (
+    <StepLayout icon={isRecovery ? KeyRound : Mail} title="Vérifie ta boîte mail">
+      <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 6 }}>
+        {isRecovery
+          ? <>Si un compte existe pour <strong style={{ color: '#1C1C1E' }}>{email}</strong>, tu vas recevoir un code à 6 chiffres.</>
+          : <>On a envoyé un code à 6 chiffres à <strong style={{ color: '#1C1C1E' }}>{email}</strong>.</>}
+      </div>
+      <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: 24 }}>Pense à vérifier tes spams.</div>
+
+      <form onSubmit={e => { e.preventDefault(); verify(code) }} noValidate>
+        <label htmlFor="auth-code" style={{ ...labelStyle, textAlign: 'center' }}>Code de vérification</label>
+        <input
+          ref={inputRef}
+          id="auth-code"
+          name="code"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="one-time-code"
+          autoFocus
+          maxLength={CODE_LENGTH}
+          placeholder="••••••"
+          value={code}
+          onChange={onChange}
+          disabled={loading}
+          aria-invalid={error ? true : undefined}
+          className={error ? 'ob-shake' : undefined}
+          style={{
+            width: '100%', boxSizing: 'border-box', marginBottom: 12,
+            background: '#F5F5F5', borderRadius: 14, border: error ? '1.5px solid #FF3B30' : '1.5px solid transparent',
+            outline: 'none', padding: '14px 16px', textAlign: 'center',
+            fontSize: 28, fontWeight: 700, letterSpacing: '0.4em', fontVariantNumeric: 'tabular-nums',
+            color: '#1C1C1E', fontFamily: 'inherit',
+          }}
+        />
+
+        {error && <ErrorBox>{error}</ErrorBox>}
+        {resendDone && !error && (
+          <div role="status" style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 10 }}>
+            Nouveau code envoyé !
+          </div>
+        )}
+
+        <PrimaryButton loading={loading} disabled={code.length !== CODE_LENGTH}>Valider</PrimaryButton>
+      </form>
+
+      <button type="button" onClick={resend} disabled={cooldown > 0 || resendLoading} style={{
+        width: '100%', marginTop: 12, padding: 13, borderRadius: 12,
+        background: 'transparent', border: '1.5px solid #E5E5EA', fontFamily: 'inherit',
+        fontSize: 14, fontWeight: 600, color: cooldown > 0 ? '#AEAEB2' : '#1C1C1E',
+        cursor: cooldown > 0 || resendLoading ? 'not-allowed' : 'pointer',
+      }}>
+        {resendLoading ? 'Envoi…' : cooldown > 0 ? `Renvoyer le code (${cooldown} s)` : 'Renvoyer le code'}
+      </button>
+
+      <button type="button" onClick={onChangeEmail} style={{ ...switchLinkStyle, display: 'block', width: '100%', fontWeight: 400, fontSize: 13, color: '#8E8E93', textAlign: 'center', marginTop: 16 }}>
+        {isRecovery ? 'Retour à la connexion' : 'Modifier mon adresse email'}
+      </button>
+    </StepLayout>
+  )
+}
+
+// Après le code de récupération : l'utilisateur est connecté, il choisit
+// son nouveau mot de passe avant d'entrer dans l'app.
+function NewPasswordStep({ onDone }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const submit = async e => {
+    e.preventDefault()
+    if (loading) return
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`)
+      return
+    }
+    if (password !== confirm) {
+      setError('Les mots de passe ne correspondent pas.')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const { error: updateError } = await supabase.auth.updateUser({ password })
+    if (updateError) {
+      setLoading(false)
+      captureSupabaseError(updateError, { operation: 'reset_password_update' })
+      if (updateError.code === 'same_password') setError("Choisis un mot de passe différent de l'ancien.")
+      else if (updateError.code === 'weak_password') setError('Mot de passe trop faible. Choisis-en un plus long ou plus varié.')
+      else setError('Impossible de modifier le mot de passe. Réessaie dans un instant.')
+      return
+    }
+    track('password_reset_completed')
+    onDone?.()
+  }
+
+  const field = (id, label, value, onChange, autoFocus) => (
+    <div style={fieldStyle}>
+      <label htmlFor={id} style={labelStyle}>{label}</label>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <input
+          id={id}
+          type={showPassword ? 'text' : 'password'}
+          autoComplete="new-password"
+          placeholder="••••••••"
+          value={value}
+          autoFocus={autoFocus}
+          onChange={e => { onChange(e.target.value); setError(null) }}
+          style={inputStyle}
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword(v => !v)}
+          aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+          style={{ background: 'none', border: 'none', padding: 0, marginLeft: 8, display: 'flex', color: '#8E8E93', cursor: 'pointer' }}
+        >
+          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <StepLayout icon={KeyRound} title="Nouveau mot de passe">
+      <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 24 }}>{MIN_PASSWORD_LENGTH} caractères minimum.</div>
+      <form onSubmit={submit} noValidate style={{ textAlign: 'left' }}>
+        {field('new-password', 'Nouveau mot de passe', password, setPassword, true)}
+        {field('new-password-confirm', 'Confirmer le mot de passe', confirm, setConfirm, false)}
+        {error && <ErrorBox>{error}</ErrorBox>}
+        <PrimaryButton loading={loading} disabled={!password || !confirm}>Enregistrer</PrimaryButton>
+      </form>
+    </StepLayout>
+  )
+}
+
 // Étape 1 de l'onboarding (inscription) ou connexion. initialMode : 'login'
 // (par défaut) ou 'signup'. onBack : retour à l'écran de bienvenue.
-export default function Auth({ initialMode = 'login', onBack }) {
+// recovering : code de récupération validé, il reste à choisir le nouveau mot
+// de passe (onPasswordReset une fois enregistré).
+export default function Auth({ initialMode = 'login', onBack, recovering = false, onPasswordReset }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -83,11 +344,9 @@ export default function Auth({ initialMode = 'login', onBack }) {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(false)
-  const [resendLoading, setResendLoading] = useState(false)
-  const [resendDone, setResendDone] = useState(false)
+  // Code à 6 chiffres envoyé par email : { purpose: 'signup' | 'recovery', sentAt }
+  const [codeStep, setCodeStep] = useState(null)
   const [forgotMode, setForgotMode] = useState(false)
-  const [resetSent, setResetSent] = useState(false)
 
   const isLogin = mode === 'login'
   const isSignup = mode === 'signup' && !forgotMode
@@ -137,10 +396,25 @@ export default function Auth({ initialMode = 'login', onBack }) {
         if (data.user && data.user.identities?.length === 0) throw Object.assign(new Error('User already registered'), { code: 'user_already_exists' })
         track('signup_completed')
         // Sans confirmation par email, une session est ouverte et App.jsx
-        // prend le relais ; sinon on demande de vérifier la boîte mail.
-        if (!data.session) setSuccess(true)
+        // prend le relais ; sinon on demande le code reçu par email.
+        if (!data.session) setCodeStep({ purpose: 'signup', sentAt: Date.now() })
       }
     } catch (e) {
+      // Compte créé mais jamais confirmé (app fermée avant le code) : on
+      // renvoie un code et on affiche l'écran de saisie plutôt qu'une erreur.
+      if (isLogin && (e.code === 'email_not_confirmed' || (e.message ?? '').toLowerCase().includes('email not confirmed'))) {
+        track('login_unconfirmed_email')
+        const { error: resendError } = await supabase.auth.resend({
+          type: 'signup',
+          email: email.trim(),
+          options: { emailRedirectTo: AUTH_CALLBACK_URL },
+        })
+        // Limite d'envoi atteinte : un code vient sans doute d'être envoyé
+        if (resendError && resendError.status !== 429) captureSupabaseError(resendError, { operation: 'resend_signup_code' })
+        setCodeStep({ purpose: 'signup', sentAt: Date.now() })
+        setLoading(false)
+        return
+      }
       captureSupabaseError(e, { operation: isLogin ? 'sign_in' : 'sign_up' })
       track(isLogin ? 'login_failed' : 'signup_failed', {
         error_code: e.code,
@@ -162,7 +436,7 @@ export default function Auth({ initialMode = 'login', onBack }) {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: AUTH_RESET_URL })
       if (error) throw error
       track('password_reset_requested')
-      setResetSent(true)
+      setCodeStep({ purpose: 'recovery', sentAt: Date.now() })
     } catch (e) {
       captureSupabaseError(e, { operation: 'reset_password_request' })
       setError(e.status === 429
@@ -174,25 +448,7 @@ export default function Auth({ initialMode = 'login', onBack }) {
 
   const leaveForgotMode = () => {
     setForgotMode(false)
-    setResetSent(false)
     setError(null)
-  }
-
-  const handleResend = async () => {
-    setResendLoading(true)
-    setResendDone(false)
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email.trim(),
-        options: { emailRedirectTo: AUTH_CALLBACK_URL },
-      })
-      if (error) throw error
-      setResendDone(true)
-    } catch (e) {
-      setError(authErrorMessage(e))
-    }
-    setResendLoading(false)
   }
 
   const onSubmit = e => {
@@ -201,67 +457,23 @@ export default function Auth({ initialMode = 'login', onBack }) {
     else handle()
   }
 
-  if (success) return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: 32, textAlign: 'center' }}>
-      <div style={{ width: 72, height: 72, borderRadius: 22, background: '#FFF0F7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
-        <Mail size={34} strokeWidth={1.8} color="#e055aa" />
-      </div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>Vérifie ta boîte mail pour confirmer ton compte.</div>
-      <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 8 }}>Un lien de confirmation t'a été envoyé à <strong>{email.trim()}</strong></div>
-      <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: Capacitor.isNativePlatform() ? 12 : 32 }}>Pense à vérifier tes spams.</div>
-      {Capacitor.isNativePlatform() && (
-        <div style={{ fontSize: 14, color: '#1C1C1E', fontWeight: 600, marginBottom: 32 }}>Confirme ton email, puis reviens ici pour te connecter.</div>
-      )}
-      {resendDone && (
-        <div style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 16 }}>
-          Email renvoyé !
-        </div>
-      )}
-      {error && (
-        <div style={{ background: 'rgba(255,59,48,0.10)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#FF3B30' }}>
-          {error}
-        </div>
-      )}
-      <div onClick={handleResend} style={{
-        background: 'transparent',
-        border: '1.5px solid #E5E5EA',
-        borderRadius: 12,
-        padding: 13,
-        fontSize: 14,
-        fontWeight: 600,
-        color: '#1C1C1E',
-        cursor: 'pointer',
-        width: '100%',
-        maxWidth: 340,
-      }}>
-        {resendLoading ? 'Envoi…' : resendDone ? 'Renvoyer à nouveau' : "Renvoyer l'email"}
-      </div>
-      <div onClick={() => { setSuccess(false); setEmail(''); setPassword(''); setConfirm(''); setError(null) }} style={{ fontSize: 13, color: '#8E8E93', marginTop: 14, cursor: 'pointer' }}>
-        Utiliser un autre email
-      </div>
-      {Capacitor.isNativePlatform() && (
-        <div onClick={() => { setSuccess(false); setPassword(''); switchMode('login') }} style={{ fontSize: 13, color: '#e055aa', fontWeight: 600, marginTop: 14, cursor: 'pointer' }}>
-          Me connecter
-        </div>
-      )}
-    </div>
-  )
+  if (recovering) return <NewPasswordStep onDone={onPasswordReset} />
 
-  if (resetSent) return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: 32, textAlign: 'center' }}>
-      <div style={{ width: 72, height: 72, borderRadius: 22, background: '#FFF0F7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
-        <KeyRound size={34} strokeWidth={1.8} color="#e055aa" />
-      </div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>Vérifie tes emails !</div>
-      <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 8 }}>Si un compte existe pour <strong>{email.trim()}</strong>, un lien pour choisir un nouveau mot de passe vient de lui être envoyé.</div>
-      <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: Capacitor.isNativePlatform() ? 12 : 32 }}>Pense à vérifier tes spams.</div>
-      {Capacitor.isNativePlatform() && (
-        <div style={{ fontSize: 14, color: '#1C1C1E', fontWeight: 600, marginBottom: 32 }}>Ouvre le lien reçu par email, puis reviens ici pour te connecter.</div>
-      )}
-      <div onClick={() => { leaveForgotMode(); setPassword('') }} style={{ fontSize: 13, color: '#e055aa', fontWeight: 600, marginTop: 14, cursor: 'pointer' }}>
-        Retour à la connexion
-      </div>
-    </div>
+  if (codeStep) return (
+    <VerifyCodeStep
+      key={`${codeStep.purpose}-${codeStep.sentAt}`}
+      email={email.trim()}
+      purpose={codeStep.purpose}
+      sentAt={codeStep.sentAt}
+      onChangeEmail={() => {
+        setCodeStep(null)
+        setPassword('')
+        setConfirm('')
+        setTouched({})
+        setSubmitted(false)
+        setError(null)
+      }}
+    />
   )
 
   const eyeButton = visible => (
@@ -277,7 +489,7 @@ export default function Auth({ initialMode = 'login', onBack }) {
   )
 
   const submitDisabled = loading || (!forgotMode && !formValid)
-  const submitLabel = forgotMode ? 'Envoyer le lien' : isLogin ? 'Se connecter' : 'Créer mon compte'
+  const submitLabel = forgotMode ? 'Recevoir un code' : isLogin ? 'Se connecter' : 'Créer mon compte'
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -299,7 +511,7 @@ export default function Auth({ initialMode = 'login', onBack }) {
           {forgotMode && (
             <div style={{ marginBottom: 24, textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#1C1C1E', marginBottom: 6 }}>Mot de passe oublié</div>
-              <div style={{ fontSize: 13, color: '#8E8E93' }}>Entre ton email, on t'envoie un lien pour en choisir un nouveau.</div>
+              <div style={{ fontSize: 13, color: '#8E8E93' }}>Entre ton email, on t'envoie un code pour en choisir un nouveau.</div>
             </div>
           )}
 
