@@ -104,8 +104,18 @@ export default function Onboarding({ avatars = [], slides = DEFAULT_SLIDES, onSi
         ))}
       </div>
 
-      <div className="ob-actions">
-        <button className="ob-cta" onClick={next}>{isLast ? "C'est parti" : "Continuer"}</button>
+      <div className="ob-actions ob-actions--carousel">
+        <button
+          className={`ob-cta ob-cta--round${isLast ? " is-wide" : ""}`}
+          onClick={next}
+          aria-label={isLast ? "C'est parti" : "Continuer"}
+        >
+          <span className="ob-cta-label">C'est parti</span>
+          <svg className="ob-cta-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
       </div>
     </div>
   );

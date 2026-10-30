@@ -106,7 +106,13 @@
   flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always;
   display: flex; flex-direction: column; gap: 24px; padding: 20px 24px;
 }
-.ob-vignette { transform: translateX(calc(var(--d, 0) * 90px)); }          /* parallaxe */
+.ob-vignette {
+  --dist: max(var(--d, 0), calc(var(--d, 0) * -1)); /* distance à la slide affichée, de 0 à 1 */
+  transform:
+    translateX(calc(var(--d, 0) * -60px))
+    scale(calc(1 - var(--dist) * 0.06));
+  opacity: calc(1 - var(--dist) * 0.7);
+}
 .ob-copy {
   transform: translateX(calc(var(--d, 0) * 30px));
   opacity: calc(1 - max(var(--d, 0), calc(var(--d, 0) * -1)) * 1.6);       /* s'estompe pendant le geste */
@@ -196,3 +202,22 @@
   .ob *, .ob *::before, .ob *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
   .ob-vignette, .ob-copy { transform: none; }
 }
+
+.ob-actions--carousel { align-items: flex-end; }
+
+.ob-cta--round {
+  width: 60px; height: 60px; border-radius: 30px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; white-space: nowrap; position: relative;
+  transition: width 0.4s var(--ease), border-radius 0.4s var(--ease), transform 0.15s var(--ease);
+}
+.ob-cta--round.is-wide { width: 100%; border-radius: 18px; }
+
+.ob-cta-label {
+  position: absolute; opacity: 0; transform: translateX(-8px);
+  transition: opacity 0.25s, transform 0.3s var(--ease);
+}
+.ob-cta-arrow { transition: opacity 0.2s, transform 0.3s var(--ease); }
+
+.is-wide .ob-cta-label { opacity: 1; transform: none; transition-delay: 0.15s; }
+.is-wide .ob-cta-arrow { opacity: 0; transform: translateX(12px); }
