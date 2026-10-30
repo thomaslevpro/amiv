@@ -16,6 +16,25 @@ export const STEP = {
   DONE: 8,
 }
 
+// Présentation animée avant le compte : vue une fois par appareil
+const INTRO_SEEN_KEY = 'amiv_onboarding_seen'
+
+export function hasSeenIntro() {
+  try {
+    return window.localStorage.getItem(INTRO_SEEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markIntroSeen() {
+  try {
+    window.localStorage.setItem(INTRO_SEEN_KEY, '1')
+  } catch {
+    // Stockage indisponible : la présentation reviendra au prochain lancement
+  }
+}
+
 // Barre de progression : étapes 1 à 7
 export const PROGRESS_STEPS = 7
 

@@ -13,8 +13,13 @@ import CreateActionSheet from './components/CreateActionSheet'
 import AddAmivModal from './components/AddAmivModal'
 import AskBirthdaySheet from './components/AskBirthdaySheet'
 import OnboardingFlow from './pages/Onboarding'
-import Welcome from './components/onboarding/Welcome'
-import { getPendingInviteToken, joinPendingInvite } from './lib/onboarding'
+import Onboarding from './components/onboarding/Onboarding'
+import { getPendingInviteToken, hasSeenIntro, joinPendingInvite, markIntroSeen } from './lib/onboarding'
+import av1 from '../assets/onboarding/av1.jpg'
+import av2 from '../assets/onboarding/av2.jpg'
+import av3 from '../assets/onboarding/av3.jpg'
+import av4 from '../assets/onboarding/av4.jpg'
+import av5 from '../assets/onboarding/av5.jpg'
 import Auth from './screens/Auth'
 import AuthCallback from './screens/AuthCallback'
 import Home from './screens/Home'
@@ -214,6 +219,9 @@ function MainApp() {
   // Sans session : écran de bienvenue (étape 0) ; /register (lien « Rejoindre
   // Amiv ») ouvre directement l'inscription (étape 1), /login la connexion.
   const [authMode, setAuthMode] = useState(() => ({ '/register': 'signup', '/login': 'login' })[window.location.pathname] ?? null)
+  // Présentation animée, seulement si jamais vue sur cet appareil. Elle reste
+  // accessible par « retour » jusqu'à la connexion, puis plus jamais.
+  const [showIntro, setShowIntro] = useState(() => !hasSeenIntro())
   // Onboarding terminé pendant cette session : pas d'écran de notifications
   // en plus (déjà proposé, ou proposé par la carte « Bien démarrer »)
   const justOnboarded = useRef(false)
@@ -389,6 +397,11 @@ function MainApp() {
     if (session?.user?.id) refreshPushRegistration()
   }, [session?.user?.id])
 
+  // Une fois connecté, une déconnexion mène à la connexion, pas à la présentation
+  useEffect(() => {
+    if (session) setShowIntro(false)
+  }, [session])
+
   const appReady = !!session && onboardingCompleted === true && hasUsername === true
 
   useEffect(() => {
@@ -465,8 +478,14 @@ function MainApp() {
   if (isLoading) return <SplashScreen />
 
   if (!session) {
-    if (!authMode) return <Welcome onSignup={() => setAuthMode('signup')} onLogin={() => setAuthMode('login')} />
-    return <Auth key={authMode} initialIsLogin={authMode === 'login'} onBack={() => setAuthMode(null)} />
+    const leaveIntro = mode => {
+      markIntroSeen()
+      setAuthMode(mode)
+    }
+    if (!authMode && showIntro) {
+      return <Onboarding avatars={[av1, av2, av3, av4, av5]} onSignup={() => leaveIntro('signup')} onLogin={() => leaveIntro('login')} />
+    }
+    return <Auth key={authMode ?? 'login'} initialIsLogin={authMode !== 'signup'} onBack={showIntro ? () => setAuthMode(null) : undefined} />
   }
   if (!onboardingCompleted) {
     return (
