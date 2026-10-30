@@ -4,7 +4,6 @@ import useLongPress from '../../hooks/useLongPress'
 import { GUEST_STATUSES, GUEST_STATUS_META, canRemindGuest, countsFromGuests, guestSubtitle } from '../../lib/eventGuests'
 import GuestAvatar from './GuestAvatar'
 import GuestStatusPill from './GuestStatusPill'
-import PlusOneRequest from '../PlusOneRequest'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
 const SEPARATOR = '0.5px solid rgba(60,60,67,0.18)'
@@ -63,7 +62,7 @@ function GuestActionSheet({ guest, onClose, onRemind, onRemove }) {
   )
 }
 
-export default function EventGuestsSection({ guests, loading, canManage, userId, myRsvp, currentUserName, eventId, onInvite, onShare, onRemind, onRemove }) {
+export default function EventGuestsSection({ guests, loading, canManage, userId, onInvite, onShare, onRemind, onRemove }) {
   const [filter, setFilter] = useState('all')
   const [actionGuest, setActionGuest] = useState(null)
   const counts = countsFromGuests(guests)
@@ -130,12 +129,6 @@ export default function EventGuestsSection({ guests, loading, canManage, userId,
 
       {canManage && counts.pending > 0 && (
         <div style={{ fontSize: 12, color: '#AEAEB2', textAlign: 'center', marginTop: 6 }}>Appui long sur un invité en attente pour le relancer</div>
-      )}
-
-      {!canManage && myRsvp?.id && (
-        <div style={{ marginTop: 12 }}>
-          <PlusOneRequest rsvpId={myRsvp.id} table="rsvps" currentStatus={myRsvp.plus_one_status || 'none'} currentName={myRsvp.plus_one_name || ''} eventId={eventId} requesterName={currentUserName} variant="compact" />
-        </div>
       )}
 
       {canManage && (

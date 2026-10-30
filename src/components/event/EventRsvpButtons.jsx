@@ -17,7 +17,8 @@ function answeredOption(rsvpStatus) {
 
 // Réponse à l'invitation : résumé + « Modifier », ou les trois boutons si
 // je n'ai pas encore répondu.
-export default function EventRsvpButtons({ rsvpStatus, loading, onRsvp, canChange = true }) {
+// goingExtra : affiché sous le résumé « Tu y seras » (demande de +1)
+export default function EventRsvpButtons({ rsvpStatus, loading, onRsvp, canChange = true, goingExtra = null }) {
   const [editing, setEditing] = useState(false)
   const current = answeredOption(rsvpStatus)
 
@@ -31,7 +32,7 @@ export default function EventRsvpButtons({ rsvpStatus, loading, onRsvp, canChang
 
   if (current && !editing) {
     const { Icon } = current
-    return (
+    const summary = (
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 56, padding: '0 8px 0 14px', borderRadius: 14, border: '1px solid #E5E5EA' }}>
         <div style={{ width: 28, height: 28, borderRadius: 14, background: current.color, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
           <Icon size={16} strokeWidth={2.6} color="#fff" />
@@ -45,6 +46,13 @@ export default function EventRsvpButtons({ rsvpStatus, loading, onRsvp, canChang
             Modifier
           </button>
         )}
+      </div>
+    )
+    if (current.status !== 'going' || !goingExtra) return summary
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ alignSelf: 'stretch' }}>{summary}</div>
+        {goingExtra}
       </div>
     )
   }

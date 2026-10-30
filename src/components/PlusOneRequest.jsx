@@ -24,7 +24,7 @@ const inputStyle = {
 const compactPanelStyle = {
   position: 'absolute',
   top: 'calc(100% + 8px)',
-  right: 0,
+  left: 0,
   width: 260,
   zIndex: 20,
   ...CARD,

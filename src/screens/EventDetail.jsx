@@ -13,6 +13,7 @@ import PendingPollsBanner from '../components/event/PendingPollsBanner'
 import { getAvatarColor, SECTION_TITLE } from '../components/event/eventUtils'
 import RevealedMemoriesEntry from '../components/event/RevealedMemoriesEntry'
 import InviteFriendsSheet from '../components/InviteFriendsSheet'
+import PlusOneRequest from '../components/PlusOneRequest'
 import PlusOneReviewList from '../components/PlusOneReviewList'
 import { BottomSheet } from '../components/safety/SafetySheets'
 import useEventDetail from '../hooks/useEventDetail'
@@ -112,7 +113,15 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick, on
               onOpenProfile={profile => profile.username && navigate(`/u/${encodeURIComponent(profile.username)}`)}
             />
             {/* L'organisateur participe d'office */}
-            {!canManage && userId && <EventRsvpButtons rsvpStatus={rsvpStatus} loading={loading} onRsvp={handleRsvp} canChange={canChangeRsvp} />}
+            {!canManage && userId && (
+              <EventRsvpButtons
+                rsvpStatus={rsvpStatus}
+                loading={loading}
+                onRsvp={handleRsvp}
+                canChange={canChangeRsvp}
+                goingExtra={myRsvp?.id ? <PlusOneRequest rsvpId={myRsvp.id} table="rsvps" currentStatus={myRsvp.plus_one_status || 'none'} currentName={myRsvp.plus_one_name || ''} eventId={event.id} requesterName={currentUserName} variant="compact" /> : null}
+              />
+            )}
             <EventQuickActions
               onChat={canAccessEventChat ? () => onChat?.(eventForMessages) : null}
               chatUnread={chatUnreadCount}
@@ -130,7 +139,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick, on
             open={showGuests}
             onOpen={() => setShowGuests(true)}
             onClose={() => setShowGuests(false)}
-            sectionProps={{ guests, loading: guestsLoading, canManage, userId, myRsvp, currentUserName, eventId: event.id, onInvite: openInvite, onShare: handleShare, onRemind: handleRemindGuest, onRemove: handleRemoveInvitation }}
+            sectionProps={{ guests, loading: guestsLoading, canManage, userId, onInvite: openInvite, onShare: handleShare, onRemind: handleRemindGuest, onRemove: handleRemoveInvitation }}
           />
 
           <EventPhotosSection key={event.id} eventId={event.id} userId={userId} focus={event.focusSection === 'photos'} showToast={showToast} />
