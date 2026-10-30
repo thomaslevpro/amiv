@@ -2,8 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { AtSign, Camera, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { uploadAvatar } from '../../lib/avatar'
+import { captureSupabaseError } from '../../lib/monitoring'
 import { ownBirthdayError } from '../../utils/birthday'
 import BirthdayFields from './BirthdayFields'
+import EmailChangeCodeStep, { emailChangeErrorMessage } from './EmailChangeCodeStep'
+import { SECURE_EMAIL_CHANGE } from '../../lib/authCode'
+
+const EMAIL_RE = /^\S+@\S+\.\S+$/
 
 const inputStyle = {
   width: '100%',
@@ -50,6 +55,8 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState(null)
   const fileInputRef = useRef(null)
+  // Changement d'adresse demandé : { from, to, sentAt, profile } → saisie du code
+  const [emailChange, setEmailChange] = useState(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -64,6 +71,12 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
     setAvatarPreview(profile?.avatar_url ?? null)
     setError(null)
   }, [isOpen, profile])
+
+  // Pas dans l'effet ci-dessus : onSaved met à jour le profil pendant la
+  // saisie du code, ce qui ne doit pas ramener au formulaire.
+  useEffect(() => {
+    if (isOpen) setEmailChange(null)
+  }, [isOpen])
 
   useEffect(() => {
     return () => {
@@ -110,6 +123,12 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
       return
     }
 
+    const emailChanged = !!nextEmail && nextEmail.toLowerCase() !== (profile?.email ?? '').toLowerCase()
+    if (emailChanged && !EMAIL_RE.test(nextEmail)) {
+      setError('Adresse email invalide.')
+      return
+    }
+
     if (usernameStatus === 'invalid' || usernameStatus === 'taken') {
       setError(usernameStatus === 'taken' ? 'Ce pseudo est déjà pris' : 'Le format du pseudo est invalide.')
       return
@@ -145,11 +164,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
       }
       if (updateError) throw updateError
 
-      if (nextEmail && nextEmail !== profile?.email) {
-        const { error: emailError } = await supabase.auth.updateUser({ email: nextEmail })
-        if (emailError) throw emailError
-      }
-
+      // L'adresse ne change qu'une fois le code validé (EmailChangeCodeStep)
       const updatedProfile = {
         ...(profile ?? {}),
         ...(data ?? {}),
@@ -157,10 +172,21 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
         name: nextName,
         birthday: nextBirthday,
         username: nextUsername,
-        email: nextEmail || profile?.email || data?.email || null,
+        email: profile?.email ?? data?.email ?? null,
+      }
+      onSaved?.(updatedProfile)
+
+      if (emailChanged) {
+        const { error: emailError } = await supabase.auth.updateUser({ email: nextEmail })
+        if (emailError) {
+          captureSupabaseError(emailError, { operation: 'request_email_change' })
+          setError(emailChangeErrorMessage(emailError))
+          return
+        }
+        setEmailChange({ from: user.email ?? profile?.email ?? '', to: nextEmail, sentAt: Date.now(), profile: updatedProfile })
+        return
       }
 
-      onSaved?.(updatedProfile)
       onClose?.()
     } catch (err) {
       setError(err.message ?? 'Impossible de modifier le profil.')
@@ -238,7 +264,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>Modifier mon profil</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#1C1C1E' }}>{emailChange ? "Changer d'adresse email" : 'Modifier mon profil'}</div>
           <button
             type="button"
             onClick={onClose}
@@ -260,6 +286,19 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
           </button>
         </div>
 
+        {emailChange ? (
+          <EmailChangeCodeStep
+            currentEmail={emailChange.from}
+            newEmail={emailChange.to}
+            secure={SECURE_EMAIL_CHANGE}
+            sentAt={emailChange.sentAt}
+            onDone={() => {
+              onSaved?.({ ...emailChange.profile, email: emailChange.to })
+              onClose?.()
+            }}
+            onCancel={onClose}
+          />
+        ) : (
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <button
@@ -370,7 +409,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
               style={inputStyle}
             />
             <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 8, lineHeight: 1.35 }}>
-              Un email de confirmation sera envoyé
+              Un code de confirmation te sera envoyé par email
             </div>
           </div>
 
@@ -400,6 +439,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
             {saving ? 'Enregistrement...' : 'Enregistrer'}
           </button>
         </form>
+        )}
       </div>
     </div>
   )

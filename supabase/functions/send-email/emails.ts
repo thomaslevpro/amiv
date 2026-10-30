@@ -1,8 +1,8 @@
 import { escapeHtml, type EmailContent } from '../_shared/email.ts'
 
 // Contenu des emails d'auth envoyés par le hook « Send Email ». Inscription,
-// mot de passe oublié et réauthentification : code à saisir dans l'app (aucun
-// lien). Changement d'email et lien de connexion : lien de vérification.
+// mot de passe oublié, changement d'email et réauthentification : code à
+// saisir dans l'app (aucun lien). Lien de connexion : lien de vérification.
 
 export type AuthEmailPayload = {
   user?: {
@@ -123,16 +123,20 @@ function reauthenticationEmail(code: string) {
   })
 }
 
-function emailChangeEmail(url: string, toNewAddress: boolean) {
-  return linkEmail({
-    subject: 'Confirme ta nouvelle adresse email Amiv',
-    title: 'Changement d\'adresse email',
+// Changement d'adresse : un code par adresse. L'objet et le libellé disent
+// clairement à quelle adresse appartient le code (l'app demande les deux).
+export function emailChangeEmail({ code, newEmail, toNewAddress, fallbackUrl }: { code: string; newEmail: string; toNewAddress: boolean; fallbackUrl?: string }) {
+  return codeEmail({
+    subject: toNewAddress
+      ? `Code de ta nouvelle adresse : ${code}`
+      : `Code de ton adresse actuelle : ${code}`,
+    title: toNewAddress ? 'Confirme ta nouvelle adresse' : "Confirme ton changement d'adresse",
     intro: toNewAddress
-      ? 'Clique sur le bouton ci-dessous pour utiliser cette adresse avec ton compte Amiv.'
-      : 'Une demande de changement d\'adresse a été faite sur ton compte Amiv. Clique sur le bouton ci-dessous pour la confirmer.',
-    button: 'Confirmer le changement',
-    url,
+      ? "Saisis ce code dans l'app, dans le champ « nouvelle adresse », pour utiliser cette adresse avec ton compte Amiv."
+      : `Tu as demandé à remplacer ton adresse par <strong style="color:#1C1C1E;">${escapeHtml(newEmail)}</strong>. Saisis ce code dans l'app, dans le champ « adresse actuelle », pour confirmer.`,
+    code,
     footer: "Tu n'as rien demandé ? Ignore cet email, ton adresse ne change pas.",
+    fallbackUrl,
   })
 }
 
@@ -166,28 +170,30 @@ export function buildAuthEmails(payload: AuthEmailPayload, supabaseUrl: string |
     return [{ to: email, content }]
   }
 
+  if (eventType === 'emailchange') {
+    // Noms inversés côté Supabase (compatibilité). Changement sécurisé (deux
+    // codes) : token + token_hash_new pour l'adresse actuelle, token_new +
+    // token_hash pour la nouvelle. Sinon un seul code, à la nouvelle adresse.
+    const newEmail = payload.user?.new_email
+    if (!newEmail) return { error: 'Missing new email' }
+    const link = (tokenHash?: string) =>
+      fallbackLinks && supabaseUrl && tokenHash ? verifyUrl(supabaseUrl, tokenHash, 'email_change') : undefined
+    if (data?.token && data?.token_new) {
+      return [
+        { to: email, content: emailChangeEmail({ code: data.token, newEmail, toNewAddress: false, fallbackUrl: link(data.token_hash_new) }) },
+        { to: newEmail, content: emailChangeEmail({ code: data.token_new, newEmail, toNewAddress: true, fallbackUrl: link(data.token_hash) }) },
+      ]
+    }
+    const code = data?.token_new || data?.token
+    if (!code) return { error: 'Missing token' }
+    return [{ to: newEmail, content: emailChangeEmail({ code, newEmail, toNewAddress: true, fallbackUrl: link(data?.token_hash || data?.token_hash_new) }) }]
+  }
+
   if (!supabaseUrl) return { error: 'SUPABASE_URL is not configured' }
 
   if (MAGIC_LINK_TYPES.includes(eventType)) {
     if (!data?.token_hash) return { error: 'Missing token' }
     return [{ to: email, content: magicLinkEmail(verifyUrl(supabaseUrl, data.token_hash, 'magiclink')) }]
-  }
-
-  if (eventType === 'emailchange') {
-    // Noms inversés côté Supabase (compatibilité). Changement sécurisé (deux
-    // jetons) : token_hash_new pour l'adresse actuelle, token_hash pour la
-    // nouvelle. Sinon un seul jeton, envoyé à la nouvelle adresse.
-    const newEmail = payload.user?.new_email
-    if (!newEmail) return { error: 'Missing new email' }
-    if (data?.token_hash && data?.token_hash_new) {
-      return [
-        { to: email, content: emailChangeEmail(verifyUrl(supabaseUrl, data.token_hash_new, 'email_change'), false) },
-        { to: newEmail, content: emailChangeEmail(verifyUrl(supabaseUrl, data.token_hash, 'email_change'), true) },
-      ]
-    }
-    const tokenHash = data?.token_hash || data?.token_hash_new
-    if (!tokenHash) return { error: 'Missing token' }
-    return [{ to: newEmail, content: emailChangeEmail(verifyUrl(supabaseUrl, tokenHash, 'email_change'), true) }]
   }
 
   // Notifications de sécurité (mot de passe modifié…) : pas de modèle, on
