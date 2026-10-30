@@ -95,7 +95,7 @@ export function pushTargetFor(notification: PushNotificationRow, profileUsername
     if (notification.type === 'message_received') return { screen: 'messages', event_id: eventId }
     if (notification.type === 'memories_surprise') return { screen: 'memories', event_id: eventId }
     // Les anciennes versions de l'app ignorent section et ouvrent l'événement.
-    if (notification.type === 'event_photos_added') return { screen: 'event', event_id: eventId, section: 'photos' }
+    if (notification.type === 'event_photos_added' || notification.type === 'event_photos_expiring') return { screen: 'event', event_id: eventId, section: 'photos' }
     return { screen: 'event', event_id: eventId }
   }
   if (profileUsername) return { screen: 'profile', username: profileUsername }

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import dayjs from 'dayjs'
+import 'dayjs/locale/fr'
 import { Camera as CameraIcon, ImagePlus, Images, RotateCcw, X } from 'lucide-react'
 import PhotoViewer from './PhotoViewer'
 import { BottomSheet } from '../safety/SafetySheets'
@@ -16,7 +18,8 @@ let uploadKey = 0
 
 // Album photo partagé : visible par les organisateurs et les participants
 // ayant accepté (la base décide, get_event_photos.can_view). Rien ne
-// s'affiche pour les autres.
+// s'affiche pour les autres. Photos conservées 2 mois après l'événement
+// (expires_at), l'album est fermé ensuite.
 export default function EventPhotosSection({ eventId, userId, focus = false, showToast }) {
   const sectionRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -62,7 +65,10 @@ export default function EventPhotosSection({ eventId, userId, focus = false, sho
   const maxPerUser = album.max_per_user ?? MAX_PHOTOS_PER_USER
   // Photos choisies dont la ligne n'est pas encore créée (comptées dans myCount sinon)
   const waiting = uploads.filter(item => !item.row && !item.limit).length
-  const remaining = Math.max(0, maxPerUser - myCount - waiting)
+  const expiresAt = album.expires_at ? dayjs(album.expires_at) : null
+  const closed = !!expiresAt && !expiresAt.isAfter(dayjs())
+  const expiringSoon = !!expiresAt && expiresAt.diff(dayjs(), 'day') < 31
+  const remaining = closed ? 0 : Math.max(0, maxPerUser - myCount - waiting)
   const failed = uploads.filter(item => item.status === 'error')
   const retryable = failed.filter(item => !item.limit)
   const active = uploads.filter(item => item.status !== 'error')
@@ -190,6 +196,11 @@ export default function EventPhotosSection({ eventId, userId, focus = false, sho
           <div style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 600, marginTop: 2 }}>
             {photos.length === 0 ? 'Aucune photo pour l’instant' : `${photos.length} photo${photos.length > 1 ? 's' : ''}`}
           </div>
+          {photos.length > 0 && expiresAt && !closed && (
+            <div style={{ fontSize: 11, color: expiringSoon ? '#FF3B30' : '#8E8E93', fontWeight: expiringSoon ? 700 : 500, marginTop: 2 }}>
+              Conservées jusqu’au {expiresAt.locale('fr').format('D MMMM YYYY')}
+            </div>
+          )}
         </div>
         <div style={{ fontSize: 12, fontWeight: 700, color: myCount >= maxPerUser ? '#FF3B30' : '#8E8E93' }} aria-label={`${myCount} photos ajoutées sur ${maxPerUser}`}>{myCount}/{maxPerUser}</div>
         <button
