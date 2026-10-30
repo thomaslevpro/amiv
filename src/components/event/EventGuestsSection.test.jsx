@@ -32,6 +32,9 @@ function rowNames() {
 
 describe('EventGuestsSection', () => {
   it('résumé, filtres sans les statuts à 0, ordre organisateur > statut > nom', () => {
+    // « Invité il y a 2 j » est calculé depuis maintenant : on fige l'horloge
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(NOW)
     render(<EventGuestsSection guests={GUESTS} canManage={false} userId="ana" />)
     expect(screen.getByText('5 invités')).toBeTruthy()
     const tabs = screen.getAllByRole('tab').map(tab => tab.textContent)
