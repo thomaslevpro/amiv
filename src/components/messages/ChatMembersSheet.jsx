@@ -7,10 +7,11 @@ import { fetchEventGuestList, GUEST_STATUS_META } from '../../lib/eventGuests'
 import { hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_SOFT } from '../../lib/secretSpace'
 
 // Membres du chat, même règle que is_event_chat_member : organisateur,
-// co-organisateurs, invités confirmés. En attente, peut-être, refusé : pas
-// d'accès au chat, donc pas listés. Les invités sans compte non plus.
+// co-organisateurs, invités confirmés ou « peut-être ». En attente, refusé :
+// pas d'accès au chat, donc pas listés. Les invités sans compte non plus.
+const CHAT_STATUSES = ['confirmed', 'maybe']
 export function chatMembers(guests, { birthdayPersonId = null, isSecret = false } = {}) {
-  const members = (guests ?? []).filter(guest => guest.user_id && (guest.role === 'owner' || guest.role === 'co_organizer' || guest.status === 'confirmed'))
+  const members = (guests ?? []).filter(guest => guest.user_id && (guest.role === 'owner' || guest.role === 'co_organizer' || CHAT_STATUSES.includes(guest.status)))
   if (!birthdayPersonId) return members
   const birthdayPerson = members.find(guest => guest.user_id === birthdayPersonId)
   const others = members.filter(guest => guest.user_id !== birthdayPersonId)

@@ -1,6 +1,6 @@
--- Vérification de 20261101180000 : la conversation d'un événement est
--- réservée aux organisateurs et aux invités qui ont accepté. Invitation en
--- attente, « peut-être » ou refus : pas de conversation dans la messagerie,
+-- Vérification de 20261101180000 + 20261101200000 : la conversation d'un
+-- événement est réservée aux organisateurs et aux invités qui ont accepté ou
+-- répondu « peut-être ». Invitation en attente ou refus : pas de conversation dans la messagerie,
 -- messages illisibles, écriture refusée, aucune notification de message
 -- (donc aucun push). Seule l'invitation notifie.
 -- Run against the linked database with:
@@ -54,17 +54,21 @@ declare
     ['A notifié du 2e message seulement', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000072' and type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '1'],
     ['O notifié du message de A', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '1'],
     ['B refus : aucune notification', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000073' and type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '0'],
-    ['M peut-être : aucune notification', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000074' and type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '0'],
+    ['M peut-être : notifié du 2e message', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000074' and type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '1'],
     ['D en attente : aucune notification', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000075' and type = 'message_received' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '0'],
     ['B refus : pas de conversation', 'B', $s$select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071'$s$, '0'],
     ['B refus : messages illisibles', 'B', $s$select count(*) from messages where event_id = '00000000-0000-4000-e000-000000000071' and is_secret = false$s$, '0'],
     ['B refus : ne peut pas écrire', 'B', $s$insert into messages(event_id, user_id, content, is_secret) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'x', false) returning 1$s$, 'ERR 42501'],
-    ['M peut-être : pas de conversation', 'M', $s$select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071'$s$, '0'],
-    ['M peut-être : messages illisibles', 'M', $s$select count(*) from get_event_messages('00000000-0000-4000-e000-000000000071', false)$s$, '0'],
-    ['M peut-être : espace secret fermé', 'M', $s$select public.can_access_secret_space('00000000-0000-4000-e000-000000000071')::text$s$, 'false'],
+    ['M peut-être : conversation visible', 'M', $s$select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071'$s$, '1'],
+    ['M peut-être : historique lisible', 'M', $s$select count(*) from get_event_messages('00000000-0000-4000-e000-000000000071', false)$s$, '3'],
+    ['M peut-être : chat ouvert', 'M', $s$select public.can_access_event_chat('00000000-0000-4000-e000-000000000071')::text$s$, 'true'],
+    ['M peut-être : espace secret ouvert', 'M', $s$select public.can_access_secret_space('00000000-0000-4000-e000-000000000071')::text$s$, 'true'],
+    ['M peut-être : écrit', 'M', $s$insert into messages(event_id, user_id, content, is_secret) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'peut-etre', false) returning 1$s$, '1'],
+    ['M peut-être puis refuse', 'M', $s$with i as (update invitations set status = 'declined' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (insert into rsvps(event_id, user_id, status) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'declined') on conflict (event_id, user_id) do update set status = excluded.status returning 1) select (select count(*) from i) + (select count(*) from r)$s$, '2'],
+    ['M refus : conversation retirée', 'M', $s$select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071'$s$, '0'],
     ['X étranger : rien', 'X', $s$select (select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071') + (select count(*) from messages where event_id = '00000000-0000-4000-e000-000000000071')$s$, '0'],
     ['A passe en peut-être', 'A', $s$with i as (update invitations set status = 'maybe' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (insert into rsvps(event_id, user_id, status) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'pending') on conflict (event_id, user_id) do update set status = excluded.status returning 1) select (select count(*) from i) + (select count(*) from r)$s$, '2'],
-    ['A peut-être : conversation retirée', 'A', $s$select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071'$s$, '0'],
+    ['A peut-être : conversation gardée', 'A', $s$select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071'$s$, '1'],
     ['A réaccepte', 'A', $s$with i as (update invitations set status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (insert into rsvps(event_id, user_id, status) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'going') on conflict (event_id, user_id) do update set status = excluded.status returning 1) select (select count(*) from i) + (select count(*) from r)$s$, '2'],
     ['A : conversation revenue', 'A', $s$select count(*) from get_my_event_conversation_ids() x where x = '00000000-0000-4000-e000-000000000071'$s$, '1'],
     ['D accepte via invitation seule (sans rsvps)', 'postgres', $s$with i as (update invitations set status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = '00000000-0000-4000-a000-000000000075' returning 1), r as (delete from rsvps where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000075' returning 1) select (select count(*) from i) + (select count(*) from r)$s$, '2'],

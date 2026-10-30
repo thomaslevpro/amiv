@@ -79,15 +79,15 @@ describe('chatMembers', () => {
   ]
   const ids = list => list.map(guest => guest.user_id)
 
-  it('organisateurs et confirmés seulement', () => {
-    expect(ids(chatMembers(guests))).toEqual(['orga', 'coorg', 'alice', 'toto'])
+  it('organisateurs, confirmés et peut-être seulement', () => {
+    expect(ids(chatMembers(guests))).toEqual(['orga', 'coorg', 'alice', 'toto', 'maybe'])
   })
 
   it('Général d’un anniversaire : la personne fêtée en premier', () => {
-    expect(ids(chatMembers(guests, { birthdayPersonId: 'toto' }))).toEqual(['toto', 'orga', 'coorg', 'alice'])
+    expect(ids(chatMembers(guests, { birthdayPersonId: 'toto' }))).toEqual(['toto', 'orga', 'coorg', 'alice', 'maybe'])
   })
 
   it('Secret : la personne fêtée n’apparaît jamais', () => {
-    expect(ids(chatMembers(guests, { birthdayPersonId: 'toto', isSecret: true }))).toEqual(['orga', 'coorg', 'alice'])
+    expect(ids(chatMembers(guests, { birthdayPersonId: 'toto', isSecret: true }))).toEqual(['orga', 'coorg', 'alice', 'maybe'])
   })
 })

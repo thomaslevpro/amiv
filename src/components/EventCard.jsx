@@ -103,8 +103,10 @@ function OrganizerEventCard({ event, stats, participants, dateParts, openEvent, 
   const title = titleCase(event.name, 'Événement')
   const details = [dateParts.longDate, dateParts.time, event.location].filter(Boolean).join(' · ')
   const isDeclined = normalizeStatus(event.rsvpStatus) === 'no'
-  // Chat : organisateur ou invitation acceptée (en attente / peut-être : non)
+  // Chat : organisateur, invitation acceptée ou « peut-être » (en attente : non).
+  // rsvpStatus « pending » veut dire en attente OU peut-être : l'invitation tranche.
   const canChat = event.isOrganizer || !event.rsvpStatus || normalizeStatus(event.rsvpStatus) === 'yes'
+    || (normalizeStatus(event.rsvpStatus) === 'maybe' && event.invitationStatus === 'maybe')
   const shownParticipants = participants.slice(0, MAX_PARTICIPANT_AVATARS)
   const moreCount = Math.max(0, yesCount - shownParticipants.length)
 
@@ -331,6 +333,7 @@ export default function EventCard({
         ...baseEvent,
         isOrganizer: baseEvent.isOrganizer ?? item.isOrganizer,
         rsvpStatus: baseEvent.rsvpStatus ?? (item.isOrganizer ? 'organizing' : item.myStatus),
+        invitationStatus: baseEvent.invitationStatus ?? item.invitationStatus,
       }
     : baseEvent
   const stats = item?.stats ?? event.rsvpStats ?? {}

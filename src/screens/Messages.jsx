@@ -240,8 +240,8 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   async function fetchEventConversations() {
-    // Organisateur ou invitation acceptée seulement (serveur : is_event_chat_member).
-    // En attente, peut-être ou refusé : pas de conversation.
+    // Organisateur, invitation acceptée ou « peut-être » (serveur : is_event_chat_member).
+    // En attente ou refusé : pas de conversation.
     const [rsvpResult, { data: memberIds, error: memberError }] = await Promise.all([supabase.from('rsvps').select('event_id, status, last_read_at').eq('user_id', userId), supabase.rpc('get_my_event_conversation_ids')])
     let rsvpRows = rsvpResult.data ?? []
     if (rsvpResult.error) rsvpRows = (await supabase.from('rsvps').select('event_id, status').eq('user_id', userId)).data ?? []
