@@ -1,56 +1,85 @@
-import { MapPin } from 'lucide-react'
-import { avatarInitial } from '../../utils/avatar'
+import { Cake, CalendarDays, MapPin } from 'lucide-react'
+import GuestAvatar from './GuestAvatar'
 
-export default function EventInfoCard({ displayLocation, organizers, userId, eventId, onAddCoOrg }) {
-  void eventId
-  const sortedOrganizers = [...organizers].sort((a, b) => (a.role === 'owner' ? -1 : 1))
-  const isOwner = organizers.eventOwnerId === userId
+function formatEventDate(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d)) return null
+  const weekday = d.toLocaleDateString('fr-FR', { weekday: 'short' })
+  const dayMonth = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dayMonth} · ${time}`
+}
+
+export function openInMaps(location) {
+  window.open(`https://maps.apple.com/?q=${encodeURIComponent(location)}`, '_blank', 'noopener,noreferrer')
+}
+
+const lineStyle = { display: 'flex', alignItems: 'center', gap: 10, minHeight: 28, fontSize: 15, color: '#6B6B72' }
+const iconBox = { width: 22, display: 'flex', justifyContent: 'center', flexShrink: 0 }
+const linkStyle = { border: 'none', background: 'none', padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', textAlign: 'left' }
+
+function organizerName(profile, userId) {
+  if (profile?.id === userId) return 'toi'
+  return profile?.first_name || profile?.name || 'Organisateur'
+}
+
+// Lignes d'infos de la feuille sous la couverture : date et lieu,
+// organisateurs, personne fêtée.
+export default function EventInfoCard({ displayDate, isPollActive, displayLocation, organizers, userId, birthday, onOpenProfile }) {
+  const dateLabel = isPollActive ? null : formatEventDate(displayDate)
+  const sortedOrganizers = [...organizers].filter(o => o.profile).sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0))
 
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 150px', minWidth: 0 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: '#F5F5F5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <MapPin size={17} strokeWidth={1.8} color="#8E8E93" />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: '#8E8E93', fontWeight: 500 }}>Lieu</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayLocation || 'Lieu non précisé'}</div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, flex: '0 1 auto', minWidth: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-            {sortedOrganizers.map(({ role, profile }) => {
-              const name = profile?.first_name || profile?.name || 'Organisateur'
-              const displayName = profile?.id === userId ? 'Moi' : name
-              const owner = role === 'owner'
-              return (
-                <div key={profile?.id} title={owner ? 'Organisateur' : 'Co-organisateur'} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt={displayName} style={{ width: 28, height: 28, borderRadius: 14, objectFit: 'cover', flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 28, height: 28, borderRadius: 14, background: owner ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#FBBF9A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                      {avatarInitial(profile, 'O')}
-                    </div>
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#1C1C1E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 86 }}>{displayName}</div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: owner ? '#e055aa' : '#8E8E93', marginTop: 1, whiteSpace: 'nowrap' }}>
-                      {owner ? 'Organisateur' : 'Co-org'}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          {isOwner && organizers.length < 4 && (
-            <button type="button" onClick={onAddCoOrg} style={{ width: 28, height: 28, borderRadius: 14, background: 'linear-gradient(135deg,#e055aa,#f5a623)', border: 'none', color: '#fff', fontSize: 18, fontWeight: 700, lineHeight: 1, cursor: 'pointer', flexShrink: 0 }} aria-label="Ajouter un co-organisateur">
-              +
-            </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={lineStyle}>
+        <span style={iconBox}><CalendarDays size={18} strokeWidth={1.8} color="#8E8E93" /></span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {dateLabel || 'Date à définir'}
+          {displayLocation && (
+            <>
+              {' · '}
+              <button type="button" onClick={() => openInMaps(displayLocation)} style={{ ...linkStyle, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <MapPin size={14} strokeWidth={2} />
+                <span style={{ textDecoration: 'underline', textDecorationColor: 'rgba(107,107,114,0.35)', textUnderlineOffset: 3 }}>{displayLocation}</span>
+              </button>
+            </>
           )}
         </div>
       </div>
+
+      {sortedOrganizers.length > 0 && (
+        <div style={lineStyle}>
+          <span style={{ ...iconBox, width: 'auto', minWidth: 22 }}>
+            {sortedOrganizers.slice(0, 3).map(({ profile }, index) => (
+              <span key={profile.id} style={{ marginLeft: index ? -8 : 0, borderRadius: '50%', border: index ? '2px solid #fff' : 'none', display: 'flex' }}>
+                <GuestAvatar name={profile.first_name || profile.name} avatarUrl={profile.avatar_url} seed={profile.id} size={22} />
+              </span>
+            ))}
+          </span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            Organisé par{' '}
+            {sortedOrganizers.map(({ profile }, index) => (
+              <span key={profile.id}>
+                {index > 0 && (index === sortedOrganizers.length - 1 ? ' et ' : ', ')}
+                <button type="button" onClick={() => onOpenProfile?.(profile)} disabled={!profile.username || profile.id === userId} style={{ ...linkStyle, fontWeight: 600, color: '#1C1C1E', cursor: profile.username && profile.id !== userId ? 'pointer' : 'default' }}>
+                  {organizerName(profile, userId)}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {birthday?.name && (
+        <div style={lineStyle}>
+          <span style={iconBox}><Cake size={18} strokeWidth={1.8} color="#8E8E93" /></span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            Pour <span style={{ fontWeight: 600, color: '#1C1C1E' }}>{birthday.isMe ? 'toi' : birthday.name}</span>
+            {birthday.age ? ` · ${birthday.age} ans` : ''}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

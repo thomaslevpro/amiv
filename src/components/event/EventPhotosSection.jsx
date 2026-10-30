@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
-import { Camera as CameraIcon, ImagePlus, Images, RotateCcw, X } from 'lucide-react'
+import { Camera as CameraIcon, Images, Plus, RotateCcw, X } from 'lucide-react'
 import PhotoViewer from './PhotoViewer'
+import { SECTION_TITLE } from './eventUtils'
 import { BottomSheet } from '../safety/SafetySheets'
 import {
   createPhotoRow, deleteEventPhoto, fetchEventPhotos, hasNativePhotoPicker, MAX_PHOTOS_PER_USER,
@@ -10,7 +11,9 @@ import {
 } from '../../lib/eventPhotos'
 
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
-const COLLAPSED_COUNT = 12
+// Vignettes de la rangée : les plus récentes, « Voir tout » pour le reste
+const ROW_COUNT = 20
+const THUMB = { width: 72, height: 72, borderRadius: 12, flexShrink: 0, padding: 0, boxSizing: 'border-box' }
 // Les URL signées durent 10 min : on recharge l'album avant leur expiration.
 const REFRESH_INTERVAL_MS = 8 * 60 * 1000
 
@@ -30,7 +33,7 @@ export default function EventPhotosSection({ eventId, userId, focus = false, sho
   const uploadsRef = useRef([])
   const [running, setRunning] = useState(false)
   const runningRef = useRef(false)
-  const [expanded, setExpanded] = useState(false)
+  const [showAll, setShowAll] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(null)
   const [showSourceSheet, setShowSourceSheet] = useState(false)
   const focusedRef = useRef(false)
@@ -73,7 +76,7 @@ export default function EventPhotosSection({ eventId, userId, focus = false, sho
   const retryable = failed.filter(item => !item.limit)
   const active = uploads.filter(item => item.status !== 'error')
   const progress = active.length ? active.reduce((sum, item) => sum + item.progress, 0) / active.length : 0
-  const visiblePhotos = expanded ? photos : photos.slice(0, COLLAPSED_COUNT)
+  const rowPhotos = photos.slice(0, ROW_COUNT)
 
   function commitUploads(next) {
     uploadsRef.current = next
@@ -188,30 +191,21 @@ export default function EventPhotosSection({ eventId, userId, focus = false, sho
     showToast?.('Photo supprimée')
   }
 
+  function openPhoto(index) {
+    setShowAll(false)
+    setViewerIndex(index)
+  }
+
   return (
-    <div ref={sectionRef} style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', scrollMarginTop: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93' }}>Photos</div>
-          <div style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 600, marginTop: 2 }}>
-            {photos.length === 0 ? 'Aucune photo pour l’instant' : `${photos.length} photo${photos.length > 1 ? 's' : ''}`}
-          </div>
-          {photos.length > 0 && expiresAt && !closed && (
-            <div style={{ fontSize: 11, color: expiringSoon ? '#FF3B30' : '#8E8E93', fontWeight: expiringSoon ? 700 : 500, marginTop: 2 }}>
-              Conservées jusqu’au {expiresAt.locale('fr').format('D MMMM YYYY')}
-            </div>
-          )}
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: myCount >= maxPerUser ? '#FF3B30' : '#8E8E93' }} aria-label={`${myCount} photos ajoutées sur ${maxPerUser}`}>{myCount}/{maxPerUser}</div>
-        <button
-          type="button"
-          onClick={handleAddClick}
-          disabled={remaining <= 0}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 20, border: 'none', background: remaining > 0 ? GRADIENT : '#E5E5EA', color: remaining > 0 ? '#fff' : '#8E8E93', fontSize: 13, fontWeight: 700, cursor: remaining > 0 ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
-        >
-          <ImagePlus size={16} strokeWidth={2} />
-          Ajouter des photos
-        </button>
+    <section ref={sectionRef} aria-labelledby="event-photos-title" style={{ scrollMarginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+        <h2 id="event-photos-title" style={{ ...SECTION_TITLE, flex: 1, minWidth: 0 }}>Participer à l’album partagé</h2>
+        <div style={{ fontSize: 14, fontWeight: 600, color: myCount >= maxPerUser ? '#FF3B30' : '#8E8E93', fontVariantNumeric: 'tabular-nums' }} aria-label={`${myCount} photos ajoutées sur ${maxPerUser}`}>{myCount}/{maxPerUser}</div>
+        {photos.length > 0 && (
+          <button type="button" onClick={() => setShowAll(true)} style={{ border: 'none', background: 'none', padding: 0, fontSize: 14, fontWeight: 600, color: '#e055aa', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            Voir tout
+          </button>
+        )}
         <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
 
@@ -245,28 +239,57 @@ export default function EventPhotosSection({ eventId, userId, focus = false, sho
         </div>
       )}
 
-      {photos.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, borderRadius: 12, overflow: 'hidden' }}>
-          {visiblePhotos.map((photo, index) => (
-            <button
-              key={photo.id}
-              type="button"
-              onClick={() => setViewerIndex(index)}
-              aria-label={`Photo ajoutée par ${photo.author_name}`}
-              style={{ aspectRatio: '1', padding: 0, border: 'none', background: '#F2F2F7', cursor: 'pointer', overflow: 'hidden' }}
-            >
-              {thumbUrls[photo.thumb_path] && (
-                <img src={thumbUrls[photo.thumb_path]} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              )}
-            </button>
-          ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', margin: '0 -16px', padding: '0 16px' }}>
+        <button
+          type="button"
+          onClick={handleAddClick}
+          disabled={remaining <= 0}
+          aria-label="Ajouter des photos"
+          style={{ ...THUMB, border: `1.5px dashed ${remaining > 0 ? '#C7C7CC' : '#E5E5EA'}`, background: '#FAFAFC', color: remaining > 0 ? '#8E8E93' : '#D1D1D6', display: 'grid', placeItems: 'center', cursor: remaining > 0 ? 'pointer' : 'default' }}
+        >
+          <Plus size={26} strokeWidth={2} />
+        </button>
+        {photos.length === 0 ? (
+          <div style={{ fontSize: 14, color: '#8E8E93', lineHeight: 1.35, paddingLeft: 4 }}>Ajoute jusqu’à {maxPerUser} photos de l’événement</div>
+        ) : rowPhotos.map((photo, index) => (
+          <button
+            key={photo.id}
+            type="button"
+            onClick={() => openPhoto(index)}
+            aria-label={`Photo ajoutée par ${photo.author_name}`}
+            style={{ ...THUMB, border: 'none', background: '#F2F2F7', cursor: 'pointer', overflow: 'hidden' }}
+          >
+            {thumbUrls[photo.thumb_path] && (
+              <img src={thumbUrls[photo.thumb_path]} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {photos.length > 0 && expiresAt && !closed && (
+        <div style={{ fontSize: 12, color: expiringSoon ? '#FF3B30' : '#8E8E93', fontWeight: expiringSoon ? 600 : 400, marginTop: 8 }}>
+          Conservées jusqu’au {expiresAt.locale('fr').format('D MMMM YYYY')}
         </div>
       )}
 
-      {photos.length > COLLAPSED_COUNT && (
-        <button type="button" onClick={() => setExpanded(value => !value)} style={{ width: '100%', marginTop: 10, padding: '10px', borderRadius: 12, border: 'none', background: '#F5F5F5', color: '#1C1C1E', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          {expanded ? 'Voir moins' : `Voir les ${photos.length} photos`}
-        </button>
+      {showAll && (
+        <BottomSheet title={`${photos.length} photo${photos.length > 1 ? 's' : ''}`} onClose={() => setShowAll(false)}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, borderRadius: 12, overflow: 'hidden' }}>
+            {photos.map((photo, index) => (
+              <button
+                key={photo.id}
+                type="button"
+                onClick={() => openPhoto(index)}
+                aria-label={`Photo ajoutée par ${photo.author_name}`}
+                style={{ aspectRatio: '1', padding: 0, border: 'none', background: '#E5E5EA', cursor: 'pointer', overflow: 'hidden' }}
+              >
+                {thumbUrls[photo.thumb_path] && (
+                  <img src={thumbUrls[photo.thumb_path]} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                )}
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
       )}
 
       {viewerIndex !== null && (
@@ -305,6 +328,6 @@ export default function EventPhotosSection({ eventId, userId, focus = false, sho
           </div>
         </BottomSheet>
       )}
-    </div>
+    </section>
   )
 }

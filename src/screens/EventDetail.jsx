@@ -1,131 +1,166 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Lock, MessageCircle } from 'lucide-react'
+import { Pencil, Share, Trash2, UserPlus, UserRoundPlus } from 'lucide-react'
 import EventDatePoll from '../components/event/EventDatePoll'
 import EventEditForm from '../components/event/EventEditForm'
-import EventGuestsSection from '../components/event/EventGuestsSection'
-import EventHero from '../components/event/EventHero'
+import EventGuestsSummary from '../components/event/EventGuestsSummary'
+import EventHero, { countdownDays } from '../components/event/EventHero'
 import EventInfoCard from '../components/event/EventInfoCard'
 import EventPhotosSection from '../components/event/EventPhotosSection'
+import EventQuickActions from '../components/event/EventQuickActions'
+import EventRsvpButtons from '../components/event/EventRsvpButtons'
 import PendingPollsBanner from '../components/event/PendingPollsBanner'
-import { getAvatarColor } from '../components/event/eventUtils'
+import { getAvatarColor, SECTION_TITLE } from '../components/event/eventUtils'
 import RevealedMemoriesEntry from '../components/event/RevealedMemoriesEntry'
 import InviteFriendsSheet from '../components/InviteFriendsSheet'
 import PlusOneReviewList from '../components/PlusOneReviewList'
+import { BottomSheet } from '../components/safety/SafetySheets'
 import useEventDetail from '../hooks/useEventDetail'
-import { hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_SOFT } from '../lib/secretSpace'
+
+// Âge atteint à la date de l'événement (ou aujourd'hui sans date)
+function ageAt(birthday, dateStr) {
+  if (!birthday) return null
+  const [year, month, day] = String(birthday).slice(0, 10).split('-').map(Number)
+  if (!year || year < 1900) return null
+  const ref = dateStr && !isNaN(new Date(dateStr)) ? new Date(dateStr) : new Date()
+  const age = ref.getFullYear() - year - (ref.getMonth() + 1 < month || (ref.getMonth() + 1 === month && ref.getDate() < day) ? 1 : 0)
+  return age > 0 && age < 130 ? age : null
+}
 
 export default function EventDetail({ event, onBack, onChat, onMessagesClick, onSecretSpace }) {
   const navigate = useNavigate()
   const detail = useEventDetail(event, onBack)
+  const scrollRef = useRef(null)
   const [pollBannerVisible, setPollBannerVisible] = useState(false)
   const [showInviteSheet, setShowInviteSheet] = useState(false)
+  const [showGuests, setShowGuests] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
 
   if (!event) return null
 
   const {
-    coverInputRef, rsvpStatus, myRsvp, userId, currentUserName, canManage, loading,
+    rsvpStatus, myRsvp, userId, currentUserName, canManage, loading,
     toast, editing, editForm, setEditForm, birthdayPersonId, currentType, saving,
     coverPreview, setCoverFile, setCoverPreview, eventOverrides, showDeleteModal,
     setShowDeleteModal, deleting, friends, guests, guestsLoading, dateOptions,
-    myVotes, allVoteCounts, confirmingDate, birthdayPersonName,
-    canAccessSecretSpace, canAccessEventChat, chatUnreadCount, organizers, showCoOrgModal,
+    myVotes, allVoteCounts, confirmingDate, birthdayPersonName, birthdayPersonBirthday,
+    canAccessSecretSpace, canAccessEventChat, chatUnreadCount, secretUnreadCount, organizers, showCoOrgModal,
     setShowCoOrgModal, coOrgSubmitting, coOrgError, confirmedParticipants, coOrgLoading,
     eventForMessages, handleRsvp, handleDateVote, handleConfirmDate, handleEditOpen,
-    toggleBirthdayPerson, handleEditSubmit, handleHeroCoverChange, handleDeleteEvent,
+    toggleBirthdayPerson, handleEditSubmit, handleDeleteEvent,
     refreshGuests, handleRemindGuest, handleRemoveInvitation, handleShare, showToast,
     handleOpenCoOrgModal, handleAddCoOrganizer, setEditing,
   } = detail
 
   const displayDescription = eventOverrides.description ?? event.description
   const displayLocation = eventOverrides.location ?? event.location
+  const displayDate = eventOverrides.date ?? event.date
   const pollClosed = eventOverrides.poll_closed ?? event.poll_closed ?? false
   const isPollActive = dateOptions.length > 0 && !pollClosed
   const heroEvent = { ...event, type: currentType, __isPollActive: isPollActive }
   const isBirthdayEvent = currentType === 'Anniversaire' || !!birthdayPersonId
+  const isBirthdayPerson = !!userId && birthdayPersonId === userId
   const hasDeclined = !canManage && rsvpStatus === 'declined'
   // Sondages auxquels je peux répondre (aujourd'hui : le sondage de dates)
   const myPolls = isPollActive && !canManage && !hasDeclined && !!userId ? [{ key: 'dates', options: dateOptions }] : []
+  // Plus de changement de réponse une fois l'événement passé
+  const canChangeRsvp = !displayDate || isPollActive || countdownDays(displayDate) !== null
+  const isOwner = event.user_id === userId
+  // event_organizers contient aussi le coordinateur de cagnotte (guest_leader)
+  const eventOrganizers = organizers.filter(o => o.role === 'owner' || o.role === 'co_organizer')
+  // Jamais pour la personne fêtée (le serveur applique la même règle)
+  const showSecretSpace = canAccessSecretSpace && isBirthdayEvent && !!birthdayPersonId && !isBirthdayPerson
   void onMessagesClick
 
-  function renderChatBanner() {
-    const subtitle = chatUnreadCount > 0
-      ? `${chatUnreadCount} message${chatUnreadCount > 1 ? 's' : ''} non lu${chatUnreadCount > 1 ? 's' : ''}`
-      : "Aucun message pour l'instant"
-
-    return (
-      <div onClick={() => onChat?.(eventForMessages)} style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: 14, marginBottom: 12, background: 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-        <div style={{ position: 'absolute', right: -20, top: -20, width: 100, height: 100, borderRadius: 50, background: 'rgba(255,255,255,0.10)', pointerEvents: 'none' }} />
-        <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: 'rgba(255,255,255,0.20)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-          <MessageCircle size={20} strokeWidth={1.8} color="#fff" />
-        </div>
-        <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Chat de l'événement</div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{subtitle}</div>
-        </div>
-        <div style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', zIndex: 1 }}>
-          <ChevronRight size={14} strokeWidth={2.5} color="#fff" />
-        </div>
-      </div>
-    )
+  function openEdit() {
+    setShowMenu(false)
+    handleEditOpen()
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  function openInvite() {
+    setShowMenu(false)
+    setShowGuests(false)
+    setShowInviteSheet(true)
+  }
+
+  const menuActions = [
+    { key: 'edit', icon: <Pencil size={19} color="#1C1C1E" />, label: "Modifier l'événement", onClick: openEdit },
+    { key: 'invite', icon: <UserPlus size={19} color="#1C1C1E" />, label: 'Inviter des amis', onClick: openInvite },
+    { key: 'share', icon: <Share size={19} color="#1C1C1E" />, label: 'Partager le lien', onClick: () => { setShowMenu(false); handleShare() } },
+    isOwner && eventOrganizers.length < 4 && { key: 'coorg', icon: <UserRoundPlus size={19} color="#1C1C1E" />, label: 'Ajouter un co-organisateur', onClick: () => { setShowMenu(false); handleOpenCoOrgModal() } },
+    { key: 'delete', icon: <Trash2 size={19} color="#FF3B30" />, label: "Supprimer l'événement", danger: true, onClick: () => { setShowMenu(false); setShowDeleteModal(true) } },
+  ].filter(Boolean)
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden' }}>
-      <EventHero event={heroEvent} eventOverrides={eventOverrides} canManage={canManage} rsvpStatus={rsvpStatus} loading={loading} onBack={onBack} onEdit={handleEditOpen} onCoverChange={handleHeroCoverChange} coverInputRef={coverInputRef} onRsvp={handleRsvp} />
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <EventHero event={heroEvent} eventOverrides={eventOverrides} onBack={onBack} onMenu={canManage ? () => setShowMenu(true) : undefined} />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-        <PendingPollsBanner polls={myPolls} myVotes={myVotes} allVoteCounts={allVoteCounts} onVote={handleDateVote} onVisibleChange={setPollBannerVisible} />
+        {/* Feuille d'infos qui chevauche le bas de la couverture */}
+        <div style={{ position: 'relative', marginTop: -24, borderRadius: '24px 24px 0 0', background: '#fff', padding: '22px 16px 40px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+          {editing && <EventEditForm event={event} editForm={editForm} setEditForm={setEditForm} friends={friends} currentType={currentType} birthdayPersonId={birthdayPersonId} birthdayPersonName={birthdayPersonName} onToggleBirthdayPerson={toggleBirthdayPerson} coverPreview={coverPreview} setCoverFile={setCoverFile} setCoverPreview={setCoverPreview} saving={saving} onSubmit={handleEditSubmit} onCancel={() => setEditing(false)} />}
 
-        {canManage && (
-          <div style={{ marginBottom: 14 }}>
-            <div onClick={() => navigate(`/events/${event.id}/organizer-space`)} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: 'rgba(0,122,255,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="16" height="13" rx="2" stroke="#007AFF" strokeWidth="1.5" /><path d="M6 4V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1" stroke="#007AFF" strokeWidth="1.5" /><path d="M6 9h8M6 12.5h5" stroke="#007AFF" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </div>
-              <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Mon espace organisateur</div><div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Checklist & suivi</div></div>
-              <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <EventInfoCard
+              displayDate={displayDate}
+              isPollActive={isPollActive}
+              displayLocation={displayLocation}
+              organizers={eventOrganizers}
+              userId={userId}
+              birthday={isBirthdayEvent && birthdayPersonName ? { name: birthdayPersonName, isMe: isBirthdayPerson, age: ageAt(birthdayPersonBirthday, displayDate) } : null}
+              onOpenProfile={profile => profile.username && navigate(`/u/${encodeURIComponent(profile.username)}`)}
+            />
+            {/* L'organisateur participe d'office */}
+            {!canManage && userId && <EventRsvpButtons rsvpStatus={rsvpStatus} loading={loading} onRsvp={handleRsvp} canChange={canChangeRsvp} />}
+            <EventQuickActions
+              onChat={canAccessEventChat ? () => onChat?.(eventForMessages) : null}
+              chatUnread={chatUnreadCount}
+              onSecretSpace={showSecretSpace ? () => (onSecretSpace ? onSecretSpace(event) : navigate(`/events/${event.id}/secret-space`)) : null}
+              secretUnread={secretUnreadCount}
+              onOrganizerSpace={canManage ? () => navigate(`/events/${event.id}/organizer-space`) : null}
+            />
           </div>
-        )}
 
-        {userId && birthdayPersonId === userId && <RevealedMemoriesEntry eventId={event.id} />}
+          {myPolls.length > 0 && <div style={{ marginBottom: -14 }}><PendingPollsBanner polls={myPolls} myVotes={myVotes} allVoteCounts={allVoteCounts} onVote={handleDateVote} onVisibleChange={setPollBannerVisible} /></div>}
 
-        {/* Organisateurs et invités qui ont accepté seulement */}
-        {canAccessEventChat && renderChatBanner()}
+          {isBirthdayPerson && <div style={{ marginBottom: -14 }}><RevealedMemoriesEntry eventId={event.id} /></div>}
 
-        {canAccessSecretSpace && isBirthdayEvent && (
-          <div style={{ marginBottom: 14 }}>
-            <div onClick={() => (onSecretSpace ? onSecretSpace(event) : navigate(`/events/${event.id}/secret-space`))} style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: SECRET_ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Lock size={18} strokeWidth={2.2} color={SECRET_ACCENT} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>Espace secret</div>
-                <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 2 }}>Flashback · Cadeaux · Cagnotte</div>
-                {birthdayPersonName && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: '3px 10px', borderRadius: 20, background: SECRET_ACCENT_SOFT, fontSize: 10, fontWeight: 700, color: SECRET_ACCENT }}><Lock size={10} strokeWidth={2.4} />{hiddenFromLabel(birthdayPersonName)}</div>}
-              </div>
-              <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1l6 6-6 6" stroke="#AEAEB2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </div>
-          </div>
-        )}
+          <EventGuestsSummary
+            open={showGuests}
+            onOpen={() => setShowGuests(true)}
+            onClose={() => setShowGuests(false)}
+            sectionProps={{ guests, loading: guestsLoading, canManage, userId, myRsvp, currentUserName, eventId: event.id, onInvite: openInvite, onShare: handleShare, onRemind: handleRemindGuest, onRemove: handleRemoveInvitation }}
+          />
 
-        {editing && <EventEditForm event={event} editForm={editForm} setEditForm={setEditForm} friends={friends} currentType={currentType} birthdayPersonId={birthdayPersonId} birthdayPersonName={birthdayPersonName} onToggleBirthdayPerson={toggleBirthdayPerson} coverPreview={coverPreview} setCoverFile={setCoverFile} setCoverPreview={setCoverPreview} saving={saving} onSubmit={handleEditSubmit} onCancel={() => setEditing(false)} />}
-        <EventInfoCard displayLocation={displayLocation} organizers={Object.assign([...organizers], { eventOwnerId: event.user_id })} userId={userId} eventId={event.id} onAddCoOrg={handleOpenCoOrgModal} />
+          <EventPhotosSection key={event.id} eventId={event.id} userId={userId} focus={event.focusSection === 'photos'} showToast={showToast} />
 
-        {(displayDescription || canManage) && (
-          <div onClick={!displayDescription && canManage ? handleEditOpen : undefined} style={{ background: '#fff', borderRadius: 16, padding: '14px', marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', cursor: !displayDescription && canManage ? 'pointer' : 'default' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>Description</div>
-            {displayDescription ? <div style={{ fontSize: 13, color: '#1C1C1E', lineHeight: 1.5 }}>{displayDescription}</div> : <div style={{ fontSize: 13, color: '#AEAEB2', fontStyle: 'italic' }}>Ajouter une description… ✏️</div>}
-          </div>
-        )}
+          {(displayDescription || canManage) && (
+            <section>
+              <h2 style={{ ...SECTION_TITLE, marginBottom: 8 }}>Description</h2>
+              {displayDescription
+                ? <div style={{ fontSize: 15, color: '#1C1C1E', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{displayDescription}</div>
+                : <button type="button" onClick={openEdit} style={{ border: 'none', background: 'none', padding: 0, fontSize: 15, color: '#AEAEB2', cursor: 'pointer' }}>Ajouter une description…</button>}
+            </section>
+          )}
 
-        <EventGuestsSection guests={guests} loading={guestsLoading} canManage={canManage} userId={userId} myRsvp={myRsvp} currentUserName={currentUserName} eventId={event.id} onInvite={() => setShowInviteSheet(true)} onShare={handleShare} onRemind={handleRemindGuest} onRemove={handleRemoveInvitation} />
-        <EventPhotosSection key={event.id} eventId={event.id} userId={userId} focus={event.focusSection === 'photos'} showToast={showToast} />
-        {isPollActive && !pollBannerVisible && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
-        {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
-        {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}
+          {isPollActive && !pollBannerVisible && <EventDatePoll asSection dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
+          {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
+        </div>
       </div>
+
+      {showMenu && (
+        <BottomSheet title="Événement" onClose={() => setShowMenu(false)}>
+          <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden' }}>
+            {menuActions.map((action, index) => (
+              <button key={action.key} type="button" onClick={action.onClick} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '15px 16px', border: 'none', borderTop: index ? '0.5px solid rgba(0,0,0,0.07)' : 'none', background: 'transparent', fontSize: 15, fontWeight: 600, color: action.danger ? '#FF3B30' : '#1C1C1E', cursor: 'pointer', textAlign: 'left' }}>
+                {action.icon}
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
+      )}
 
       {toast && <div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.8)', color: '#fff', borderRadius: 20, padding: '10px 20px', fontSize: 14, fontWeight: 600, zIndex: 999, whiteSpace: 'nowrap' }}>{toast}</div>}
 

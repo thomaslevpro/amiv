@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePlusOne } from '../hooks/usePlusOne'
 import { supabase } from '../lib/supabase'
+import { SECTION_TITLE } from './event/eventUtils'
 
 const GRADIENT = 'var(--gradient)'
 
@@ -60,10 +61,10 @@ export default function PlusOneReviewList({ eventId, isOrganizer }) {
   if (!isOrganizer || loading || requests.length === 0) return null
 
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: 'var(--shadow-sm)' }}>
-      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--gray1)', marginBottom: 12 }}>
+    <section>
+      <h2 style={{ ...SECTION_TITLE, marginBottom: 4 }}>
         Demandes de +1
-      </div>
+      </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {requests.map(request => (
           <div key={request.key} style={{ paddingTop: 12, borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>
@@ -106,7 +107,7 @@ export default function PlusOneReviewList({ eventId, isOrganizer }) {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }
 

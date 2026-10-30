@@ -8,6 +8,7 @@ import { uploadEventCover } from '../lib/eventCover'
 import { keepsBirthdayPerson } from '../components/event/eventUtils'
 import { announceRsvpChange, fetchEventGuestList } from '../lib/eventGuests'
 import { shareLink } from '../lib/share'
+import { fetchSecretUnreadCount } from '../lib/secretSpace'
 
 function readSeen(key) {
   if (typeof window === 'undefined') return 0
@@ -29,6 +30,8 @@ export default function useEventDetail(event, onBack) {
   const [editForm, setEditForm] = useState({ name: '', type: '', date: '', description: '', location: '' })
   const [birthdayPersonId, setBirthdayPersonId] = useState(event?.birthday_person_user_id ?? null)
   const [birthdayPersonName, setBirthdayPersonName] = useState(null)
+  // Date de naissance de la personne fêtée (visible pour elle-même et ses amis)
+  const [birthdayPersonBirthday, setBirthdayPersonBirthday] = useState(null)
   const [saving, setSaving] = useState(false)
   const [coverFile, setCoverFile] = useState(null)
   const [coverPreview, setCoverPreview] = useState(null)
@@ -47,6 +50,7 @@ export default function useEventDetail(event, onBack) {
   const [canAccessSecretSpace, setCanAccessSecretSpace] = useState(false)
   const [canAccessEventChat, setCanAccessEventChat] = useState(false)
   const [chatUnreadCount, setChatUnreadCount] = useState(0)
+  const [secretUnreadCount, setSecretUnreadCount] = useState(0)
   const [organizers, setOrganizers] = useState([])
   const [showCoOrgModal, setShowCoOrgModal] = useState(false)
   const [coOrgSubmitting, setCoOrgSubmitting] = useState(false)
@@ -126,11 +130,11 @@ export default function useEventDetail(event, onBack) {
       if (cancelled) return
       setBirthdayPersonId(eventInfoRes.data?.birthday_person_user_id ?? event?.birthday_person_user_id ?? null)
 
-      const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, avatar_url)').eq('event_id', event.id)
+      const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, username, avatar_url)').eq('event_id', event.id)
       if (!cancelled) setOrganizers(orgsData || [])
       const hasOwner = (orgsData || []).some(o => o.role === 'owner' && o.profile?.id === event.user_id)
       if (!hasOwner && event.user_id) {
-        const { data: ownerProfile } = await supabase.from('profiles').select('id, first_name, name, avatar_url').eq('id', event.user_id).maybeSingle()
+        const { data: ownerProfile } = await supabase.from('profiles').select('id, first_name, name, username, avatar_url').eq('id', event.user_id).maybeSingle()
         if (ownerProfile && !cancelled) setOrganizers([{ role: 'owner', profile: ownerProfile }, ...(orgsData || [])])
       }
 
@@ -190,14 +194,36 @@ export default function useEventDetail(event, onBack) {
   useEffect(() => {
     if (!birthdayPersonId) {
       setBirthdayPersonName(null)
+      setBirthdayPersonBirthday(null)
       return undefined
     }
     let cancelled = false
     supabase.from('profiles').select('first_name, name').eq('id', birthdayPersonId).maybeSingle().then(({ data }) => {
       if (!cancelled) setBirthdayPersonName(data?.first_name || data?.name?.split(' ')[0] || null)
     })
+    supabase.rpc('get_profiles_with_birthday', { p_user_ids: [birthdayPersonId] }).then(({ data }) => {
+      if (!cancelled) setBirthdayPersonBirthday(data?.[0]?.birthday ?? null)
+    })
     return () => { cancelled = true }
   }, [birthdayPersonId])
+
+  // Badge de l'espace secret : messages non lus du chat Secret
+  useEffect(() => {
+    if (!event?.id || !userId || !canAccessSecretSpace) {
+      setSecretUnreadCount(0)
+      return undefined
+    }
+    let cancelled = false
+    const refresh = () => fetchSecretUnreadCount(event.id, userId)
+      .then(count => { if (!cancelled) setSecretUnreadCount(count) })
+      .catch(error => captureSupabaseError(error, { operation: 'fetch_secret_unread_count' }))
+    refresh()
+    window.addEventListener('amiv:unread-counts-refresh', refresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener('amiv:unread-counts-refresh', refresh)
+    }
+  }, [event?.id, userId, canAccessSecretSpace])
 
   useEffect(() => {
     if (!event?.id || !userId) {
@@ -488,7 +514,7 @@ export default function useEventDetail(event, onBack) {
     setCoOrgError('')
     try {
       await addCoOrganizerById(event.id, participantId)
-      const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, avatar_url)').eq('event_id', event.id)
+      const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, username, avatar_url)').eq('event_id', event.id)
       setOrganizers(orgsData || [])
       setConfirmedParticipants(prev => prev.filter(p => p.id !== participantId))
       showToast('Co-organisateur ajouté ✓')
@@ -554,10 +580,12 @@ export default function useEventDetail(event, onBack) {
     allVoteCounts,
     confirmingDate,
     birthdayPersonName,
+    birthdayPersonBirthday,
     isInvitedGuest,
     canAccessSecretSpace,
     canAccessEventChat,
     chatUnreadCount,
+    secretUnreadCount,
     organizers,
     showCoOrgModal,
     setShowCoOrgModal,

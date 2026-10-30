@@ -1,15 +1,20 @@
 import { Calendar } from 'lucide-react'
-import { formatPollDate } from './eventUtils'
+import { formatPollDate, SECTION_TITLE } from './eventUtils'
 
-export default function EventDatePoll({ dateOptions, myVotes, allVoteCounts, canManage, confirmingDate, onVote, onConfirmDate }) {
+const CARD = { background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }
+const SECTION_HEADING = { ...SECTION_TITLE, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }
+
+// asSection : section de la page (sans carte) ; sinon carte (bandeau des sondages)
+export default function EventDatePoll({ dateOptions, myVotes, allVoteCounts, canManage, confirmingDate, onVote, onConfirmDate, asSection = false }) {
+  const LABEL = { fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93' }
   const maxVoteCount = Math.max(0, ...dateOptions.map(o => allVoteCounts[o.id] || 0))
 
   if (canManage) {
     return (
-      <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 12 }}>
+      <section style={asSection ? undefined : CARD}>
+        <h2 style={asSection ? { ...SECTION_HEADING, marginBottom: 12 } : { ...LABEL, margin: '0 0 12px' }}>
           Résultats du sondage 📊
-        </div>
+        </h2>
         {dateOptions.map(opt => {
           const count = allVoteCounts[opt.id] || 0
           const isWinner = maxVoteCount > 0 && count === maxVoteCount
@@ -27,15 +32,15 @@ export default function EventDatePoll({ dateOptions, myVotes, allVoteCounts, can
             </div>
           )
         })}
-      </div>
+      </section>
     )
   }
 
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 6 }}>
-        Sondage de dates <Calendar size={14} strokeWidth={1.5} />
-      </div>
+    <section style={asSection ? undefined : CARD}>
+      <h2 style={asSection ? SECTION_HEADING : { ...LABEL, margin: '0 0 6px' }}>
+        Sondage de dates <Calendar size={asSection ? 17 : 14} strokeWidth={1.5} />
+      </h2>
       <div style={{ fontSize: 12, color: '#8E8E93', marginBottom: 12 }}>Indiquez vos disponibilités pour chaque date proposée.</div>
       {dateOptions.map((opt, i) => {
         const myVote = myVotes[opt.id]
@@ -49,6 +54,6 @@ export default function EventDatePoll({ dateOptions, myVotes, allVoteCounts, can
           </div>
         )
       })}
-    </div>
+    </section>
   )
 }

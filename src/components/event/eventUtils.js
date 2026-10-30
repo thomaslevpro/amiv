@@ -30,3 +30,6 @@ export const BIRTHDAY_TYPE = 'Anniversaire'
 export function keepsBirthdayPerson(nextType, currentType, birthdayPersonId) {
   return nextType === BIRTHDAY_TYPE || (nextType === currentType && !!birthdayPersonId)
 }
+
+// Titre de section de la page d'un événement (sections séparées par de l'espace)
+export const SECTION_TITLE = { margin: 0, fontSize: 18, fontWeight: 700, color: '#1C1C1E', letterSpacing: -0.3 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { MoreHorizontal, UserPlus } from 'lucide-react'
+import { ChevronLeft, MoreHorizontal, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { isBlockedByMe } from '../lib/safety'
 import { UserSafetySheet } from '../components/safety/SafetySheets'
@@ -44,6 +44,8 @@ export default function PublicUserProfile() {
   const [toast, setToast] = useState(null)
   const [isBlocked, setIsBlocked] = useState(false)
   const [showSafety, setShowSafety] = useState(false)
+  // Ouvert depuis l'app (ex. organisateur d'un événement) : retour possible
+  const canGoBack = (window.history.state?.idx ?? 0) > 0
 
   useEffect(() => {
     let cancelled = false
@@ -141,6 +143,16 @@ export default function PublicUserProfile() {
     <div style={{ minHeight: '100dvh', background: COLORS.page, display: 'flex', justifyContent: 'center', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>
       <div style={{ width: '100%', maxWidth: 430, minHeight: '100dvh', background: COLORS.page, display: 'flex', flexDirection: 'column' }}>
         <div style={{ position: 'relative', background: COLORS.gradient, padding: 'calc(74px + env(safe-area-inset-top, 0px)) 20px 88px', color: '#fff', textAlign: 'center', borderRadius: '0 0 28px 28px' }}>
+          {canGoBack && (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top, 0px))', left: 16, height: 38, padding: '0 14px 0 10px', borderRadius: 19, background: 'rgba(255,255,255,0.22)', border: '1px solid rgba(255,255,255,0.35)', color: '#fff', display: 'flex', alignItems: 'center', gap: 4, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+            >
+              <ChevronLeft size={18} strokeWidth={2.2} />
+              Retour
+            </button>
+          )}
           {session && profile && session.user.id !== profile.id && (
             <button
               type="button"

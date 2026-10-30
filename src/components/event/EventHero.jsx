@@ -1,144 +1,71 @@
-import { useState } from 'react'
-import { ChevronLeft, Cake } from 'lucide-react'
+import { ChevronLeft, MoreHorizontal } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
-const typeEmoji = {
-  'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
-  'Soirée': '🥂',
-  'Repas': '🍽️',
-  'Autre': '🎉',
-}
-
 const visibilityLabel = {
-  private: 'Privé 🔒',
+  private: 'Privé',
   invite_only: 'Sur invitation',
-  public: 'Public 🌍',
+  public: 'Public',
 }
 
-function formatDateHero(dateStr) {
+// Jours restants avant l'événement (null s'il est passé ou sans date)
+export function countdownDays(dateStr) {
   if (!dateStr) return null
   const d = new Date(dateStr)
   if (isNaN(d)) return null
-  const datePart = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-  const timePart = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  const cap = datePart.charAt(0).toUpperCase() + datePart.slice(1)
-  return `${cap} · ${timePart}`
-}
-
-function countdownDays(dateStr) {
-  if (!dateStr) return null
-  const d = new Date(dateStr)
-  if (isNaN(d)) return null
-  const diff = Math.ceil((d - Date.now()) / (1000 * 60 * 60 * 24))
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const day = new Date(d)
+  day.setHours(0, 0, 0, 0)
+  const diff = Math.round((day - today) / (1000 * 60 * 60 * 24))
   return diff >= 0 ? diff : null
 }
 
-const rsvpOptions = [
-  { status: 'going', label: "✓ J'y serai !" },
-  { status: 'pending', label: 'Peut-être' },
-  { status: 'declined', label: 'Non' },
-]
+const pillStyle = { display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 14px', borderRadius: 17, fontSize: 13, fontWeight: 600, color: '#fff', background: 'rgba(0,0,0,0.28)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', flexShrink: 0 }
 
-function rsvpLabel(status) {
-  const normalizedStatus = status === 'maybe' ? 'pending' : status
-  return rsvpOptions.find(option => option.status === normalizedStatus)?.label || "J'y serai"
-}
-
-export default function EventHero({ event, eventOverrides, canManage, rsvpStatus, loading, onBack, onEdit, onRsvp }) {
-  const [showRsvpMenu, setShowRsvpMenu] = useState(false)
+// Photo de couverture (ou dégradé Amiv) : retour, J-X, menu « ··· » des
+// organisateurs, et en bas le titre et « Type · Visibilité ».
+export default function EventHero({ event, eventOverrides, onBack, onMenu }) {
   const displayName = eventOverrides.name ?? event.name
   const displayDate = eventOverrides.date ?? event.date
-  const isPollActive = event.__isPollActive
-  const emoji = typeEmoji[event.type] ?? '🎉'
-  const visibility = visibilityLabel[event.visibility] ?? event.visibility ?? 'Sur invitation'
-  const heroDate = isPollActive ? null : formatDateHero(displayDate)
-  const countdown = isPollActive ? null : countdownDays(displayDate)
+  // La base stocke souvent le libellé lui-même (« Privé 🔒 ») : sans l'emoji
+  const visibility = (visibilityLabel[event.visibility] ?? event.visibility ?? 'Sur invitation').replace(/[^\p{L}\p{N}\s'-]/gu, '').trim()
+  const countdown = event.__isPollActive ? null : countdownDays(displayDate)
   const rawCoverImage = eventOverrides.cover_image !== undefined ? eventOverrides.cover_image : event.cover_image
   const coverUrl = rawCoverImage
     ? rawCoverImage.startsWith('http') || rawCoverImage.startsWith('/')
       ? rawCoverImage
       : supabase.storage.from('event-covers').getPublicUrl(rawCoverImage).data.publicUrl
     : null
-  const showRsvpButton = !canManage && countdown !== null && typeof onRsvp === 'function'
-
-  function handleRsvpChoice(status) {
-    if (loading) return
-    onRsvp(status)
-    setShowRsvpMenu(false)
-  }
 
   return (
-    <div style={{
-      position: 'relative',
-      height: coverUrl ? '38vh' : 'auto',
-      minHeight: coverUrl ? 180 : 'auto',
-      flexShrink: 0,
-      overflow: 'visible',
-      background: coverUrl ? '#000' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)',
-      ...(coverUrl ? {} : { padding: '58px 20px 24px', textAlign: 'center', color: '#fff' }),
-    }}>
-      {coverUrl && <img src={coverUrl} alt="cover" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', opacity: 0.85 }} />}
-      {coverUrl && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.62) 100%)' }} />}
+    <div style={{ position: 'relative', height: coverUrl ? 300 : 250, flexShrink: 0, overflow: 'hidden', background: coverUrl ? '#1C1C1E' : 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)' }}>
+      {coverUrl && <img src={coverUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />}
+      {/* Voile sombre en haut (boutons) et en bas (titre) pour la lisibilité */}
+      <div style={{ position: 'absolute', inset: 0, background: coverUrl ? 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.6) 100%)' : 'linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.18) 100%)', pointerEvents: 'none' }} />
 
-      <div style={{ position: 'absolute', top: 14, left: 16, right: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
-        <div onClick={onBack} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff', backdropFilter: 'blur(6px)' }}>
-          <ChevronLeft size={14} strokeWidth={1.5} color="white" />
+      <div style={{ position: 'absolute', top: 14, left: 16, right: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, zIndex: 2 }}>
+        <button type="button" onClick={onBack} style={pillStyle}>
+          <ChevronLeft size={16} strokeWidth={2} color="white" />
           Retour
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {countdown !== null && (
+            <div style={{ ...pillStyle, cursor: 'default', background: 'rgba(255,255,255,0.95)', color: '#e055aa', fontWeight: 800 }}>
+              {countdown === 0 ? "Aujourd'hui" : `J-${countdown}`}
+            </div>
+          )}
+          {onMenu && (
+            <button type="button" onClick={onMenu} aria-label="Plus d'actions" style={{ ...pillStyle, width: 34, padding: 0, justifyContent: 'center' }}>
+              <MoreHorizontal size={20} strokeWidth={2.2} color="white" />
+            </button>
+          )}
         </div>
-        {canManage && (
-          <div onClick={onEdit} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff', backdropFilter: 'blur(6px)' }}>
-            Modifier
-          </div>
-        )}
       </div>
 
-      <div style={{
-        position: coverUrl ? 'absolute' : 'relative',
-        ...(coverUrl ? { bottom: 0, left: 0, right: 0, padding: '0 20px 20px', zIndex: 2 } : { paddingTop: 58, textAlign: 'center', color: '#fff' }),
-        color: '#fff',
-        textAlign: coverUrl ? 'left' : 'center',
-      }}>
-        {!coverUrl && <div style={{ fontSize: 52, marginBottom: 10 }}>{emoji}</div>}
-        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4, letterSpacing: -0.3, lineHeight: 1.2 }}>{displayName}</div>
-        <div style={{ fontSize: 13, opacity: 0.85, marginBottom: heroDate ? 10 : 0 }}>{event.type} · {visibility}</div>
-        {heroDate && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: coverUrl ? 'flex-start' : 'center' }}>
-            <div style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#fff', backdropFilter: 'blur(4px)' }}>
-              {heroDate}
-            </div>
-            {countdown !== null && (
-              <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 700, color: '#e055aa' }}>
-                J-{countdown}
-              </div>
-            )}
-            {showRsvpButton && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => setShowRsvpMenu(prev => !prev)}
-                  style={{ border: 'none', background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 800, color: '#1C1C1E', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.65 : 1, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', whiteSpace: 'nowrap' }}
-                >
-                  {rsvpLabel(rsvpStatus)}
-                </button>
-                {showRsvpMenu && (
-                  <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 196, background: '#fff', borderRadius: 16, padding: 8, boxShadow: '0 14px 34px rgba(0,0,0,0.22)', zIndex: 1001 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: '#8E8E93', padding: '4px 8px 8px' }}>Votre réponse</div>
-                    {rsvpOptions.map(option => {
-                      const active = (rsvpStatus === 'maybe' ? 'pending' : rsvpStatus) === option.status
-                      return (
-                        <button key={option.status} type="button" disabled={loading} onClick={() => handleRsvpChoice(option.status)} style={{ width: '100%', minHeight: 40, border: 'none', borderRadius: active ? 14 : 12, padding: '10px 12px', background: active ? 'linear-gradient(135deg,#e055aa,#f5a623)' : '#F5F5F5', color: active ? '#fff' : '#1C1C1E', fontSize: 13, fontWeight: 800, textAlign: 'left', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {option.status === 'declined' && <span style={{ fontSize: 18, lineHeight: 0.8, fontWeight: 500 }}>×</span>}
-                          {option.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+      {/* 24 px de plus en bas : la feuille d'infos chevauche la photo */}
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '0 16px 40px', color: '#fff', zIndex: 1 }}>
+        <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.15, textShadow: coverUrl ? '0 1px 8px rgba(0,0,0,0.25)' : 'none', overflowWrap: 'anywhere' }}>{displayName}</div>
+        <div style={{ fontSize: 14, fontWeight: 500, opacity: 0.9, marginTop: 4 }}>{[event.type, visibility].filter(Boolean).join(' · ')}</div>
       </div>
     </div>
   )
