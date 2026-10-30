@@ -15,7 +15,7 @@ import { canLinkSecretSpace, fetchSecretSpaceSummary, mostRelevantSecretTab, sec
 
 export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onOpenSecretSpace, onOpenEvent }) {
   const [messages, setMessages] = useState([]), [input, setInput] = useState('')
-  const [userId, setUserId] = useState(null), [isSecret, setIsSecret] = useState(false)
+  const [userId, setUserId] = useState(null), [isSecret, setIsSecret] = useState(() => event?.initialIsSecret === true)
   const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null), [myRsvpStatus, setMyRsvpStatus] = useState(null)
   const [currentUsername, setCurrentUsername] = useState('')
   const [conversations, setConversations] = useState([]), [listLoading, setListLoading] = useState(true)
@@ -27,7 +27,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const [deletedEventConversationIds, setDeletedEventConversationIds] = useState(() => (typeof window === 'undefined' ? new Set() : new Set(Object.keys(window.localStorage).filter(k => k.startsWith('deleted_event_conversation_')).map(k => k.slice('deleted_event_conversation_'.length)))))
   const bottomRef = useRef(null)
   const appOpenedAtRef = useRef(null)
-  const listLoadedRef = useRef(false), fetchAllRequestRef = useRef(0)
+  const listLoadedRef = useRef(false), fetchAllRequestRef = useRef(0), fetchMessagesRequestRef = useRef(0)
   const messageNotificationVersion = notifications.filter(n => n.type === 'message_received' && !n.read).length
   const { unreadByConversation, totalUnread: unreadTotal } = useUnreadCounts(userId)
   const { guestLeaders } = useGuestLeader(event?.id)
@@ -233,10 +233,15 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   }
 
   async function fetchMessages() {
+    // Une réponse plus ancienne que la dernière demandée (autre canal, autre
+    // événement) est ignorée : jamais de messages Général sous l'onglet Secret.
+    const requestId = ++fetchMessagesRequestRef.current
     // Les messages des personnes que j'ai bloquées arrivent sans contenu (is_hidden)
     const { data, error } = await supabase.rpc('get_event_messages', { p_event_id: event.id, p_is_secret: isSecret })
+    if (requestId !== fetchMessagesRequestRef.current) return
     if (error) { console.error('[Messages] fetch messages error:', error); captureSupabaseError(error, { operation: 'fetch_event_messages' }); return }
-    setMessages(await enrichMessagesWithProfiles(data ?? []))
+    const enriched = await enrichMessagesWithProfiles(data ?? [])
+    if (requestId === fetchMessagesRequestRef.current) setMessages(enriched)
   }
 
   async function fetchEventConversations() {

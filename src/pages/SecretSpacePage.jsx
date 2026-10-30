@@ -1,26 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronLeft, ExternalLink, Gift, Image, Lock, MessageCircle, Plus, Sparkles, Upload, Users, X } from 'lucide-react'
+import { Check, ChevronLeft, Gift, Image, Lock, MessageCircle, Plus, Upload, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { captureSupabaseError } from '../lib/monitoring'
 import { daysUntil, fetchSecretUnreadCount, formatEuros, hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_ON_DARK, SECRET_ACCENT_SOFT, SECRET_SPACE_TABS, secretRevealDate } from '../lib/secretSpace'
 import GuestLeaderBanner from '../components/GuestLeaderBanner'
 import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
 import { useGuestLeader } from '../hooks/useGuestLeader'
+import { COLORS, EmptyCard, Input, PrimaryButton, Sheet } from '../components/secretSpace/ui'
+import CagnotteTab from '../components/secretSpace/CagnotteTab'
 import { uploadMemoryImage, withMemoryImageUrls } from '../lib/memories'
 import { sortGuests } from '../lib/eventGuests'
-
-const COLORS = {
-  bg: '#F5F5F5',
-  card: '#FFFFFF',
-  text: '#1C1C1E',
-  muted: '#8E8E93',
-  line: '#E5E5EA',
-  pink: '#e055aa',
-  orange: '#f5a623',
-  green: '#34C759',
-  red: '#FF3B30',
-  gradient: 'linear-gradient(135deg, #e055aa, #f5a623)',
-}
 
 const TABS = [
   { id: 'flashback', label: 'Flashback' },
@@ -105,101 +94,6 @@ async function fetchProfilesByIds(ids) {
   }, {})
 }
 
-function Input({ label, ...props }) {
-  return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <span style={{ fontSize: 11, color: COLORS.muted, fontWeight: 700 }}>{label}</span>
-      <input
-        {...props}
-        style={{
-          width: '100%',
-          border: `1px solid ${COLORS.line}`,
-          borderRadius: 12,
-          padding: '12px 13px',
-          fontSize: 14,
-          color: COLORS.text,
-          background: COLORS.card,
-          outline: 'none',
-          ...props.style,
-        }}
-      />
-    </label>
-  )
-}
-
-function Sheet({ title, children, onClose }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.24)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        zIndex: 50,
-      }}
-    >
-      <div
-        onClick={event => event.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 430,
-          background: COLORS.card,
-          borderRadius: '20px 20px 0 0',
-          padding: '10px 16px calc(18px + env(safe-area-inset-bottom, 0px))',
-          boxShadow: '0 -8px 30px rgba(0,0,0,0.12)',
-        }}
-      >
-        <div style={{ width: 42, height: 5, borderRadius: 999, background: COLORS.line, margin: '0 auto 14px' }} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <h2 style={{ fontSize: 18, lineHeight: 1.2, color: COLORS.text }}>{title}</h2>
-          <button type="button" aria-label="Fermer" onClick={onClose} style={{ width: 34, height: 34, borderRadius: 17, background: COLORS.bg, display: 'grid', placeItems: 'center' }}>
-            <X size={18} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function PrimaryButton({ children, disabled, style, ...props }) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      style={{
-        width: '100%',
-        minHeight: 48,
-        borderRadius: 14,
-        background: disabled ? '#C7C7CC' : COLORS.gradient,
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: 800,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        cursor: disabled ? 'default' : 'pointer',
-        ...style,
-      }}
-      {...props}
-    >
-      {children}
-    </button>
-  )
-}
-
-function EmptyCard({ children }) {
-  return (
-    <div style={{ background: COLORS.card, borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', color: COLORS.muted, fontSize: 14 }}>
-      {children}
-    </div>
-  )
-}
-
 // Écran de MainApp (App.jsx) : le retour et le lien vers le chat Secret
 // passent par l'historique de l'app.
 export default function SecretSpacePage({ eventId, initialTab = 'flashback', focusItemId = null, onTabChange, onBack, onOpenSecretChat }) {
@@ -211,10 +105,6 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
   const [secretUnread, setSecretUnread] = useState(0)
   const [remindedIds, setRemindedIds] = useState(() => new Set())
   const [remindingId, setRemindingId] = useState(null)
-  const [contributions, setContributions] = useState([])
-  const [contributionSheetOpen, setContributionSheetOpen] = useState(false)
-  const [contributionAmount, setContributionAmount] = useState('')
-  const [contributionSaving, setContributionSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [toast, setToast] = useState(null)
@@ -234,18 +124,10 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
   const [giftForm, setGiftForm] = useState(EMPTY_GIFT_FORM)
   const [giftSaving, setGiftSaving] = useState(false)
 
-  const [cagnotte, setCagnotte] = useState(null)
-  const [cagnotteUrl, setCagnotteUrl] = useState('')
-  const [cagnotteGoal, setCagnotteGoal] = useState('')
-  const [cagnotteGiftId, setCagnotteGiftId] = useState('')
-  const [cagnotteSaving, setCagnotteSaving] = useState(false)
-
   const revealDate = useMemo(() => secretRevealDate(event?.date), [event?.date])
   const revealDays = useMemo(() => daysUntil(revealDate), [revealDate])
   const revealed = useMemo(() => isRevealed(event?.date), [event?.date])
   const birthdayFirstName = firstName(event?.birthdayProfile, 'la personne fêtée')
-  const myContribution = contributions.find(contribution => contribution.user_id === currentUserId) ?? null
-  const contributionTotal = contributions.reduce((sum, contribution) => sum + (Number(contribution.amount) || 0), 0)
   const contributorCount = contributors.filter(contributor => contributor.nb_memories > 0).length
   const guestCount = contributors.length
   const {
@@ -259,8 +141,14 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     approveCandidate,
     rejectCandidate,
   } = useGuestLeader(eventId)
-  // Même règle que la RLS d'event_cagnottes : owner et co-organisateurs approuvés
-  const canManageCagnotte = ['owner', 'co_organizer'].includes(currentUserRole)
+  // Même règle que can_manage_cagnotte : organisateurs et coordinateur approuvé
+  const isOrganizer = ['owner', 'co_organizer'].includes(currentUserRole)
+  const canManageCagnotte = isOrganizer || isGuestLeader
+  const cagnotteMembers = useMemo(() => contributors.map(contributor => ({
+    user_id: contributor.invited_user_id,
+    name: contributor.profile?.name,
+    status: contributor.status,
+  })), [contributors])
 
   const showToast = useCallback((message, isError = false) => {
     setToast({ message, isError })
@@ -312,16 +200,6 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     }
   }, [event, currentUserId, eventId, refreshSecretChat])
 
-  const fetchContributions = useCallback(async () => {
-    if (!eventId) return
-    const { data, error } = await supabase
-      .from('cagnotte_contributions')
-      .select('id, user_id, amount')
-      .eq('event_id', eventId)
-    if (error) throw error
-    setContributions(data ?? [])
-  }, [eventId])
-
   // Élément ouvert depuis un message du chat Secret : visible et surligné
   useEffect(() => {
     if (!highlightedId) return undefined
@@ -347,39 +225,6 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     showToast(data === 'too_soon' ? `${name} a déjà été relancé·e aujourd’hui` : `Relance envoyée dans la discussion secrète`)
   }
 
-  async function handleContributionSubmit(event) {
-    event.preventDefault()
-    if (!currentUserId || contributionSaving || myContribution) return
-    const amount = contributionAmount === '' ? null : Math.round(Number(contributionAmount))
-    if (amount !== null && (!Number.isFinite(amount) || amount < 0)) return
-    setContributionSaving(true)
-    const { error } = await supabase
-      .from('cagnotte_contributions')
-      .insert({ event_id: eventId, user_id: currentUserId, amount })
-    setContributionSaving(false)
-    if (error) {
-      captureSupabaseError(error, { operation: 'insert_cagnotte_contribution' })
-      setErrorMessage("Impossible d'enregistrer ta participation.")
-      return
-    }
-    setContributionSheetOpen(false)
-    setContributionAmount('')
-    showToast('Participation notée ✓')
-    await fetchContributions()
-  }
-
-  async function handleContributionRemove() {
-    if (!myContribution || contributionSaving) return
-    setContributionSaving(true)
-    const { error } = await supabase.from('cagnotte_contributions').delete().eq('id', myContribution.id)
-    setContributionSaving(false)
-    if (error) {
-      captureSupabaseError(error, { operation: 'delete_cagnotte_contribution' })
-      setErrorMessage('Impossible de retirer ta participation.')
-      return
-    }
-    await fetchContributions()
-  }
 
   const fetchFlashback = useCallback(async () => {
     if (!eventId) return
@@ -511,18 +356,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
       birthdayProfile = profileData
     }
 
-    const { data: cagnotteData, error: cagnotteError } = await supabase
-      .from('event_cagnottes')
-      .select('url, goal, gift_id')
-      .eq('event_id', eventId)
-      .maybeSingle()
-    if (cagnotteError) throw cagnotteError
-
     setEvent({ ...data, birthdayProfile })
-    setCagnotte(cagnotteData)
-    setCagnotteUrl(cagnotteData?.url ?? '')
-    setCagnotteGoal(cagnotteData?.goal ?? '')
-    setCagnotteGiftId(cagnotteData?.gift_id ?? '')
   }, [eventId])
 
   useEffect(() => {
@@ -559,11 +393,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
       console.error('[SecretSpace] gifts error:', error)
       setErrorMessage('Impossible de charger les cadeaux.')
     })
-    fetchContributions().catch(error => {
-      console.error('[SecretSpace] contributions error:', error)
-      captureSupabaseError(error, { operation: 'fetch_cagnotte_contributions' })
-    })
-  }, [event, fetchFlashback, fetchGifts, fetchContributions])
+  }, [event, fetchFlashback, fetchGifts])
 
   useEffect(() => {
     if (!memoryImageFile) {
@@ -666,29 +496,6 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     await fetchGifts()
   }
 
-  async function handleCagnotteSubmit(event) {
-    event.preventDefault()
-    if (!currentUserId || cagnotteSaving || !cagnotteUrl.trim()) return
-
-    setCagnotteSaving(true)
-    const url = cagnotteUrl.trim()
-    const next = {
-      url: /^https?:\/\//i.test(url) ? url : `https://${url}`,
-      goal: cagnotteGoal === '' ? null : Number(cagnotteGoal),
-      gift_id: cagnotteGiftId || null,
-    }
-    const { error } = cagnotte
-      ? await supabase.from('event_cagnottes').update(next).eq('event_id', eventId)
-      : await supabase.from('event_cagnottes').insert({ event_id: eventId, ...next })
-
-    setCagnotteSaving(false)
-    if (error) {
-      console.error('[SecretSpace] cagnotte update error:', error)
-      setErrorMessage("Impossible d'enregistrer la cagnotte.")
-      return
-    }
-    setCagnotte(next)
-  }
 
   if (loading) {
     return (
@@ -985,61 +792,16 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
           )}
 
           {activeTab === 'cagnotte' && (
-            cagnotte?.url ? (
-              <div style={{ background: COLORS.card, borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
-                <div style={{ width: 42, height: 42, borderRadius: 15, background: 'rgba(245,166,35,0.15)', color: COLORS.orange, display: 'grid', placeItems: 'center', marginBottom: 12 }}>
-                  <Sparkles size={20} />
-                </div>
-                <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 6 }}>Cagnotte prête</h2>
-                {cagnotte.goal && (
-                  <div style={{ fontSize: 13, color: COLORS.muted, fontWeight: 700, marginBottom: 14 }}>
-                    Objectif : {formatMoney(cagnotte.goal)}
-                  </div>
-                )}
-                {contributions.length > 0 && (
-                  <div style={{ fontSize: 13, color: COLORS.text, fontWeight: 700, marginBottom: 14 }}>
-                    {contributions.length} participant{contributions.length > 1 ? 's' : ''}
-                    {contributionTotal > 0 && <> · {formatMoney(contributionTotal)} réunis</>}
-                  </div>
-                )}
-                <a href={cagnotte.url} target="_blank" rel="noreferrer" style={{ minHeight: 48, borderRadius: 14, background: COLORS.gradient, color: '#fff', fontSize: 14, fontWeight: 850, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}>
-                  Accéder à la cagnotte <ExternalLink size={17} />
-                </a>
-                {myContribution ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#1e7a35', fontSize: 13, fontWeight: 800 }}>
-                      <Check size={16} strokeWidth={2.6} /> Tu as participé
-                    </span>
-                    <button type="button" disabled={contributionSaving} onClick={handleContributionRemove} style={{ color: COLORS.muted, fontSize: 12, fontWeight: 700 }}>
-                      Retirer
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => setContributionSheetOpen(true)} style={{ width: '100%', minHeight: 44, marginTop: 10, borderRadius: 14, border: `1.5px solid ${COLORS.line}`, background: COLORS.card, color: COLORS.text, fontSize: 14, fontWeight: 800 }}>
-                    J’ai participé
-                  </button>
-                )}
-              </div>
-            ) : guestLeaderLoading ? (
-              <EmptyCard>Chargement...</EmptyCard>
-            ) : canManageCagnotte ? (
-              <form onSubmit={handleCagnotteSubmit} style={{ background: COLORS.card, borderRadius: 16, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: 11 }}>
-                <Input label="Lien de la cagnotte" type="text" value={cagnotteUrl} onChange={event => setCagnotteUrl(event.target.value)} placeholder="https://..." />
-                <Input label="Objectif" type="number" min="0" step="0.01" value={cagnotteGoal} onChange={event => setCagnotteGoal(event.target.value)} placeholder="150" />
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <span style={{ fontSize: 11, color: COLORS.muted, fontWeight: 700 }}>Cadeau associé</span>
-                  <select value={cagnotteGiftId} onChange={event => setCagnotteGiftId(event.target.value)} style={{ width: '100%', border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: '12px 13px', fontSize: 14, color: COLORS.text, background: COLORS.card, outline: 'none' }}>
-                    <option value="">Aucun cadeau</option>
-                    {collectiveGifts.map(gift => <option key={gift.id} value={gift.id}>{gift.name}</option>)}
-                  </select>
-                </label>
-                <PrimaryButton disabled={cagnotteSaving || !cagnotteUrl.trim()} style={{ marginTop: 2 }} type="submit">
-                  {cagnotteSaving ? 'Enregistrement...' : 'Créer la cagnotte'}
-                </PrimaryButton>
-              </form>
-            ) : (
-              <EmptyCard>La cagnotte n'a pas encore été créée.</EmptyCard>
-            )
+            <CagnotteTab
+              eventId={eventId}
+              currentUserId={currentUserId}
+              canManage={canManageCagnotte}
+              isOrganizer={isOrganizer}
+              roleLoading={guestLeaderLoading}
+              members={cagnotteMembers}
+              collectiveGifts={collectiveGifts}
+              onToast={showToast}
+            />
           )}
 
           {errorMessage && event && <div style={{ color: COLORS.red, fontSize: 12, fontWeight: 700 }}>{errorMessage}</div>}
@@ -1132,20 +894,6 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
             <Input label="Prix estimé" type="number" min="0" step="0.01" value={giftForm.price_estimate} onChange={event => setGiftForm(current => ({ ...current, price_estimate: event.target.value }))} placeholder="€" />
             <PrimaryButton disabled={giftSaving || !giftForm.label.trim()} style={{ marginTop: 2 }} type="submit">
               {giftSaving ? 'Ajout...' : 'Ajouter'}
-            </PrimaryButton>
-          </form>
-        </Sheet>
-      )}
-
-      {contributionSheetOpen && (
-        <Sheet title="J’ai participé" onClose={() => { if (!contributionSaving) setContributionSheetOpen(false) }}>
-          <form onSubmit={handleContributionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-            <Input autoFocus label="Montant (facultatif)" type="number" inputMode="numeric" min="0" step="1" value={contributionAmount} onChange={event => setContributionAmount(event.target.value)} placeholder="€" />
-            <div style={{ fontSize: 12, color: COLORS.muted, lineHeight: 1.4 }}>
-              Seul le total est affiché. La discussion secrète indique que tu as participé, sans le montant.
-            </div>
-            <PrimaryButton disabled={contributionSaving} style={{ marginTop: 2 }} type="submit">
-              {contributionSaving ? 'Enregistrement...' : 'Valider'}
             </PrimaryButton>
           </form>
         </Sheet>

@@ -51,16 +51,24 @@ export async function fetchSecretSpaceSummary(eventId) {
     supabase.from('collective_memories').select('id', { count: 'exact', head: true }).eq('event_id', eventId),
     supabase.from('gift_items').select('id', { count: 'exact', head: true }).eq('event_id', eventId),
     supabase.from('event_cagnottes').select('event_id').eq('event_id', eventId).maybeSingle(),
-    supabase.from('cagnotte_contributions').select('amount').eq('event_id', eventId),
+    fetchCagnotteSummary(eventId),
   ])
-  const error = memories.error || gifts.error || cagnotte.error || contributions.error
+  const error = memories.error || gifts.error || cagnotte.error
   if (error) throw error
   return {
     memoryCount: memories.count ?? 0,
     giftCount: gifts.count ?? 0,
     hasCagnotte: !!cagnotte.data,
-    cagnotteTotal: (contributions.data ?? []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+    cagnotteTotal: contributions.total,
   }
+}
+
+// Total et nombre de participants (les montants individuels ne sont lisibles
+// que par la personne elle-même et les coordinateurs)
+export async function fetchCagnotteSummary(eventId) {
+  const { data, error } = await supabase.rpc('get_cagnotte_summary', { p_event_id: eventId }).maybeSingle()
+  if (error) throw error
+  return { participants: data?.participants ?? 0, total: Number(data?.total) || 0 }
 }
 
 // « 3 souvenirs · 2 idées cadeaux · Cagnotte 120 € · Révélation J-22 » :

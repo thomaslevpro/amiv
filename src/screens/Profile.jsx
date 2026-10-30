@@ -21,6 +21,7 @@ import {
   Trash2,
   UserCheck,
   Users,
+  Wallet,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -56,7 +57,7 @@ const CARD_SHADOW = '0 1px 8px rgba(0,0,0,0.07)'
 async function fetchProfile(user) {
   const { data, error } = await supabase
     .rpc('get_my_profile')
-    .select('name, first_name, email, avatar_url, created_at, birthday, username, share_token, notif_birthdays, notif_invitations, notif_messages')
+    .select('name, first_name, email, avatar_url, created_at, birthday, username, share_token, notif_birthdays, notif_invitations, notif_messages, notif_cagnotte')
     .maybeSingle()
 
   if (error) throw error
@@ -74,6 +75,7 @@ async function fetchProfile(user) {
     notif_birthdays: data?.notif_birthdays ?? true,
     notif_invitations: data?.notif_invitations ?? true,
     notif_messages: data?.notif_messages ?? true,
+    notif_cagnotte: data?.notif_cagnotte ?? true,
   }
 }
 
@@ -285,7 +287,7 @@ function BirthdayRequestsSection() {
 
 export default function Profile({ session, onCalendarClick }) {
   const navigate = useNavigate()
-  const [notifs, setNotifs] = useState({ notif_birthdays: true, notif_invitations: true, notif_messages: true })
+  const [notifs, setNotifs] = useState({ notif_birthdays: true, notif_invitations: true, notif_messages: true, notif_cagnotte: true })
   const [profile, setProfile] = useState(null)
   const [stats, setStats] = useState({ eventsCount: null, birthdaysCount: null, friendsCount: null })
   const [loading, setLoading] = useState(true)
@@ -336,6 +338,7 @@ export default function Profile({ session, onCalendarClick }) {
           notif_birthdays: profileData.notif_birthdays,
           notif_invitations: profileData.notif_invitations,
           notif_messages: profileData.notif_messages,
+          notif_cagnotte: profileData.notif_cagnotte,
         })
       } catch (err) {
         if (!cancelled) setError(err.message ?? 'Impossible de charger le profil.')
@@ -529,6 +532,7 @@ export default function Profile({ session, onCalendarClick }) {
     { key: 'notif_birthdays', icon: <Bell size={18} strokeWidth={1.7} color="#f5a623" />, bg: 'rgba(245,166,35,0.12)', label: 'Rappels anniversaires' },
     { key: 'notif_invitations', icon: <Mail size={18} strokeWidth={1.7} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', label: 'Nouvelles invitations' },
     { key: 'notif_messages', icon: <MessageCircle size={18} strokeWidth={1.7} color="#8E8E93" />, bg: 'rgba(142,142,147,0.10)', label: 'Messages' },
+    { key: 'notif_cagnotte', icon: <Wallet size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Rappels de cagnotte' },
   ]
   const accountRows = [
     { icon: <UserCheck size={18} strokeWidth={1.7} color="#7c5cbf" />, bg: 'rgba(124,92,191,0.10)', label: 'Informations personnelles', desc: 'Nom, prénom, date de naissance', onClick: openEditProfile },
