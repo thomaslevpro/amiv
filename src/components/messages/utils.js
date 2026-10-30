@@ -270,5 +270,6 @@ export function parseVoice(content) {
 export function previewMessage(content) {
   const duration = parseVoice(content)
   if (duration) return { voice: true, text: `Message vocal · ${duration}` }
-  return { voice: false, text: content || 'Aucun message' }
+  // Une seule ligne dans la liste : les retours à la ligne deviennent des espaces
+  return { voice: false, text: content?.replace(/\s*\n\s*/g, ' ').trim() || 'Aucun message' }
 }

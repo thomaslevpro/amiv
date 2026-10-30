@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { ChevronLeft, Flag, MoreHorizontal, Send } from 'lucide-react'
+import { ChevronLeft, Flag, MoreHorizontal } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { isBlockedByMe, unblockUser } from '../lib/safety'
 import { ReportSheet, UserSafetySheet } from '../components/safety/SafetySheets'
 import DirectFriendProfileSheet from '../components/messages/DirectFriendProfileSheet'
 import { CloseFriendBadge } from '../components/messages/MessageUI'
 import { recordSentMessage } from '../components/messages/utils'
+import MessageComposer from '../components/messages/MessageComposer'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
 const PAGE_BG = '#FFFFFF'
@@ -722,6 +723,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
                       fontSize: 15,
                       lineHeight: 1.38,
                       wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap',
                       opacity: msg.isOptimistic ? 0.72 : 1,
                       userSelect: 'none',
                       WebkitUserSelect: 'none',
@@ -776,43 +778,8 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           </button>
         </div>
       ) : (
-      <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
-            e.preventDefault()
-            handleSend()
-          }}
-          enterKeyHint="send"
-          placeholder="Message..."
-          style={{
-            flex: 1, minWidth: 0, padding: '10px 14px', borderRadius: 20, background: BG,
-            fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: FONT,
-          }}
-        />
-        <button
-          type="button"
-          aria-label="Envoyer"
-          // Empêche le bouton de voler le focus à l'input (sinon le clavier se ferme)
-          onPointerDown={e => e.preventDefault()}
-          onMouseDown={e => e.preventDefault()}
-          onClick={handleSend}
-          style={{
-            width: 36, height: 36,
-            background: input.trim() ? GRADIENT : '#D1D1D6',
-            borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: input.trim() ? 'pointer' : 'default',
-            transition: 'background 0.15s',
-            border: 'none',
-            padding: 0,
-            flexShrink: 0,
-          }}
-        >
-          <Send size={16} color={WHITE} fill={WHITE} strokeWidth={2.2} />
-        </button>
+      <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 10, alignItems: 'flex-end', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+        <MessageComposer ref={inputRef} value={input} onChange={setInput} onSend={handleSend} paddingX={14} buttonSize={36} iconSize={16} />
       </div>
       )}
       {showSafety && (

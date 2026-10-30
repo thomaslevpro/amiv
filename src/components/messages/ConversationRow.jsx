@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { BellOff, CalendarFold, Lock, MessageCircle, Mic } from 'lucide-react'
+import { BellOff, Lock, MessageCircle, Mic } from 'lucide-react'
 import { BG, BLACK, DELETE_REVEAL_WIDTH, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { formatConvTime, formatEventDateTime, isOwnMessage, previewMessage } from './utils'
-import { Avatar } from './MessageUI'
+import { Avatar, EventCover } from './MessageUI'
 import { getCoverUrl } from '../home/MyEventsSection'
 
 // Géométrie commune à toutes les lignes de la messagerie
@@ -16,17 +16,6 @@ const LONG_PRESS_MS = 500
 // Trait de 0,5 px qui commence au niveau du texte
 function RowSeparator() {
   return <div style={{ position: 'absolute', left: ROW_PADDING_X + ROW_IMAGE_SIZE + ROW_GAP, right: 0, bottom: 0, height: 1, background: '#D8D8DC', transform: 'scaleY(0.5)', transformOrigin: 'bottom', pointerEvents: 'none' }} />
-}
-
-function EventImage({ coverUrl }) {
-  const [failed, setFailed] = useState(false)
-  return (
-    <span style={{ width: ROW_IMAGE_SIZE, height: ROW_IMAGE_SIZE, borderRadius: 14, background: GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-      {coverUrl && !failed
-        ? <img src={coverUrl} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        : <CalendarFold size={24} strokeWidth={1.7} color={WHITE} />}
-    </span>
-  )
 }
 
 function UnreadBadge({ variant, count, label }) {
@@ -193,7 +182,7 @@ export default function ConversationRow({ conversation, isLast, onClick, actions
         >
           <span style={{ position: 'relative', width: ROW_IMAGE_SIZE, height: ROW_IMAGE_SIZE, flexShrink: 0, display: 'block' }}>
             {isEvent
-              ? <EventImage coverUrl={getCoverUrl(event.cover_image)} />
+              ? <EventCover coverUrl={getCoverUrl(event.cover_image)} size={ROW_IMAGE_SIZE} />
               : <Avatar name={conversation.title} url={conversation.avatarUrl} size={ROW_IMAGE_SIZE} isCloseFriend={conversation.isCloseFriend} />}
           </span>
 

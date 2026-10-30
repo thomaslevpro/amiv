@@ -1,8 +1,12 @@
 import { useRef, useState } from 'react'
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Lock, MapPin, MessageCircle, MoreHorizontal, Send } from 'lucide-react'
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Lock, MapPin, MessageCircle, MoreHorizontal } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { DELETED_USER_LABEL, formatEventHeaderDate, profileDisplayName } from './utils'
-import { Avatar } from './MessageUI'
+import { Avatar, EventCover } from './MessageUI'
+import MessageComposer, { canSend } from './MessageComposer'
+import ChatMembersSheet from './ChatMembersSheet'
+import DirectFriendProfileSheet from './DirectFriendProfileSheet'
+import { getCoverUrl } from '../home/MyEventsSection'
 import { MessageSafetySheet } from '../safety/SafetySheets'
 import { hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_SOFT, secretTabForMessage } from '../../lib/secretSpace'
 
@@ -32,10 +36,15 @@ export default function MessageThread({
   onAuthorBlocked,
   secretSummaryParts = null,
   onOpenSecretSpace = null,
+  currentUserId = null,
+  onOpenEvent,
+  onSendDirectMessage,
 }) {
   const inputRef = useRef(null)
   const longPressRef = useRef(null)
   const [actionMessage, setActionMessage] = useState(null)
+  const [showMembers, setShowMembers] = useState(false)
+  const [selectedMember, setSelectedMember] = useState(null)
 
   function clearLongPress() {
     if (longPressRef.current) {
@@ -51,7 +60,7 @@ export default function MessageThread({
 
   function handleSend() {
     // Garde le clavier ouvert pour enchaîner (focus synchrone : iOS l'exige dans le geste)
-    if (input.trim() && document.activeElement !== inputRef.current) inputRef.current?.focus()
+    if (canSend(input) && document.activeElement !== inputRef.current) inputRef.current?.focus()
     send()
   }
 
@@ -73,14 +82,14 @@ export default function MessageThread({
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 16px 0' }}>
-          <div style={{ width: 42, height: 42, borderRadius: 14, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 8 }}>
-            {event.emoji || '🎉'}
-          </div>
-          <div style={{ fontSize: 19, fontWeight: 800, color: WHITE, textAlign: 'center', lineHeight: 1.2 }}>
+        <button type="button" onClick={() => setShowMembers(true)} aria-label={`Participants de ${event.name}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '10px 16px 0', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: FONT }}>
+          <span style={{ display: 'block', marginBottom: 8, borderRadius: 14, boxShadow: '0 0 0 2px rgba(255,255,255,0.55)' }}>
+            <EventCover coverUrl={getCoverUrl(event.cover_image)} />
+          </span>
+          <span style={{ fontSize: 19, fontWeight: 800, color: WHITE, textAlign: 'center', lineHeight: 1.2 }}>
             {event.name}
-          </div>
-        </div>
+          </span>
+        </button>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 16px 0' }}>
           <div style={{ background: 'rgba(255,255,255,0.22)', borderRadius: 20, padding: '5px 11px', fontSize: 12, color: WHITE, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
@@ -201,7 +210,7 @@ export default function MessageThread({
                       onTouchMove={clearLongPress}
                       onTouchCancel={clearLongPress}
                       onContextMenu={e => { if (canReport) { e.preventDefault(); setActionMessage(msg) } }}
-                      style={{ padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : msg.is_hidden ? GRAY1 : BLACK, fontStyle: msg.is_hidden ? 'italic' : 'normal', fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)', userSelect: canReport ? 'none' : 'auto', WebkitUserSelect: canReport ? 'none' : 'auto', WebkitTouchCallout: 'none' }}
+                      style={{ padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : msg.is_hidden ? GRAY1 : BLACK, fontStyle: msg.is_hidden ? 'italic' : 'normal', fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', whiteSpace: 'pre-wrap', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)', userSelect: canReport ? 'none' : 'auto', WebkitUserSelect: canReport ? 'none' : 'auto', WebkitTouchCallout: 'none' }}
                     >
                       {msg.is_hidden ? 'Message masqué' : msg.content}
                     </div>
@@ -228,24 +237,29 @@ export default function MessageThread({
         />
       )}
 
-      <div style={{ padding: '10px 14px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 9, alignItems: 'center', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
-            e.preventDefault()
-            handleSend()
-          }}
-          enterKeyHint="send"
-          placeholder="Message..."
-          style={{ flex: 1, minWidth: 0, padding: '10px 16px', borderRadius: 20, background: BG, fontSize: 14, color: BLACK, border: 'none', outline: 'none', fontFamily: FONT }}
-        />
-        <button type="button" aria-label="Envoyer" onPointerDown={e => e.preventDefault()} onMouseDown={e => e.preventDefault()} onClick={handleSend} style={{ width: 32, height: 32, background: input.trim() ? GRADIENT : '#D1D1D6', borderRadius: '50%', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: input.trim() ? 'pointer' : 'default', transition: 'background 0.15s', flexShrink: 0, padding: 0 }}>
-          <Send size={14} color={WHITE} fill={WHITE} strokeWidth={2.2} />
-        </button>
+      <div style={{ padding: '10px 14px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 9, alignItems: 'flex-end', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+        <MessageComposer ref={inputRef} value={input} onChange={setInput} onSend={handleSend} />
       </div>
+
+      {showMembers && (
+        <ChatMembersSheet
+          event={event}
+          currentUserId={currentUserId}
+          isSecret={isSecret}
+          birthdayPersonFirstName={birthdayPersonFirstName}
+          onClose={() => setShowMembers(false)}
+          onSelectMember={guest => setSelectedMember(guest)}
+          onOpenEvent={() => { setShowMembers(false); onOpenEvent?.(event) }}
+        />
+      )}
+      {selectedMember && (
+        <DirectFriendProfileSheet
+          friend={{ friend_id: selectedMember.user_id, friend_name: selectedMember.display_name, friend_avatar: selectedMember.avatar_url || '' }}
+          currentUserId={currentUserId}
+          onClose={() => setSelectedMember(null)}
+          onSendMessage={onSendDirectMessage}
+        />
+      )}
     </div>
   )
 }

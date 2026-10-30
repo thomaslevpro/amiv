@@ -13,7 +13,7 @@ import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { canLinkSecretSpace, fetchSecretSpaceSummary, mostRelevantSecretTab, secretSummaryParts } from '../lib/secretSpace'
 
-export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onOpenSecretSpace }) {
+export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onOpenSecretSpace, onOpenEvent }) {
   const [messages, setMessages] = useState([]), [input, setInput] = useState('')
   const [userId, setUserId] = useState(null), [isSecret, setIsSecret] = useState(false)
   const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null), [myRsvpStatus, setMyRsvpStatus] = useState(null)
@@ -384,6 +384,18 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     setShowNewMessage(false)
     onDirectConvOpen?.({ conversationId: id, friend })
   }
+  // Depuis la liste des participants d'un chat : discussion privée
+  async function openDirectMessageWith(friend) {
+    if (!userId || !friend?.friend_id) return "Impossible d'ouvrir la discussion."
+    const { id, error } = await findOrCreateDirectConversation(userId, friend.friend_id)
+    if (error || !id) {
+      captureSupabaseError(error, { operation: 'open_direct_conversation_from_chat_members' })
+      return "Impossible d'ouvrir la discussion."
+    }
+    showConversation(`dm-${id}`)
+    onDirectConvOpen?.({ conversationId: id, friend })
+    return null
+  }
   function openNewMessage() {
     if (!friendsLoading) setShowNewMessage(true)
   }
@@ -436,5 +448,5 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const openSecretSpace = onOpenSecretSpace && canUseSecretChannel
     ? (tab, focusItemId = null) => onOpenSecretSpace({ eventId: event.id, tab: tab ?? mostRelevantSecretTab(messages), focusItemId })
     : null
-  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} secretSummaryParts={secretSummary ? secretSummaryParts(secretSummary, event.date) : null} onOpenSecretSpace={openSecretSpace} />
+  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} secretSummaryParts={secretSummary ? secretSummaryParts(secretSummary, event.date) : null} onOpenSecretSpace={openSecretSpace} currentUserId={userId} onOpenEvent={onOpenEvent} onSendDirectMessage={openDirectMessageWith} />
 }

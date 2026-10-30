@@ -464,6 +464,8 @@ function MainApp() {
     if (error) captureSupabaseError(error, { operation: 'load_notification_message_event' })
     if (data) openScreen({ selectedEvent: data, screen: 'messages' })
   }
+  // Discussion privée ouverte depuis les participants d'un chat d'événement
+  const openDirectConvFromChat = conv => openScreen({ ...ROOT_NAV, tab: 'messages', screen: 'messages', directConv: conv })
   const handleCreateFromDispo = (post) => {
     replaceScreen({
       showCreateDispo: false,
@@ -523,7 +525,7 @@ function MainApp() {
         />
       )
       case 'eventChat': return (
-        <Messages event={selectedEvent} onBack={() => goBack({ screen: 'eventDetail' })} notifications={notifications} markAsRead={markAsRead} onOpenSecretSpace={openSecretSpace} />
+        <Messages event={selectedEvent} onBack={() => goBack({ screen: 'eventDetail' })} notifications={notifications} markAsRead={markAsRead} onOpenSecretSpace={openSecretSpace} onOpenEvent={handleNotifEventClick} onDirectConvOpen={openDirectConvFromChat} />
       )
       case 'eventDetail': return (
         <EventDetail
@@ -550,7 +552,7 @@ function MainApp() {
         />
       )
       case 'eventConversation': return (
-        <Messages event={conversationEvent} onBack={() => goBack({ conversationEvent: null })} notifications={notifications} markAsRead={markAsRead} onOpenSecretSpace={openSecretSpace} />
+        <Messages event={conversationEvent} onBack={() => goBack({ conversationEvent: null })} notifications={notifications} markAsRead={markAsRead} onOpenSecretSpace={openSecretSpace} onOpenEvent={handleNotifEventClick} onDirectConvOpen={openDirectConvFromChat} />
       )
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={openCreate} onTrendingClick={openCreate} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => openScreen({ screen: 'allEvents' })} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => openScreen({ dispoDetailId: id })} onDispoCalendarClick={() => openScreen({ screen: 'dispoCalendar' })} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} onCreateClick={() => openCreate()} onMessagesClick={ev => openScreen({ selectedEvent: ev, screen: 'messages' })} />

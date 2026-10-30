@@ -1,4 +1,5 @@
-import { MessageCircle } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarFold, MessageCircle } from 'lucide-react'
 import { BG, BLACK, CARD_SHADOW, FONT, GRADIENT, GRAY1, GRAY2, WHITE } from './constants'
 import { getAvatarColor, getInitials } from './utils'
 
@@ -60,6 +61,19 @@ export function Avatar({ name, url, size = 50, isCloseFriend = false }) {
         </span>
       )}
       {isCloseFriend && <CloseFriendBadge size={Math.max(14, Math.round(size * 0.28))} />}
+    </span>
+  )
+}
+
+// Image d'un événement : photo de couverture, sinon l'icône sur le dégradé.
+// Même rendu dans la liste de la messagerie et en haut du chat.
+export function EventCover({ coverUrl, size = 52 }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <span style={{ width: size, height: size, borderRadius: Math.round(size * 14 / 52), background: GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+      {coverUrl && !failed
+        ? <img src={coverUrl} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        : <CalendarFold size={Math.round(size * 24 / 52)} strokeWidth={1.7} color={WHITE} />}
     </span>
   )
 }

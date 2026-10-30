@@ -19,7 +19,10 @@ function getInitials(firstName, lastName, fallbackName) {
 }
 
 function getDisplayName(profile, friend) {
-  const fullName = [profile?.first_name, profile?.name].filter(Boolean).join(' ').trim()
+  // name contient souvent déjà le prénom (« Olga » + « Olga » → « Olga Olga »)
+  const first = profile?.first_name?.trim()
+  const name = profile?.name?.trim()
+  const fullName = first && name?.toLowerCase().startsWith(first.toLowerCase()) ? name : [first, name].filter(Boolean).join(' ')
   return fullName || friend?.friend_name || friend?.full_name || friend?.name || 'Ami'
 }
 
@@ -71,20 +74,23 @@ function Avatar({ profile, friend, size = 84, isCloseFriend = false }) {
       {avatarUrl ? (
         <img src={avatarUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
       ) : (
-        getInitials(profile?.first_name, profile?.name, name)
+        getInitials(null, null, name)
       )}
       {isCloseFriend && <CloseFriendBadge size={20} />}
     </div>
   )
 }
 
-export default function DirectFriendProfileSheet({ friend, currentUserId, onClose, onCloseFriendChange }) {
+// onSendMessage (optionnel) : ajoute « Envoyer un message » ; renvoie une
+// erreur (texte) si la discussion ne peut pas être ouverte.
+export default function DirectFriendProfileSheet({ friend, currentUserId, onClose, onCloseFriendChange, onSendMessage }) {
   const [visible, setVisible] = useState(false)
   const [profile, setProfile] = useState(null)
   const [friendship, setFriendship] = useState(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [opening, setOpening] = useState(false)
   const friendId = getFriendId(friend)
 
   useEffect(() => {
@@ -135,6 +141,15 @@ export default function DirectFriendProfileSheet({ friend, currentUserId, onClos
   function dismiss() {
     setVisible(false)
     setTimeout(onClose, 280)
+  }
+
+  async function sendMessage() {
+    if (opening) return
+    setOpening(true)
+    setErrorMessage('')
+    const error = await onSendMessage(friend)
+    setOpening(false)
+    if (error) setErrorMessage(error)
   }
 
   async function toggleCloseFriend() {
@@ -236,6 +251,7 @@ export default function DirectFriendProfileSheet({ friend, currentUserId, onClos
           </div>
         </div>
 
+        {(loading || friendship) && (
         <button
           type="button"
           role="switch"
@@ -286,11 +302,23 @@ export default function DirectFriendProfileSheet({ friend, currentUserId, onClos
             }} />
           </div>
         </button>
+        )}
 
         {errorMessage && (
           <div style={{ marginTop: 8, fontSize: 12, color: '#FF3B30', fontWeight: 650, textAlign: 'center' }}>
             {errorMessage}
           </div>
+        )}
+
+        {onSendMessage && (
+          <button
+            type="button"
+            onClick={sendMessage}
+            disabled={opening}
+            style={{ width: '100%', marginTop: 10, height: 48, borderRadius: 14, border: 'none', background: GRADIENT, color: WHITE, fontSize: 15, fontWeight: 800, cursor: opening ? 'default' : 'pointer', opacity: opening ? 0.7 : 1, fontFamily: FONT }}
+          >
+            Envoyer un message
+          </button>
         )}
 
         <button
