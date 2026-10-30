@@ -5,6 +5,7 @@ import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { LEGAL_URLS, openExternalUrl } from '../lib/native'
 import { getPendingInviteToken } from '../lib/onboarding'
+import { CODE_LENGTH, RESEND_DELAY_MS, codeErrorMessage, onlyDigits } from '../lib/authCode'
 import { OnboardingHeader, OnboardingStyles } from '../components/onboarding/OnboardingUI'
 import AmivLogo from '../components/onboarding/AmivLogo'
 
@@ -19,11 +20,6 @@ const switchLinkStyle = { background: 'none', border: 'none', padding: 0, font: 
 // n'impose que 6 caractères (valeur par défaut), donc 8 reste compatible.
 const MIN_PASSWORD_LENGTH = 8
 const EMAIL_RE = /^\S+@\S+\.\S+$/
-// Code reçu par email : longueur et durée de validité réglées dans Supabase
-// (Authentication → Providers → Email : « Email OTP Length » et « Email OTP Expiration »).
-const CODE_LENGTH = 6
-const CODE_TTL_MS = 60 * 60 * 1000
-const RESEND_DELAY_MS = 60 * 1000
 
 // Fondu + léger glissement au changement de mode, et repli en hauteur
 // (grid-template-rows 0fr ↔ 1fr) pour les blocs qui apparaissent / disparaissent.
@@ -116,18 +112,6 @@ function PrimaryButton({ loading, disabled, children }) {
   )
 }
 
-// Supabase renvoie la même erreur (otp_expired) pour un code faux ou
-// expiré : on les distingue grâce à l'heure d'envoi du dernier code.
-function codeErrorMessage(e, sentAt) {
-  const msg = (e?.message ?? '').toLowerCase()
-  if (e?.name === 'AuthRetryableFetchError' || msg.includes('failed to fetch') || msg.includes('network') || navigator.onLine === false) {
-    return 'Problème de connexion. Vérifie ton réseau et réessaie.'
-  }
-  if (e?.status === 429 || (e?.code ?? '').startsWith('over_')) return 'Trop de tentatives. Réessaie dans une minute.'
-  if (Date.now() - sentAt > CODE_TTL_MS) return 'Ce code a expiré. Demande un nouveau code ci-dessous.'
-  return 'Code incorrect. Vérifie les 6 chiffres du dernier email reçu.'
-}
-
 function VerifyCodeStep({ email, purpose, sentAt: initialSentAt, onChangeEmail }) {
   const isRecovery = purpose === 'recovery'
   const [code, setCode] = useState('')
@@ -165,7 +149,7 @@ function VerifyCodeStep({ email, purpose, sentAt: initialSentAt, onChangeEmail }
   }
 
   const onChange = e => {
-    const digits = e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH)
+    const digits = onlyDigits(e.target.value)
     setCode(digits)
     if (error) setError(null)
     // Saisie complète (ou auto-remplissage iOS) : validation directe

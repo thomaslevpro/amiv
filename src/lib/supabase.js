@@ -18,6 +18,8 @@ new URLSearchParams(window.location.hash.slice(1)).forEach((value, key) => initi
 export const INITIAL_AUTH_URL = {
   type: initialUrlParams.get('type'),
   errorCode: initialUrlParams.get('error_code') || initialUrlParams.get('error'),
+  // Changement d'email sécurisé : premier des deux liens accepté (pas de session)
+  message: initialUrlParams.get('message'),
 }
 
 // iOS peut vider le localStorage de la WebView : sur natif, la session

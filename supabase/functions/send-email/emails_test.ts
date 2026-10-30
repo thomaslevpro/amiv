@@ -39,23 +39,42 @@ Deno.test('magiclink: verification link of type magiclink', () => {
   assert(content.html.includes('https://project.supabase.co/auth/v1/verify?type=magiclink&amp;token=abc'), 'magic link missing')
 })
 
-Deno.test('email_change, secure: current address gets token_hash_new, new address gets token_hash', () => {
+Deno.test('email_change, secure: one code per address, no link, clear subjects', () => {
   const result = buildAuthEmails({
     user: { email: 'old@amiv.app', new_email: 'new@amiv.app' },
-    email_data: { email_action_type: 'email_change', token: '1', token_hash_new: 'for-old', token_new: '2', token_hash: 'for-new' },
+    email_data: { email_action_type: 'email_change', token: '111111', token_hash_new: 'for-old', token_new: '222222', token_hash: 'for-new' },
   }, SUPABASE_URL)
   assert(Array.isArray(result) && result.length === 2, 'expected two emails')
-  const [toOld, toNew] = result as { to: string; content: { html: string } }[]
-  assert(toOld.to === 'old@amiv.app' && toOld.content.html.includes('type=email_change&amp;token=for-old'), 'old address link wrong')
-  assert(toNew.to === 'new@amiv.app' && toNew.content.html.includes('type=email_change&amp;token=for-new'), 'new address link wrong')
+  const [toOld, toNew] = result as { to: string; content: { subject: string; html: string } }[]
+  assert(toOld.to === 'old@amiv.app' && toOld.content.subject === 'Code de ton adresse actuelle : 111111', `old: ${toOld.to} ${toOld.content.subject}`)
+  assert(toOld.content.html.includes('new@amiv.app'), 'current address must see the requested new address')
+  assert(toNew.to === 'new@amiv.app' && toNew.content.subject === 'Code de ta nouvelle adresse : 222222', `new: ${toNew.to} ${toNew.content.subject}`)
+  assert(!toOld.content.html.includes('href') && !toNew.content.html.includes('href'), 'no link by default')
 })
 
-Deno.test('email_change, not secure: one email to the new address', () => {
+Deno.test('email_change, secure + fallback: each code with its own link', () => {
+  const result = buildAuthEmails({
+    user: { email: 'old@amiv.app', new_email: 'new@amiv.app' },
+    email_data: { email_action_type: 'email_change', token: '111111', token_hash_new: 'for-old', token_new: '222222', token_hash: 'for-new' },
+  }, SUPABASE_URL, { fallbackLinks: true }) as { to: string; content: { html: string } }[]
+  assert(result[0].content.html.includes('type=email_change&amp;token=for-old'), 'old address link wrong')
+  assert(result[1].content.html.includes('type=email_change&amp;token=for-new'), 'new address link wrong')
+})
+
+Deno.test('email_change, not secure: one code to the new address', () => {
   const { to, content } = single(buildAuthEmails({
     user: { email: 'old@amiv.app', new_email: 'new@amiv.app' },
-    email_data: { email_action_type: 'email_change', token: '1', token_hash: 'only', token_new: '', token_hash_new: '' },
+    email_data: { email_action_type: 'email_change', token: '', token_hash: 'only', token_new: '333333', token_hash_new: '' },
   }, SUPABASE_URL))
-  assert(to === 'new@amiv.app' && content.html.includes('token=only'), 'single email must go to the new address')
+  assert(to === 'new@amiv.app' && content.subject === 'Code de ta nouvelle adresse : 333333', 'single email must go to the new address with its code')
+})
+
+Deno.test('email_change escapes the new address', () => {
+  const result = buildAuthEmails({
+    user: { email: 'old@amiv.app', new_email: '<b>x</b>@amiv.app' },
+    email_data: { email_action_type: 'email_change', token: '1', token_new: '2' },
+  }, SUPABASE_URL) as { content: { html: string } }[]
+  assert(!result[0].content.html.includes('<b>x</b>'), 'new address not escaped')
 })
 
 Deno.test('reauthentication: code email', () => {
