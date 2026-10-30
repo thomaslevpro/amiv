@@ -139,7 +139,7 @@ function getReminderEmailContent(event: { name: string; date: string | null }, o
     html: `
       <div style="margin:0;padding:32px 16px;background:#F2F2F7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
         <div style="max-width:480px;margin:0 auto;padding:40px;background:#fff;border-radius:20px;box-shadow:0 2px 16px rgba(0,0,0,0.08);text-align:center;">
-          <div style="font-size:32px;font-weight:800;line-height:1;background:linear-gradient(135deg,#e055aa,#f5a623);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;margin-bottom:28px;">Amiv</div>
+          <div style="font-size:32px;font-weight:800;line-height:1;color:#e055aa;margin-bottom:28px;">Amiv</div>
           <h1 style="margin:0 0 14px;color:#1C1C1E;font-size:22px;font-weight:700;line-height:1.25;">Petit rappel 🎉</h1>
           <p style="margin:0;color:#8E8E93;font-size:15px;line-height:1.6;">${escapeHtml(intro)}</p>
           ${message ? `<p style="margin:18px 0 0;padding:14px 16px;background:#F5F5F5;border-radius:12px;color:#1C1C1E;font-size:15px;line-height:1.5;white-space:pre-wrap;text-align:left;">${escapeHtml(message)}</p>` : ''}

@@ -230,6 +230,9 @@ function MainApp() {
   const [loading, setLoading] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(null)
   const [hasUsername, setHasUsername] = useState(null)
+  // Code « mot de passe oublié » validé : session ouverte, mais le nouveau
+  // mot de passe reste à choisir avant d'entrer dans l'app.
+  const [passwordRecovery, setPasswordRecovery] = useState(false)
   const location = useLocation()
   const routerNavigate = useNavigate()
   const nav = navEntries.get(location.state?.amivNavKey) ?? ROOT_NAV
@@ -324,7 +327,9 @@ function MainApp() {
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (_event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
       if (!session) {
+        setPasswordRecovery(false)
         if (_event === 'SIGNED_OUT') {
           track('logout')
           setAuthMode(null)
@@ -333,7 +338,7 @@ function MainApp() {
         clearMonitoringUser()
         setOnboardingCompleted(null)
         setHasUsername(null)
-      } else if (_event === 'SIGNED_IN') {
+      } else if (_event === 'SIGNED_IN' || _event === 'PASSWORD_RECOVERY') {
         identifyUser(session.user.id)
         setMonitoringUser(session.user.id)
         track('login_succeeded')
@@ -474,6 +479,10 @@ function MainApp() {
   }, [view])
 
   const isLoading = loading || (!!session && (onboardingCompleted === null || hasUsername === null))
+
+  if (passwordRecovery && session) {
+    return <Auth key={authMode ?? 'login'} recovering onPasswordReset={() => setPasswordRecovery(false)} />
+  }
 
   if (isLoading) return <SplashScreen />
 
