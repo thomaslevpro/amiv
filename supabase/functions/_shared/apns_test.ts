@@ -74,6 +74,7 @@ Deno.test('pushTargetFor opens the event, its conversation, memories or the frie
     'direct message',
   )
   assertEquals(pushTargetFor(notification('memories_surprise', { event_id: eventId }), null), { screen: 'memories', event_id: eventId }, 'surprise')
+  assertEquals(pushTargetFor(notification('event_photos_added', { event_id: eventId }), null), { screen: 'event', event_id: eventId, section: 'photos' }, 'photos')
   assertEquals(pushTargetFor(notification('memories_revealed', { event_id: eventId }), null), { screen: 'event', event_id: eventId }, 'revealed')
   assertEquals(pushTargetFor(notification('birthday_reminder', { birthday_id: 'b' }), 'lea'), { screen: 'profile', username: 'lea' }, 'birthday linked')
   assertEquals(pushTargetFor(notification('birthday_reminder', { birthday_id: 'b' }), null), { screen: 'home' }, 'birthday unlinked')

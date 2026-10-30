@@ -12,8 +12,10 @@
     "assets:ios": "rm -f ios/App/App/Assets.xcassets/Splash.imageset/*.png && capacitor-assets generate --ios --iconBackgroundColor \"#faf9fb\" --splashBackgroundColor \"#faf9fb\""
   },
   "dependencies": {
+    "@capacitor-community/media": "^9.1.0",
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",
+    "@capacitor/camera": "^8.2.5",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
     "@capacitor/keyboard": "^8.0.6",

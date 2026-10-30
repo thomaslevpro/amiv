@@ -6,6 +6,7 @@ import EventEditForm from '../components/event/EventEditForm'
 import EventGuestsSection from '../components/event/EventGuestsSection'
 import EventHero from '../components/event/EventHero'
 import EventInfoCard from '../components/event/EventInfoCard'
+import EventPhotosSection from '../components/event/EventPhotosSection'
 import PendingPollsBanner from '../components/event/PendingPollsBanner'
 import { getAvatarColor } from '../components/event/eventUtils'
 import RevealedMemoriesEntry from '../components/event/RevealedMemoriesEntry'
@@ -120,6 +121,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick, on
         )}
 
         <EventGuestsSection guests={guests} loading={guestsLoading} canManage={canManage} userId={userId} myRsvp={myRsvp} currentUserName={currentUserName} eventId={event.id} onInvite={() => setShowInviteSheet(true)} onShare={handleShare} onRemind={handleRemindGuest} onRemove={handleRemoveInvitation} />
+        <EventPhotosSection key={event.id} eventId={event.id} userId={userId} focus={event.focusSection === 'photos'} showToast={showToast} />
         {isPollActive && !pollBannerVisible && <EventDatePoll dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
         {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
         {canManage && <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}><div onClick={() => setShowDeleteModal(true)} style={{ flex: 1, background: 'rgba(255,59,48,0.08)', borderRadius: 14, padding: '14px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#FF3B30', cursor: 'pointer' }}>Supprimer</div></div>}

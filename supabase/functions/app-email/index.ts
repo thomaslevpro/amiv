@@ -28,6 +28,7 @@ const REPORT_TARGET_LABELS: Record<string, string> = {
   event_message: "Message de chat d'événement",
   direct_message: 'Message privé',
   profile: 'Profil',
+  event_photo: "Photo d'album d'événement",
 }
 
 const REPORT_REASON_LABELS: Record<string, string> = {

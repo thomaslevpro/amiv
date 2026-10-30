@@ -13,7 +13,7 @@ export type PushNotificationRow = {
 
 // Écran à ouvrir quand on appuie sur la notification (lu par src/lib/push.js).
 export type PushTarget =
-  | { screen: 'event'; event_id: string }
+  | { screen: 'event'; event_id: string; section?: 'photos' }
   | { screen: 'messages'; event_id: string }
   | { screen: 'memories'; event_id: string }
   | { screen: 'conversation'; conversation_id: string; sender_id: string }
@@ -94,6 +94,8 @@ export function pushTargetFor(notification: PushNotificationRow, profileUsername
   if (eventId) {
     if (notification.type === 'message_received') return { screen: 'messages', event_id: eventId }
     if (notification.type === 'memories_surprise') return { screen: 'memories', event_id: eventId }
+    // Les anciennes versions de l'app ignorent section et ouvrent l'événement.
+    if (notification.type === 'event_photos_added') return { screen: 'event', event_id: eventId, section: 'photos' }
     return { screen: 'event', event_id: eventId }
   }
   if (profileUsername) return { screen: 'profile', username: profileUsername }

@@ -42,11 +42,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Amiv utilise l’appareil photo pour que tu puisses prendre ta photo de profil, un souvenir ou une photo de couverture d’événement.</string>
+	<string>Amiv utilise l’appareil photo pour que tu puisses prendre ta photo de profil, un souvenir, une photo de couverture ou une photo pour l’album d’un événement.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Amiv a besoin de cet accès pour enregistrer dans ta photothèque les images que tu choisis de sauvegarder.</string>
+	<string>Amiv a besoin de cet accès pour enregistrer dans ta photothèque les photos d’un album d’événement que tu choisis de sauvegarder.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Amiv accède à tes photos pour que tu puisses choisir ta photo de profil, ajouter des souvenirs à un événement ou une photo de couverture.</string>
+	<string>Amiv accède à tes photos pour que tu puisses choisir ta photo de profil, une photo de couverture, des souvenirs ou des photos à partager dans l’album d’un événement.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,38 +1,12 @@
 import { supabase } from './supabase'
+import { compressImage } from './imageCompression'
 
 const MAX_WIDTH = 1600
 const JPEG_QUALITY = 0.8
 
-function loadImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible')) }
-    img.src = url
-  })
-}
-
-// Redimensionne (largeur max 1600 px) et réencode en JPEG ~80 %. Le navigateur
-// applique déjà l'orientation EXIF au décodage de <img>.
-export async function compressCoverImage(file) {
-  const img = await loadImage(file)
-  const scale = Math.min(1, MAX_WIDTH / img.naturalWidth)
-  const width = Math.round(img.naturalWidth * scale)
-  const height = Math.round(img.naturalHeight * scale)
-
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext('2d')
-  // Fond blanc : un PNG transparent deviendrait noir en JPEG.
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, width, height)
-  ctx.drawImage(img, 0, 0, width, height)
-
-  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY))
-  if (!blob) throw new Error('Compression impossible')
-  return blob
+// Redimensionne (largeur max 1600 px) et réencode en JPEG ~80 %.
+export function compressCoverImage(file) {
+  return compressImage(file, { maxWidth: MAX_WIDTH, quality: JPEG_QUALITY })
 }
 
 // Couverture stockée sous event-covers/{eventId}/cover_{ts}.jpg : les policies

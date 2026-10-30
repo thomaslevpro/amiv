@@ -413,7 +413,7 @@ function MainApp() {
 
   useEffect(() => {
     if (!appReady || !pushTarget) return
-    const { screen: targetScreen, event_id: eventId, notificationId } = pushTarget
+    const { screen: targetScreen, event_id: eventId, section, notificationId } = pushTarget
     setPushTarget(null)
     if (notificationId) markAsRead(notificationId)
     if (targetScreen === 'conversation') {
@@ -426,7 +426,7 @@ function MainApp() {
       openScreen({
         ...ROOT_NAV,
         tab: navRef.current.tab,
-        selectedEvent: data,
+        selectedEvent: section === 'photos' ? { ...data, focusSection: 'photos' } : data,
         screen: targetScreen === 'messages' ? 'messages' : 'eventDetail',
       })
     })
@@ -457,7 +457,7 @@ function MainApp() {
   const handleNotifEventClick = async (partialEvent) => {
     const { data, error } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
     if (error) captureSupabaseError(error, { operation: 'load_notification_event' })
-    if (data) openScreen({ selectedEvent: data, screen: 'eventDetail' })
+    if (data) openScreen({ selectedEvent: partialEvent.focusSection ? { ...data, focusSection: partialEvent.focusSection } : data, screen: 'eventDetail' })
   }
   const handleNotifMessageClick = async (partialEvent) => {
     const { data, error } = await supabase.from('events').select('*').eq('id', partialEvent.id).maybeSingle()
