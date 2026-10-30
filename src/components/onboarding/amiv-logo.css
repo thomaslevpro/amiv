@@ -1,0 +1,7 @@
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@700&display=swap");
+
+.amiv-logo {
+  font-family: "Fredoka", sans-serif; font-weight: 700; line-height: 1; letter-spacing: -1px;
+  background: linear-gradient(120deg, #e683c3 0%, #ec8075 50%, #f4a12a 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}

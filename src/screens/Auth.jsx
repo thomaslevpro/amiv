@@ -7,6 +7,7 @@ import { captureSupabaseError } from '../lib/monitoring'
 import { LEGAL_URLS, openExternalUrl } from '../lib/native'
 import { getPendingInviteToken } from '../lib/onboarding'
 import { OnboardingHeader, OnboardingStyles } from '../components/onboarding/OnboardingUI'
+import AmivLogo from '../components/onboarding/AmivLogo'
 
 const legalLinkStyle = { color: '#e055aa', fontWeight: 600, cursor: 'pointer' }
 
@@ -171,10 +172,8 @@ export default function Auth({ initialIsLogin = true, onBack }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', overflowY: 'auto' }}>
 
         {/* Logo */}
-        <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: -2, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 8, lineHeight: 1 }}>
-          Amiv
-        </div>
-        <div style={{ fontSize: 15, color: '#8E8E93', marginBottom: 40 }}>Friends come first</div>
+        <AmivLogo size={64} style={{ marginBottom: 8 }} />
+        <div style={{ fontSize: 15, color: '#8E8E93', marginBottom: 40 }}>L'essentiel, c'est d'être ensemble</div>
 
         {/* Form */}
         <div style={{ width: '100%', maxWidth: 340 }}>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { hapticLight } from "../../lib/haptics";
+import AmivLogo from "./AmivLogo";
 import "./onboarding.css";
 
 /*
@@ -61,7 +62,7 @@ export default function Onboarding({ avatars = [], slides = DEFAULT_SLIDES, onSi
               <img src={src} alt="" />
             </div>
           ))}
-          <h1 className="ob-word">amiv</h1>
+          <AmivLogo as="h1" size={84} className="ob-word" />
         </div>
         <div className="ob-welcome-text">
           <h2 className="ob-title">L'essentiel, c'est d'être ensemble</h2>
