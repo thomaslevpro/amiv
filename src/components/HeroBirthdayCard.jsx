@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Cake, Link2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { birthdateHasYear } from '../utils/birthday'
 
 const REMINDER_OPTIONS = [1, 3, 7, 14, 30]
 const CONFETTI = [
@@ -275,7 +276,7 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
   const subtitle = isToday
     ? 'Souhaite-lui un joyeux anniversaire 🎂'
     : birthdayLabel
-  const ageLabel = `${age} ans`
+  const ageLabel = birthdateHasYear(birthdate) ? `${age} ans` : null
 
   return (
     <>
@@ -384,8 +385,7 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
               </div>
               <div style={{ fontSize: 13, opacity: 0.85, marginTop: 5 }}>
                 {subtitle}
-                <br />
-                {ageLabel}
+                {ageLabel && <><br />{ageLabel}</>}
               </div>
             </div>
 

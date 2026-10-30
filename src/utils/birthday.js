@@ -2,7 +2,8 @@
 // facultative : sans année, on enregistre UNKNOWN_BIRTH_YEAR, année
 // bissextile (le 29 février reste possible) et antérieure à 1900, donc
 // jamais prise pour un âge (EventDetail ignore déjà les années < 1900).
-// Les anniversaires ajoutés à la main (table birthdays) gardent 2000.
+// Les anniversaires ajoutés à la main (table birthdays) gardent 2000 :
+// voir birthdateHasYear.
 
 export const UNKNOWN_BIRTH_YEAR = 1896
 
@@ -57,4 +58,15 @@ export function ownBirthdayError(value) {
   if (age < 0) return 'Cette date n\'est pas encore passée. Vérifie l\'année.'
   if (age < MIN_AGE) return `Amiv est réservé aux personnes de ${MIN_AGE} ans et plus.`
   return null
+}
+
+// Anniversaire de la table birthdays (ajout à la main, lien « Demander son
+// anniversaire ») : sans année, la date est enregistrée en 2000. On ne peut
+// pas la distinguer d'une vraie naissance en 2000, donc aucun âge n'est
+// affiché pour 2000.
+export const BIRTHDAYS_UNKNOWN_YEAR = 2000
+
+export function birthdateHasYear(value) {
+  const year = parseBirthday(value)?.year
+  return year != null && year !== BIRTHDAYS_UNKNOWN_YEAR
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { birthdateHasYear } from '../utils/birthday'
 
 function calculateAge(birthdate) {
   const today = new Date()
@@ -52,7 +53,7 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
   const [firstName, setFirstName] = useState(initialFirstName)
   const [lastName, setLastName]   = useState(initialLastName)
   const [date, setDate]           = useState(amiv.birthdate)
-  const [age, setAge]             = useState(() => (amiv.birthdate ? calculateAge(amiv.birthdate) : ''))
+  const [age, setAge]             = useState(() => (birthdateHasYear(amiv.birthdate) ? calculateAge(amiv.birthdate) : ''))
   const [saving, setSaving]       = useState(false)
 
   function handleAgeChange(e) {
@@ -66,7 +67,7 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
   function handleDateChange(e) {
     const nextDate = e.target.value
     setDate(nextDate)
-    setAge(nextDate ? calculateAge(nextDate) : '')
+    setAge(birthdateHasYear(nextDate) ? calculateAge(nextDate) : '')
   }
 
   async function handleSave(e) {

@@ -3,6 +3,7 @@ import { Bell, Link2, Pencil, Trash2, X } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
 import { supabase } from '../lib/supabase'
+import { birthdateHasYear } from '../utils/birthday'
 
 dayjs.locale('fr')
 
@@ -12,7 +13,7 @@ function calcStats(birthdate) {
   const thisYear = bday.year(today.year())
   const nextBday = thisYear.isBefore(today) ? thisYear.add(1, 'year') : thisYear
   const daysUntil = nextBday.diff(today, 'day')
-  const age = nextBday.year() - bday.year()
+  const age = birthdateHasYear(birthdate) ? nextBday.year() - bday.year() : null
   return { daysUntil, age }
 }
 
@@ -343,7 +344,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
                 fontSize: 12, fontWeight: 600,
               }}>
                 <span>🎂</span>
-                <span style={gradientTextStyle}>{dateShort} · {age} ans</span>
+                <span style={gradientTextStyle}>{dateShort}{age != null ? ` · ${age} ans` : ''}</span>
               </div>
             </div>
           </div>
@@ -382,15 +383,15 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
             alignItems: 'center', justifyContent: 'center',
             padding: '18px 12px',
           }}>
-            <div style={{ fontSize: 32, fontWeight: 700, color: '#1C1C1E', lineHeight: 1 }}>
-              {age}
+            <div style={{ fontSize: 32, fontWeight: 700, color: age != null ? '#1C1C1E' : '#C7C7CC', lineHeight: 1 }}>
+              {age ?? '—'}
             </div>
             <div style={{
               fontSize: 10, fontWeight: 700, color: '#8E8E93',
               letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 6,
               textAlign: 'center',
             }}>
-              ANS LE {monthLabel}
+              {age != null ? `ANS LE ${monthLabel}` : 'ÂGE INCONNU'}
             </div>
           </div>
         </div>
