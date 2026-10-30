@@ -485,7 +485,7 @@ function MainApp() {
     if (!authMode && showIntro) {
       return <Onboarding avatars={[av1, av2, av3, av4, av5]} onSignup={() => leaveIntro('signup')} onLogin={() => leaveIntro('login')} />
     }
-    return <Auth key={authMode ?? 'login'} initialIsLogin={authMode !== 'signup'} onBack={showIntro ? () => setAuthMode(null) : undefined} />
+    return <Auth key={authMode ?? 'login'} initialMode={authMode === 'signup' ? 'signup' : 'login'} onBack={showIntro ? () => setAuthMode(null) : undefined} />
   }
   if (!onboardingCompleted) {
     return (
