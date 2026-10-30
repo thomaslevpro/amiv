@@ -147,7 +147,8 @@ function getBirthdayStats(birthday) {
   }
 
   const daysUntil = Math.round((nextBirthday - today) / 86400000)
-  const nextAge = nextBirthday.getFullYear() - parts.year
+  // Année inconnue (< 1900, voir utils/birthday) : pas d'âge
+  const nextAge = parts.year >= 1900 ? nextBirthday.getFullYear() - parts.year : null
 
   return {
     daysUntil,
@@ -742,7 +743,7 @@ export default function Profile({ session, onCalendarClick }) {
                 <div style={{ fontSize: 11, textTransform: 'uppercase', color: COLORS.secondary, fontWeight: 700, marginBottom: 3 }}>Prochain anniversaire</div>
                 {birthdayStats ? (
                   <>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text }}>{birthdayStats.dateLabel} · {birthdayStats.nextAge} ans</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text }}>{birthdayStats.dateLabel}{birthdayStats.nextAge != null ? ` · ${birthdayStats.nextAge} ans` : ''}</div>
                     <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 3 }}>Tes amis seront notifiés 7 j avant</div>
                   </>
                 ) : (

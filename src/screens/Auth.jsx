@@ -4,10 +4,14 @@ import { supabase, AUTH_CALLBACK_URL, AUTH_RESET_URL } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { LEGAL_URLS, openExternalUrl } from '../lib/native'
+import { getPendingInviteToken } from '../lib/onboarding'
+import { OnboardingHeader, OnboardingStyles } from '../components/onboarding/OnboardingUI'
 
 const legalLinkStyle = { color: '#e055aa', fontWeight: 600, cursor: 'pointer' }
 
-export default function Auth({ initialIsLogin = true }) {
+// Étape 1 de l'onboarding (inscription) ou connexion. onBack : retour à l'écran
+// de bienvenue.
+export default function Auth({ initialIsLogin = true, onBack }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(initialIsLogin)
@@ -34,6 +38,8 @@ export default function Auth({ initialIsLogin = true }) {
           password,
           options: {
             emailRedirectTo: AUTH_CALLBACK_URL,
+            // Lien d'invitation ouvert avant l'inscription (voir lib/onboarding)
+            data: getPendingInviteToken() ? { pending_invite_token: getPendingInviteToken() } : undefined,
           },
         })
         if (error) throw error
@@ -150,8 +156,14 @@ export default function Auth({ initialIsLogin = true }) {
   )
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <OnboardingStyles />
+      {onBack && (
+        <div style={{ width: '100%', maxWidth: 430, margin: '0 auto' }}>
+          <OnboardingHeader progressStep={isLogin || forgotMode ? null : 1} onBack={forgotMode ? leaveForgotMode : onBack} />
+        </div>
+      )}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', overflowY: 'auto' }}>
 
         {/* Logo */}
         <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: -2, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 8, lineHeight: 1 }}>

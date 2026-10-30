@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, AtSign } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { uploadAvatar } from '../lib/avatar'
+import { ownBirthdayError } from '../utils/birthday'
+import BirthdayFields from '../components/profile/BirthdayFields'
 
 export default function EditProfile({ onSave, onBack, isOnboarding = false, initialFocus = null }) {
   const [name, setName] = useState('')
@@ -52,6 +54,8 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
 
   const handleSave = async () => {
     if (!name.trim()) { setError('Le prénom est obligatoire'); return }
+    const birthdayError = ownBirthdayError(birthday)
+    if (birthdayError) { setError(birthdayError); return }
     setSaving(true)
     setError(null)
     try {
@@ -162,18 +166,18 @@ export default function EditProfile({ onSave, onBack, isOnboarding = false, init
         </div>
 
         <div style={{ marginBottom: error ? 8 : 24 }}>
-          <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 7, paddingLeft: 4, fontWeight: 500 }}>Date de naissance</div>
-          <input
-            ref={birthdayInputRef}
-            type="date"
+          <div style={{ fontSize: 13, color: '#8E8E93', marginBottom: 7, paddingLeft: 4, fontWeight: 500 }}>Anniversaire</div>
+          <BirthdayFields
+            firstRef={birthdayInputRef}
             value={birthday}
-            onChange={e => setBirthday(e.target.value)}
-            style={{
-              width: '100%', padding: '15px 16px', borderRadius: 14, border: 'none',
-              background: '#fff', fontSize: 16, color: birthday ? '#1C1C1E' : '#C7C7CC', outline: 'none',
+            onChange={setBirthday}
+            selectStyle={{
+              minWidth: 0, padding: '15px 12px', borderRadius: 14, border: 'none',
+              background: '#fff', fontSize: 16, outline: 'none', fontFamily: 'inherit',
               boxShadow: '0 1px 8px rgba(0,0,0,0.07)', boxSizing: 'border-box',
             }}
           />
+          <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 6, paddingLeft: 4 }}>L'année est facultative.</div>
         </div>
 
         <div style={{ marginBottom: 24 }}>

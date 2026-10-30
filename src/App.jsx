@@ -13,6 +13,8 @@ import CreateActionSheet from './components/CreateActionSheet'
 import AddAmivModal from './components/AddAmivModal'
 import AskBirthdaySheet from './components/AskBirthdaySheet'
 import OnboardingFlow from './pages/Onboarding'
+import Welcome from './components/onboarding/Welcome'
+import { getPendingInviteToken, joinPendingInvite } from './lib/onboarding'
 import Auth from './screens/Auth'
 import AuthCallback from './screens/AuthCallback'
 import Home from './screens/Home'
@@ -209,8 +211,13 @@ function MainApp() {
   const inviteMatch = window.location.pathname.match(/^\/invite\/([^/]+)/)
   if (inviteMatch) return <GuestRsvpPage token={inviteMatch[1]} />
 
-  // Connexion par défaut ; /register (lien « Rejoindre Amiv ») ouvre l'inscription
-  const authInitLogin = window.location.pathname !== '/register'
+  // Sans session : écran de bienvenue (étape 0) ; /register (lien « Rejoindre
+  // Amiv ») ouvre directement l'inscription (étape 1), /login la connexion.
+  const [authMode, setAuthMode] = useState(() => ({ '/register': 'signup', '/login': 'login' })[window.location.pathname] ?? null)
+  // Onboarding terminé pendant cette session : pas d'écran de notifications
+  // en plus (déjà proposé, ou proposé par la carte « Bien démarrer »)
+  const justOnboarded = useRef(false)
+  const joiningInvite = useRef(false)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [onboardingCompleted, setOnboardingCompleted] = useState(null)
@@ -310,7 +317,10 @@ function MainApp() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (!session) {
-        if (_event === 'SIGNED_OUT') track('logout')
+        if (_event === 'SIGNED_OUT') {
+          track('logout')
+          setAuthMode(null)
+        }
         resetAnalyticsUser()
         clearMonitoringUser()
         setOnboardingCompleted(null)
@@ -382,11 +392,22 @@ function MainApp() {
   const appReady = !!session && onboardingCompleted === true && hasUsername === true
 
   useEffect(() => {
-    if (!appReady) return
+    if (!appReady || justOnboarded.current) return
     let cancelled = false
     shouldShowPushPrompt().then(show => { if (!cancelled) setShowPushPrompt(show) })
     return () => { cancelled = true }
   }, [appReady])
+
+  // Lien d'invitation ouvert avant d'avoir un compte (ou avant de se
+  // connecter) : l'événement s'ouvre, avec la réponse à donner.
+  useEffect(() => {
+    if (!appReady || joiningInvite.current || !getPendingInviteToken(session)) return
+    joiningInvite.current = true
+    joinPendingInvite(session).then(event => {
+      joiningInvite.current = false
+      if (event) openScreen({ ...ROOT_NAV, selectedEvent: event, screen: 'eventDetail' })
+    })
+  }, [appReady, session])
 
   // Message privé : ouvre la conversation avec l'expéditeur (forme « friend »
   // attendue par ConversationScreen) et marque ses notifications comme lues.
@@ -443,8 +464,23 @@ function MainApp() {
 
   if (isLoading) return <SplashScreen />
 
-  if (!session) return <Auth initialIsLogin={authInitLogin} />
-  if (!onboardingCompleted) return <OnboardingFlow session={session} onComplete={() => { track('onboarding_completed'); setOnboardingCompleted(true); setHasUsername(true) }} />
+  if (!session) {
+    if (!authMode) return <Welcome onSignup={() => setAuthMode('signup')} onLogin={() => setAuthMode('login')} />
+    return <Auth key={authMode} initialIsLogin={authMode === 'login'} onBack={() => setAuthMode(null)} />
+  }
+  if (!onboardingCompleted) {
+    return (
+      <OnboardingFlow
+        session={session}
+        onComplete={() => {
+          track('onboarding_completed')
+          justOnboarded.current = true
+          setOnboardingCompleted(true)
+          setHasUsername(true)
+        }}
+      />
+    )
+  }
   if (!hasUsername) return <UsernamePrompt session={session} onComplete={() => setHasUsername(true)} />
 
   const handleEventClick = (event) => openScreen({ selectedEvent: event, screen: 'eventDetail' })

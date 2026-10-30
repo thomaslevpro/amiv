@@ -2,8 +2,17 @@ import { useState } from 'react'
 import { requestPushPermission, snoozePushPrompt } from '../lib/push'
 import { track } from '../lib/analytics'
 
-// Écran d'explication affiché après l'onboarding, avant la demande
-// d'autorisation iOS (qui ne peut être posée qu'une seule fois).
+// Texte de l'écran d'explication, partagé avec l'étape « Notifications » de
+// l'onboarding (components/onboarding/StepNotifications).
+export const PUSH_EXPLANATION = {
+  emoji: '🎂',
+  title: 'Sois prévenu des anniversaires de tes amis',
+  text: "Amiv te rappelle les anniversaires de tes proches et te prévient quand tu es invité à un événement. Tu peux choisir ce que tu reçois dans ton profil.",
+}
+
+// Écran d'explication proposé à nouveau après l'onboarding (« Plus tard »
+// il y a plus d'une semaine), avant la demande d'autorisation iOS (qui ne
+// peut être posée qu'une seule fois).
 export default function PushPermissionPrompt({ onDone }) {
   const [loading, setLoading] = useState(false)
 
@@ -33,13 +42,12 @@ export default function PushPermissionPrompt({ onDone }) {
         alignItems: 'center', justifyContent: 'center',
         padding: '40px 36px', textAlign: 'center',
       }}>
-        <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 28 }}>🎂</div>
+        <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 28 }}>{PUSH_EXPLANATION.emoji}</div>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#1C1C1E', letterSpacing: -0.5, marginBottom: 12, lineHeight: 1.2 }}>
-          Sois prévenu des anniversaires de tes amis
+          {PUSH_EXPLANATION.title}
         </div>
         <div style={{ fontSize: 15, color: '#8E8E93', lineHeight: 1.6, maxWidth: 290 }}>
-          Amiv t'envoie un rappel le jour J, et te prévient quand tu es invité à un événement.
-          Tu peux choisir ce que tu reçois dans ton profil.
+          {PUSH_EXPLANATION.text}
         </div>
       </div>
 

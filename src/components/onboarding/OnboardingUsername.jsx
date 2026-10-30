@@ -1,30 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AtSign } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { USERNAME_REGEX, slugify as slugifyInput, usernameTaken } from '../../lib/onboarding'
 
-const USERNAME_REGEX = /^[a-z0-9-]{3,30}$/
-
-function slugify(value) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-')
-    .slice(0, 30)
-}
-
-async function usernameTaken(username, userId) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', username)
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  return Boolean(data && data.id !== userId)
-}
+// Pseudo final : sans tiret au début ni à la fin
+const slugify = value => slugifyInput(value).replace(/-+$/, '')
 
 async function suggestUsername(profile, userId) {
   const lastName = profile?.name?.split(' ')[0] ?? ''

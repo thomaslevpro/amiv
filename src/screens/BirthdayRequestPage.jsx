@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Lock, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { parseBirthday } from '../utils/birthday'
 
 const COLORS = {
   page: '#FFFFFF',
@@ -128,10 +129,10 @@ export default function BirthdayRequestPage() {
         if (cancelled) return
         if (me?.first_name && !data.friend_name) setName(me.first_name)
         if (me?.birthday) {
-          const [y, m, d] = me.birthday.split('-')
-          setDay(String(Number(d)))
-          setMonth(String(Number(m)))
-          setYear(y)
+          const parts = parseBirthday(me.birthday)
+          setDay(String(parts.day))
+          setMonth(String(parts.month))
+          setYear(parts.year ? String(parts.year) : '')
         }
       }
       setLoading(false)

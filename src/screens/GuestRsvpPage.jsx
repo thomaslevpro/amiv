@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Calendar, MapPin, User, CheckCircle2, Cake } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { savePendingInvite } from '../lib/onboarding'
 
 const typeEmoji = {
   'Anniversaire': <Cake size={20} strokeWidth={1.5} />,
@@ -23,6 +24,14 @@ function formatDate(dateStr) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+// Sans compte : « Créer mon compte » / « J'ai déjà un compte » gardent
+// l'invitation ; après l'inscription (étapes 1 à 3) ou la connexion, l'app
+// ouvre l'événement pour y répondre.
+function openAccountFlow(token, path) {
+  savePendingInvite(token)
+  window.location.assign(path)
 }
 
 export default function GuestRsvpPage({ token }) {
@@ -147,6 +156,29 @@ export default function GuestRsvpPage({ token }) {
           </div>
         )}
 
+        {!sessionUser && !submitted && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1E', marginBottom: 4 }}>Réponds avec Amiv</div>
+            <div style={{ fontSize: 13, color: '#8E8E93', lineHeight: 1.45, marginBottom: 12 }}>
+              Retrouve l'événement, la discussion et les autres invités dans l'app.
+            </div>
+            <button
+              type="button"
+              onClick={() => openAccountFlow(token, '/register')}
+              style={{ width: '100%', padding: 14, borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer', marginBottom: 8 }}
+            >
+              Créer mon compte
+            </button>
+            <button
+              type="button"
+              onClick={() => openAccountFlow(token, '/login')}
+              style={{ width: '100%', padding: 12, borderRadius: 14, border: 'none', background: '#F5F5F5', color: '#1C1C1E', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            >
+              J'ai déjà un compte
+            </button>
+          </div>
+        )}
+
         {/* RSVP form or confirmation */}
         {submitted ? (
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, textAlign: 'center', boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
@@ -176,7 +208,7 @@ export default function GuestRsvpPage({ token }) {
         ) : (
           <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8E8E93', marginBottom: 14 }}>
-              Répondre à l'invitation
+              {sessionUser ? 'Répondre à l\'invitation' : 'Ou réponds sans compte'}
             </div>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {!sessionUser && (

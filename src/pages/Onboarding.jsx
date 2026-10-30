@@ -1,89 +1,138 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import OnboardingSlides from '../components/onboarding/OnboardingSlides'
-import OnboardingProfile from '../components/onboarding/OnboardingProfile'
-import OnboardingUsername from '../components/onboarding/OnboardingUsername'
-import OnboardingBirthday from '../components/onboarding/OnboardingBirthday'
-import OnboardingNotifications from '../components/onboarding/OnboardingNotifications'
-import OnboardingDone from '../components/onboarding/OnboardingDone'
 import { captureSupabaseError } from '../lib/monitoring'
-import { isNative } from '../lib/native'
+import { track } from '../lib/analytics'
+import { canAskPushPermission, snoozePushPrompt } from '../lib/push'
+import { OPTIONAL_STEPS, STEP, completeOnboarding, getPendingInviteToken, resumeStep, saveOnboardingStep } from '../lib/onboarding'
+import { OnboardingHeader } from '../components/onboarding/OnboardingUI'
+import StepIdentity from '../components/onboarding/StepIdentity'
+import StepBirthday from '../components/onboarding/StepBirthday'
+import StepPhoto from '../components/onboarding/StepPhoto'
+import StepFriends from '../components/onboarding/StepFriends'
+import StepBirthdays from '../components/onboarding/StepBirthdays'
+import StepNotifications from '../components/onboarding/StepNotifications'
+import StepDone from '../components/onboarding/StepDone'
 
-// step mapping:
-//   0–1  → slides (welcome)
-//   2    → profile form  (saved when profile submitted)
-//   3    → username form (saved when username submitted)
-//   4    → birthday form (saved when birthday submitted/skipped)
-//   5    → notifications (no DB write per spec) — web only; on iOS the
-//          PushPermissionPrompt is shown after onboarding instead
-//   6    → done          (saved onboarding_completed=true)
-
+// Onboarding après la création du compte (étapes 2 à 8 ; 0 et 1 sont
+// l'écran de bienvenue et l'inscription, avant la session).
+// Chaque étape validée ou passée est enregistrée tout de suite
+// (profiles.onboarding_step) : en rouvrant l'app, on reprend à la première
+// étape non faite.
+// Arrivée par un lien d'invitation : après l'étape 3, l'onboarding est
+// terminé et l'app ouvre l'événement ; les étapes 4 à 7 restent proposées
+// par la carte « Bien démarrer » de l'accueil.
 export default function OnboardingFlow({ session, onComplete }) {
-  const [step, setStep] = useState(null)
   const userId = session.user.id
+  const [profile, setProfile] = useState(null)
+  const [step, setStep] = useState(null)
+  const [direction, setDirection] = useState('next')
+  const [pushAskable, setPushAskable] = useState(false)
+  const completing = useRef(false)
+  // Étape la plus avancée enregistrée (on ne revient jamais en arrière)
+  const savedStep = useRef(0)
 
   useEffect(() => {
-    supabase
-      .rpc('get_my_profile')
-      .select('onboarding_step')
-      .maybeSingle()
-      .then(({ data }) => {
-        setStep(data?.onboarding_step ?? 0)
-      })
+    let cancelled = false
+    Promise.all([
+      supabase.rpc('get_my_profile').select('first_name, username, birthday, avatar_url, onboarding_step').maybeSingle(),
+      canAskPushPermission(),
+    ]).then(async ([{ data, error }, askable]) => {
+      if (cancelled) return
+      if (error) captureSupabaseError(error, { operation: 'load_onboarding_profile' })
+      let resume = resumeStep(data)
+      if (resume === STEP.NOTIFICATIONS && !askable) resume = STEP.DONE
+      if (resume === STEP.DONE) await completeOnboarding(userId)
+      if (cancelled) return
+      savedStep.current = Math.max(data?.onboarding_step ?? 0, resume)
+      setProfile(data ?? {})
+      setPushAskable(askable)
+      setStep(resume)
+    })
+    return () => { cancelled = true }
   }, [userId])
 
-  // Slides → Profile: mark step=2 in DB so a refresh shows profile form, not slides
-  const handleSlidesNext = async () => {
-    await supabase.from('profiles').update({ onboarding_step: 2 }).eq('id', userId)
-    setStep(2)
+  useEffect(() => {
+    if (step != null) track('onboarding_step_viewed', { step })
+  }, [step])
+
+  // Prochaine étape affichée (l'étape Notifications est sautée hors iPhone
+  // ou si iOS a déjà eu la réponse)
+  const nextOf = current => {
+    const next = current + 1
+    return next === STEP.NOTIFICATIONS && !pushAskable ? STEP.DONE : next
+  }
+  const previousOf = current => {
+    const previous = current - 1
+    return previous === STEP.NOTIFICATIONS && !pushAskable ? previous - 1 : previous
   }
 
-  // Profile component upserts step=2 itself with the form data
-  const handleProfileNext = () => setStep(3)
+  async function finish(completedStep) {
+    if (completing.current) return
+    completing.current = true
+    const { error } = await completeOnboarding(userId, completedStep)
+    completing.current = false
+    return !error
+  }
 
-  const handleUsernameNext = () => setStep(4)
+  async function advance(patch = {}) {
+    const merged = { ...profile, ...patch }
+    setProfile(merged)
+    setDirection('next')
 
-  // Birthday component upserts step=3 itself (or skip)
-  const handleBirthdayNext = () => setStep(isNative ? 6 : 5)
-
-  // Notifications: no DB write per spec — just advance locally
-  const handleNotificationsNext = () => setStep(6)
-
-  // Done: persist completion
-  const handleDoneComplete = async () => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ onboarding_completed: true, onboarding_step: 6 })
-      .eq('id', userId)
-    if (error) {
-      captureSupabaseError(error, { operation: 'complete_onboarding' })
+    // Lien d'invitation : l'événement d'abord, le reste plus tard
+    if (step === STEP.BIRTHDAY && getPendingInviteToken(session)) {
+      track('onboarding_invite_shortcut')
+      if (await finish(STEP.PHOTO)) onComplete()
       return
     }
-    onComplete()
+
+    const next = nextOf(step)
+    if (next === STEP.DONE) {
+      if (!(await finish(STEP.DONE))) return
+    } else if (next > savedStep.current) {
+      savedStep.current = next
+      saveOnboardingStep(userId, next)
+    }
+    setStep(next)
   }
 
-  // Loading spinner while fetching DB step
+  function skip() {
+    track('onboarding_step_skipped', { step })
+    if (step === STEP.NOTIFICATIONS) snoozePushPrompt()
+    advance()
+  }
+
+  function back() {
+    setDirection('back')
+    setStep(previousOf(step))
+  }
+
   if (step === null) {
     return (
-      <div style={{
-        minHeight: '100dvh', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', background: '#fff',
-      }}>
-        <div style={{
-          fontSize: 52, fontWeight: 900,
-          background: 'linear-gradient(135deg,#e055aa,#f5a623)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-        }}>
-          Amiv
-        </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+        <div style={{ fontSize: 52, fontWeight: 900, background: 'linear-gradient(135deg,#e055aa,#f5a623)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Amiv</div>
       </div>
     )
   }
 
-  if (step <= 1) return <OnboardingSlides onNext={handleSlidesNext} />
-  if (step === 2) return <OnboardingProfile userId={userId} onNext={handleProfileNext} />
-  if (step === 3) return <OnboardingUsername userId={userId} onNext={handleUsernameNext} />
-  if (step === 4) return <OnboardingBirthday userId={userId} onNext={handleBirthdayNext} />
-  if (step === 5 && !isNative) return <OnboardingNotifications onNext={handleNotificationsNext} />
-  return <OnboardingDone onComplete={handleDoneComplete} />
+  if (step === STEP.DONE) return <StepDone firstName={profile?.first_name} onFinish={() => onComplete()} />
+
+  const header = (
+    <OnboardingHeader
+      progressStep={step}
+      onBack={step > STEP.IDENTITY ? back : undefined}
+      onLater={OPTIONAL_STEPS.includes(step) ? skip : undefined}
+    />
+  )
+  const props = { userId, profile, header, direction, onDone: advance }
+
+  switch (step) {
+    case STEP.IDENTITY: return <StepIdentity {...props} />
+    case STEP.BIRTHDAY: return <StepBirthday {...props} onSignOut={() => supabase.auth.signOut()} />
+    case STEP.PHOTO: return <StepPhoto {...props} />
+    case STEP.FRIENDS: return <StepFriends {...props} />
+    case STEP.BIRTHDAYS: return <StepBirthdays {...props} />
+    case STEP.NOTIFICATIONS: return <StepNotifications {...props} />
+    default: return null
+  }
 }

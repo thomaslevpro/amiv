@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { AtSign, Camera, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { uploadAvatar } from '../../lib/avatar'
+import { ownBirthdayError } from '../../utils/birthday'
+import BirthdayFields from './BirthdayFields'
 
 const inputStyle = {
   width: '100%',
@@ -100,6 +102,11 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
 
     if (!isValidDate(birthday)) {
       setError('La date de naissance est invalide.')
+      return
+    }
+
+    if (ownBirthdayError(birthday)) {
+      setError(ownBirthdayError(birthday))
       return
     }
 
@@ -307,12 +314,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
             <label style={{ display: 'block', fontSize: 13, color: '#8E8E93', fontWeight: 600, marginBottom: 7 }}>
               Date de naissance
             </label>
-            <input
-              type="date"
-              value={birthday}
-              onChange={e => setBirthday(e.target.value)}
-              style={inputStyle}
-            />
+            <BirthdayFields value={birthday} onChange={setBirthday} selectStyle={{ ...inputStyle, minWidth: 0, width: 'auto', padding: '13px 10px' }} />
           </div>
 
           <div style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>

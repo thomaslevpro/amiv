@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { getDaysUntilBirthday } from '../utils/dateUtils'
+import { formatBirthday as formatProfileBirthday } from '../utils/birthday'
 
 function getInitials(name) {
   return (name ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -7,15 +8,13 @@ function getInitials(name) {
 
 function formatBirthday(dateString) {
   if (!dateString) return null
-  const d = new Date(dateString)
-  const day = d.getUTCDate()
-  const year = d.getUTCFullYear()
-  const month = d.toLocaleDateString('fr-FR', { month: 'long', timeZone: 'UTC' })
+  const date = formatProfileBirthday(dateString)
+  if (!date) return null
   const daysUntil = getDaysUntilBirthday(dateString)
   const suffix = daysUntil === 0
     ? "c'est aujourd'hui !"
     : `dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''}`
-  return `🎂 ${day} ${month} ${year} — ${suffix}`
+  return `🎂 ${date} — ${suffix}`
 }
 
 export default function FriendProfileModal({ friend, onClose, onSendMessage }) {

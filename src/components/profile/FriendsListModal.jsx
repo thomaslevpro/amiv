@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
 import { supabase } from '../../lib/supabase'
 import { Avatar } from '../messages/MessageUI'
+import { formatBirthday } from '../../utils/birthday'
 
 dayjs.locale('fr')
 
@@ -70,9 +71,7 @@ function SectionTitle({ children }) {
 }
 
 function FriendRow({ friend, onToggle, isLast }) {
-  const birthdayLabel = friend.birthday
-    ? dayjs(friend.birthday).format('D MMMM YYYY')
-    : null
+  const birthdayLabel = formatBirthday(friend.birthday)
 
   return (
     <div style={{

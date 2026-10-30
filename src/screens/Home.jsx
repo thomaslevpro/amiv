@@ -7,6 +7,7 @@ import InvitationsSection from '../components/home/InvitationsSection'
 import InviteCard from '../components/home/InviteCard'
 import MyEventsSection from '../components/home/MyEventsSection'
 import SectionHeader from '../components/home/SectionHeader'
+import GettingStartedCard from '../components/home/GettingStartedCard'
 import { useAvailability } from '../hooks/useAvailability'
 import { useFriendships } from '../hooks/useFriendships'
 import { useHomeData } from '../hooks/useHomeData'
@@ -38,6 +39,8 @@ export default function Home({
   const { feed: availabilityFeed } = useAvailability(userId)
   const [toast, setToast] = useState(null)
   const [showNotifications, setShowNotifications] = useState(false)
+  // Anniversaires ajoutés depuis « Bien démarrer »
+  const [gettingStartedChanges, setGettingStartedChanges] = useState(0)
 
   function showToast(message, isError = false, duration = 3000) {
     setToast({ message, isError })
@@ -134,6 +137,8 @@ export default function Home({
           </div>
         </div>
 
+        <GettingStartedCard userId={userId} onChanged={() => setGettingStartedChanges(n => n + 1)} />
+
         {pendingRequests.length > 0 && (
           <>
             <SectionHeader title="Demandes d'amitié" badge={pendingRequests.length} />
@@ -147,7 +152,7 @@ export default function Home({
           user={session?.user}
           onToast={showToast}
           onMessage={onMessagesClick}
-          refreshTrigger={birthdayRefreshTrigger}
+          refreshTrigger={birthdayRefreshTrigger + gettingStartedChanges}
           availabilityFeed={availabilityFeed}
           availableFriendsCount={availableFriendsCount}
           nextEvent={myEvents[0] ?? null}

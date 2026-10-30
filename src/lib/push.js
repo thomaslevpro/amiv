@@ -86,6 +86,21 @@ export async function shouldShowPushPrompt() {
   return !value || Date.now() - Number(value) > PROMPT_SNOOZE_MS
 }
 
+// Onboarding : l'étape « Notifications » n'a de sens que si iOS peut encore
+// poser la question (sinon on la saute).
+export async function canAskPushPermission() {
+  if (!isNative) return false
+  const state = await permissionState()
+  return state === 'prompt' || state === 'prompt-with-rationale'
+}
+
+// Carte « Bien démarrer » : 'granted' | 'denied' | 'prompt' (ou null hors iPhone)
+export async function pushPermissionState() {
+  if (!isNative) return null
+  const state = await permissionState()
+  return state === 'prompt-with-rationale' ? 'prompt' : state
+}
+
 export async function snoozePushPrompt() {
   await Preferences.set({ key: PROMPT_DISMISSED_KEY, value: String(Date.now()) }).catch(() => {})
 }

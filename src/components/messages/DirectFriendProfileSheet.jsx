@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { BG, BLACK, FONT, GRAY1, WHITE } from './constants'
 import { CloseFriendBadge } from './MessageUI'
+import { formatBirthday as formatProfileBirthday } from '../../utils/birthday'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
 
@@ -40,15 +41,7 @@ function notifyCloseFriendChange(detail) {
 }
 
 function formatBirthday(birthday) {
-  if (!birthday) return 'Non renseigné'
-  const date = new Date(`${birthday}T00:00:00Z`)
-  if (Number.isNaN(date.getTime())) return 'Non renseigné'
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
+  return formatProfileBirthday(birthday) ?? 'Non renseigné'
 }
 
 function Avatar({ profile, friend, size = 84, isCloseFriend = false }) {
