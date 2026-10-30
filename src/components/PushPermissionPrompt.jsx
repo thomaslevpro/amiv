@@ -1,11 +1,12 @@
 import { useState } from 'react'
+import { BellRing } from 'lucide-react'
 import { requestPushPermission, snoozePushPrompt } from '../lib/push'
 import { track } from '../lib/analytics'
 
 // Texte de l'écran d'explication, partagé avec l'étape « Notifications » de
 // l'onboarding (components/onboarding/StepNotifications).
 export const PUSH_EXPLANATION = {
-  emoji: '🎂',
+  icon: BellRing,
   title: 'Sois prévenu des anniversaires de tes amis',
   text: "Amiv te rappelle les anniversaires de tes proches et te prévient quand tu es invité à un événement. Tu peux choisir ce que tu reçois dans ton profil.",
 }
@@ -42,7 +43,9 @@ export default function PushPermissionPrompt({ onDone }) {
         alignItems: 'center', justifyContent: 'center',
         padding: '40px 36px', textAlign: 'center',
       }}>
-        <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 28 }}>{PUSH_EXPLANATION.emoji}</div>
+        <div style={{ width: 88, height: 88, borderRadius: 28, background: '#FFF0F7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}>
+          <PUSH_EXPLANATION.icon size={42} strokeWidth={1.8} color="#e055aa" />
+        </div>
         <div style={{ fontSize: 28, fontWeight: 800, color: '#1C1C1E', letterSpacing: -0.5, marginBottom: 12, lineHeight: 1.2 }}>
           {PUSH_EXPLANATION.title}
         </div>

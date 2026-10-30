@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Link2, Plus } from 'lucide-react'
+import { CalendarHeart, Check, Link2, Plus } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { captureSupabaseError } from '../../lib/monitoring'
 import { hapticError, hapticSuccess } from '../../lib/haptics'
@@ -67,12 +67,12 @@ export default function StepBirthdays({ userId, header, direction, onDone }) {
       screenKey="birthdays"
       footer={<PrimaryButton onClick={() => onDone({ birthdaysAdded: added.length })} disabled={saving}>Continuer</PrimaryButton>}
     >
-      <StepTitle emoji="🗓️" title="Les anniversaires que tu connais" subtitle="Amiv te les rappellera, même si tes proches ne sont pas sur l'app." />
+      <StepTitle icon={CalendarHeart} title="Les anniversaires que tu connais" subtitle="Amiv te les rappellera, même si tes proches ne sont pas sur l'app." />
 
       <div style={{ background: '#FFF6E8', borderRadius: 18, padding: '14px 16px', marginBottom: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
           <div style={{ fontSize: 15, fontWeight: 750, color: BLACK }}>
-            {remaining === 0 ? 'Objectif atteint 🎉' : `Ajoute ${BIRTHDAYS_GOAL} anniversaires`}
+            {remaining === 0 ? 'Objectif atteint' : `Ajoute ${BIRTHDAYS_GOAL} anniversaires`}
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, color: GRAY }}>{Math.min(total, BIRTHDAYS_GOAL)}/{BIRTHDAYS_GOAL}</div>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PartyPopper } from 'lucide-react'
 import { hapticSuccess } from '../../lib/haptics'
 import Confetti from './Confetti'
 import { BLACK, GRADIENT, GRAY, OnboardingScreen, PrimaryButton } from './OnboardingUI'
@@ -20,7 +21,9 @@ export default function StepDone({ firstName, onFinish }) {
       footer={<PrimaryButton onClick={onFinish}>Découvrir Amiv</PrimaryButton>}
     >
       {showConfetti && <Confetti />}
-      <div className="ob-pop" style={{ fontSize: 92, lineHeight: 1, marginBottom: 26 }}>🎉</div>
+      <div className="ob-pop" style={{ width: 104, height: 104, borderRadius: '50%', background: GRADIENT, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28, boxShadow: '0 10px 30px rgba(224,85,170,0.30)' }}>
+        <PartyPopper size={48} strokeWidth={1.8} color="#fff" />
+      </div>
       <h1 className="ob-rise" style={{ fontSize: 34, fontWeight: 900, letterSpacing: -1, color: BLACK, lineHeight: 1.1, margin: '0 0 14px' }}>
         C'est parti,{' '}
         <span style={{ background: GRADIENT, WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{firstName || 'toi'}</span> !

@@ -75,7 +75,7 @@ export default function AskBirthdaySheet({ onClose }) {
         </div>
 
         <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', textAlign: 'center', margin: '16px 0 6px' }}>
-          Demander son anniversaire 🎂
+          Demander son anniversaire
         </div>
         <div style={{ fontSize: 13, color: '#8E8E93', textAlign: 'center', lineHeight: 1.45, marginBottom: 20 }}>
           Ton ami reçoit un lien pour te donner sa date, sans créer de compte. Le rappel s'ajoute tout seul.
@@ -105,7 +105,7 @@ export default function AskBirthdaySheet({ onClose }) {
           )}
           {copied && (
             <div style={{ color: '#248A3D', fontSize: 13, fontWeight: 600, textAlign: 'center', marginBottom: 12 }}>
-              Message copié ✓ Colle-le dans une conversation.
+              Message copié. Colle-le dans une conversation.
             </div>
           )}
           {manualUrl && (

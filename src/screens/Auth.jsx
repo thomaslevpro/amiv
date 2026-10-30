@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Capacitor } from '@capacitor/core'
+import { KeyRound, Mail } from 'lucide-react'
 import { supabase, AUTH_CALLBACK_URL, AUTH_RESET_URL } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
@@ -103,7 +104,9 @@ export default function Auth({ initialIsLogin = true, onBack }) {
 
   if (success) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: 32, textAlign: 'center' }}>
-      <div style={{ fontSize: 52, marginBottom: 16 }}>📬</div>
+      <div style={{ width: 72, height: 72, borderRadius: 22, background: '#FFF0F7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+        <Mail size={34} strokeWidth={1.8} color="#e055aa" />
+      </div>
       <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>Vérifie tes emails !</div>
       <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 8 }}>Un lien de confirmation t'a été envoyé à <strong>{email}</strong></div>
       <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: Capacitor.isNativePlatform() ? 12 : 32 }}>Pense à vérifier tes spams.</div>
@@ -112,7 +115,7 @@ export default function Auth({ initialIsLogin = true, onBack }) {
       )}
       {resendDone && (
         <div style={{ background: 'rgba(52,199,89,0.10)', color: '#34C759', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 16 }}>
-          ✓ Email renvoyé !
+          Email renvoyé !
         </div>
       )}
       <div onClick={handleResend} style={{
@@ -142,7 +145,9 @@ export default function Auth({ initialIsLogin = true, onBack }) {
 
   if (resetSent) return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: 32, textAlign: 'center' }}>
-      <div style={{ fontSize: 52, marginBottom: 16 }}>🔑</div>
+      <div style={{ width: 72, height: 72, borderRadius: 22, background: '#FFF0F7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+        <KeyRound size={34} strokeWidth={1.8} color="#e055aa" />
+      </div>
       <div style={{ fontSize: 20, fontWeight: 700, color: '#1C1C1E', marginBottom: 8 }}>Vérifie tes emails !</div>
       <div style={{ fontSize: 14, color: '#8E8E93', marginBottom: 8 }}>Si un compte existe pour <strong>{email.trim()}</strong>, un lien pour choisir un nouveau mot de passe vient de lui être envoyé.</div>
       <div style={{ fontSize: 13, color: '#AEAEB2', marginBottom: Capacitor.isNativePlatform() ? 12 : 32 }}>Pense à vérifier tes spams.</div>

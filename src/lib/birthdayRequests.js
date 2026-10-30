@@ -29,7 +29,7 @@ export function shareBirthdayRequest({ code, friendName }) {
   const url = birthdayRequestUrl(code)
   return shareLink({
     title: 'Ton anniversaire',
-    text: `${hello} Je ne veux plus jamais rater ton anniversaire 🎂\nTu me donnes la date ? → ${url}`,
+    text: `${hello} Je ne veux plus jamais rater ton anniversaire.\nTu me donnes la date ? → ${url}`,
   })
 }
 

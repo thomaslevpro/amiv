@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Cake } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { captureSupabaseError } from '../../lib/monitoring'
 import { hapticError, hapticSuccess } from '../../lib/haptics'
@@ -73,7 +74,7 @@ export default function StepBirthday({ userId, profile, header, direction, onDon
         </PrimaryButton>
       )}
     >
-      <StepTitle emoji="🎂" title="C'est quand, ton anniversaire ?" subtitle="Tes amis seront prévenus 7 jours avant." />
+      <StepTitle icon={Cake} title="C'est quand, ton anniversaire ?" subtitle="Tes amis seront prévenus 7 jours avant." />
 
       <WheelPicker>
         <WheelColumn label="Jour" options={dayOptions} value={safeDay} onChange={change(setDay)} flex={0.7} />

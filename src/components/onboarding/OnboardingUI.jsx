@@ -102,10 +102,19 @@ export function OnboardingScreen({ header, footer, children, direction = 'next',
   )
 }
 
-export function StepTitle({ emoji, title, subtitle }) {
+// Icône au trait dans un carré arrondi rose clair (pas d'emoji dans l'onboarding)
+export function IconBadge({ icon: Icon, size = 48, iconSize = 24, style }) {
+  return (
+    <div style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), background: '#FFF0F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, ...style }}>
+      <Icon size={iconSize} strokeWidth={1.9} color="#e055aa" />
+    </div>
+  )
+}
+
+export function StepTitle({ icon, title, subtitle }) {
   return (
     <div className="ob-rise" style={{ marginBottom: 26 }}>
-      {emoji && <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 14 }}>{emoji}</div>}
+      {icon && <IconBadge icon={icon} style={{ marginBottom: 16 }} />}
       <h1 style={{ fontSize: 28, fontWeight: 800, color: BLACK, letterSpacing: -0.5, lineHeight: 1.15, margin: 0 }}>{title}</h1>
       {subtitle && <p style={{ fontSize: 15, color: GRAY, lineHeight: 1.5, margin: '8px 0 0' }}>{subtitle}</p>}
     </div>

@@ -116,7 +116,7 @@ export default function StepPhoto({ userId, profile, header, direction, onDone }
       )}
     >
       {fileInputs}
-      <StepTitle emoji="📸" title="Ajoute une photo" subtitle="Tes amis te reconnaîtront plus facilement dans leurs invitations." />
+      <StepTitle icon={Camera} title="Ajoute une photo" subtitle="Tes amis te reconnaîtront plus facilement dans leurs invitations." />
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
         <button
           type="button"

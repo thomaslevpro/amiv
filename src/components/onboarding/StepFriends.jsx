@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { QrCode, Search, Share2, X } from 'lucide-react'
+import { Check, QrCode, Search, Share2, Users, X } from 'lucide-react'
 import { getFriendSuggestions, searchPeople, sendFriendRequest } from '../../lib/friendships'
 import { shareLink } from '../../lib/share'
 import { captureSupabaseError } from '../../lib/monitoring'
@@ -27,7 +27,7 @@ function PersonRow({ person, sent, onAdd }) {
         className="ob-press"
         style={{ border: 'none', borderRadius: 12, padding: '9px 13px', fontSize: 13, fontWeight: 650, whiteSpace: 'nowrap', flexShrink: 0, fontFamily: FONT, cursor: done ? 'default' : 'pointer', background: done ? LIGHT : GRADIENT, color: done ? GRAY : '#fff' }}
       >
-        {person.is_friend ? 'Ami' : sent ? 'Envoyée ✓' : 'Ajouter'}
+        {person.is_friend ? 'Ami' : sent ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={14} strokeWidth={2.4} /> Envoyée</span> : 'Ajouter'}
       </button>
     </div>
   )
@@ -79,8 +79,8 @@ export default function StepFriends({ userId, profile, header, direction, onDone
   }
 
   async function share() {
-    const result = await shareLink({ title: 'Rejoins-moi sur Amiv', text: 'Retrouve-moi sur Amiv pour ne rater aucun anniversaire 🎂', url: inviteLink })
-    if (result === 'copied') setShareFeedback('Lien copié ✓')
+    const result = await shareLink({ title: 'Rejoins-moi sur Amiv', text: 'Retrouve-moi sur Amiv pour ne rater aucun anniversaire', url: inviteLink })
+    if (result === 'copied') setShareFeedback('Lien copié')
     else if (result === 'failed') setShowQr(true)
   }
 
@@ -93,7 +93,7 @@ export default function StepFriends({ userId, profile, header, direction, onDone
       screenKey="friends"
       footer={<PrimaryButton onClick={() => onDone({ friendRequests: sentIds.size })}>Continuer</PrimaryButton>}
     >
-      <StepTitle emoji="🤝" title="Retrouve tes amis" subtitle="Ajoute ceux qui sont déjà sur Amiv, invite les autres." />
+      <StepTitle icon={Users} title="Retrouve tes amis" subtitle="Ajoute ceux qui sont déjà sur Amiv, invite les autres." />
 
       <div style={{ height: 48, borderRadius: 14, background: LIGHT, display: 'flex', alignItems: 'center', gap: 9, padding: '0 14px', marginBottom: 12 }}>
         <Search size={18} strokeWidth={2.2} color={GRAY} />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Loader2, X } from 'lucide-react'
+import { Check, Loader2, UserRound, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { captureSupabaseError } from '../../lib/monitoring'
 import { hapticError, hapticSuccess } from '../../lib/haptics'
@@ -120,7 +120,7 @@ export default function StepIdentity({ userId, profile, header, direction, onDon
       footer={<PrimaryButton onClick={handleSubmit} disabled={!canContinue} loading={saving}>{saving ? 'Enregistrement…' : 'Continuer'}</PrimaryButton>}
     >
       <form onSubmit={handleSubmit}>
-        <StepTitle emoji="👋" title="Comment tu t'appelles ?" subtitle="Ton prénom et ton pseudo permettent à tes amis de te retrouver." />
+        <StepTitle icon={UserRound} title="Comment tu t'appelles ?" subtitle="Ton prénom et ton pseudo permettent à tes amis de te retrouver." />
 
         <TextField
           label="Prénom"
