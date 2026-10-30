@@ -33,7 +33,7 @@ function LegalLayout({ title, description, sections = [], summary = [], children
           Amiv
         </Link>
         <h1 style={{ fontSize: 28, fontWeight: 900, margin: '20px 0 12px', lineHeight: 1.2 }}>{title}</h1>
-        {legal && <><div style={{ color: COLORS.secondary, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}><div>Date d'effet : 29 octobre 2026</div><div>Dernière mise à jour : 29 octobre 2026</div></div>
+        {legal && <><div style={{ color: COLORS.secondary, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}><div>Date d'effet : 29 octobre 2026</div><div>Dernière mise à jour : 30 octobre 2026</div></div>
         {description && <div style={{ fontSize: 15, lineHeight: 1.65, color: COLORS.body, margin: '0 0 20px' }}>{description}</div>}
         <details style={{ background: COLORS.card, borderRadius: 14, padding: '14px 16px', margin: '0 0 22px', fontSize: 14, lineHeight: 1.55 }}>
           <summary style={{ fontWeight: 800, cursor: 'pointer', color: COLORS.text }}>En bref</summary>
@@ -177,7 +177,8 @@ export function TermsPage() {
           'suivre les anniversaires de ses amis et recevoir des rappels ;',
           "discuter dans le chat d'un événement ou en messages privés ;",
           'préparer une surprise dans un espace secret, caché à la personne fêtée : idées cadeaux, cagnotte, souvenirs, chat secret ;',
-          'partager des souvenirs, révélés à la personne fêtée le jour de son anniversaire.',
+          'partager des souvenirs, révélés à la personne fêtée le jour de son anniversaire ;',
+          "partager les photos d'un événement avec ses participants, dans un album.",
         ]} />
         <P>Amiv ne gère aucun paiement. Une cagnotte est un lien vers un service externe, choisi par l'organisateur, qui applique ses propres conditions.</P>
       </Section>
@@ -250,7 +251,8 @@ export function PrivacyPage() {
             ["Compte : email, mot de passe géré par Supabase Auth, dates d'inscription et de connexion", 'Créer et sécuriser ton compte', 'Exécution des CGU', "Jusqu'à la suppression du compte que tu peux demander à tout moment ; aucune suppression automatique pour inactivité n'est actuellement activée"],
             ['Profil : nom, prénom, pseudo, photo, date de naissance, ville (facultative)', 'T\'identifier auprès de tes amis, rappeler ton anniversaire, te suggérer des amis', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
             ['Événements, invitations, réponses, votes de dates, checklist, budget', 'Organiser tes événements', 'Exécution des CGU', "Tant que l'événement existe"],
-            ['Messages, souvenirs, photos, idées cadeaux, cagnotte', 'Discuter et préparer les surprises', 'Exécution des CGU', "Tant que l'événement ou la conversation existe"],
+            ['Messages, souvenirs et leurs photos, idées cadeaux, cagnotte', 'Discuter et préparer les surprises', 'Exécution des CGU', "Tant que l'événement ou la conversation existe"],
+            ["Album photo d'un événement : photos (réduites à 1600 pixels de large) et leurs miniatures, prénom de la personne qui les a ajoutées, date d'ajout", "Partager les photos de l'événement avec ses participants", 'Exécution des CGU', "2 mois après la date de l'événement. Environ un mois après l'événement, les participants sont prévenus pour enregistrer les photos qu'ils veulent garder, et la suppression n'a jamais lieu moins de 30 jours après ce message. Une photo est supprimée plus tôt si son auteur ou l'organisateur la supprime, si l'événement est supprimé ou si son auteur supprime son compte."],
             ['Amis, blocages', 'Relier les comptes, te protéger', 'Exécution des CGU', "Jusqu'à la suppression du compte, ou jusqu'à ce que tu débloques la personne"],
             ['Suggestions d\'amis : profils que tu as masqués', 'Ne plus te proposer ces personnes', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
             ['Données de personnes sans compte : nom, email, réponse à une invitation', "Inviter quelqu'un qui n'a pas Amiv", 'Intérêt légitime', "12 mois après la date de l'événement"],
@@ -259,14 +261,15 @@ export function PrivacyPage() {
             ["Empreinte pseudonymisée de l'adresse IP de la personne qui répond à un lien d'anniversaire, jamais l'adresse elle-même", 'Limiter les abus', 'Intérêt légitime', '24 heures'],
             ['Notifications', "T'informer dans l'application et sur ton iPhone", 'Exécution des CGU', '6 mois'],
             ["Jeton de notification push de ton appareil", "T'envoyer des notifications push sur iPhone", "Consentement, donné quand iOS te demande d'autoriser les notifications", "Supprimé quand tu te déconnectes, quand Apple indique qu'il n'est plus valide, et avec ton compte"],
-            ['Signalements : auteur, message ou profil signalé, motif, commentaire, copie du contenu signalé au moment du signalement', 'Modérer les contenus', 'Intérêt légitime', '12 mois après leur traitement, ou après leur création s’ils ne sont pas traités'],
+            ['Signalements : auteur, message, photo ou profil signalé, motif, commentaire, copie du contenu signalé au moment du signalement', 'Modérer les contenus', 'Intérêt légitime', '12 mois après leur traitement, ou après leur création s’ils ne sont pas traités'],
             ['Messages au support, envoyés par le formulaire « Nous contacter » ou par email', 'Répondre et corriger les bugs', 'Intérêt légitime', "2 ans après le dernier échange. Les messages du formulaire ne sont pas enregistrés dans la base d'Amiv : ils arrivent par email dans la boîte du support, comme les emails reçus, et sont supprimés selon la même durée."],
             ["Données techniques : adresse IP, type d'appareil, journaux", 'Sécurité et bon fonctionnement', 'Intérêt légitime', 'Quelques jours, selon les hébergeurs'],
           ]}
         />
         <P><strong>Dates d'anniversaire transmises par lien.</strong> Un utilisateur peut envoyer à un proche un lien personnel pour lui demander sa date d'anniversaire. La personne qui répond, même sans compte Amiv, nous transmet son prénom, son jour et mois de naissance et, si elle le souhaite, son année de naissance. Ces informations ne sont visibles que par l'utilisateur qui a envoyé le lien. Elles servent uniquement à lui rappeler cet anniversaire et ne sont ni publiées ni partagées.</P>
         <P><strong>Suggestions d'amis.</strong> Amiv te propose des personnes que tu connais peut-être, selon, par ordre d'importance : vos amis en commun, les événements auxquels vous participez tous les deux, et les invitations échangées entre vous. Ta ville, si tu l'as renseignée, ne sert qu'en complément : elle ne suffit jamais à elle seule pour proposer quelqu'un et n'est jamais affichée aux autres. Ne sont jamais proposés : les personnes que tu as bloquées ou qui t'ont bloqué, les profils que tu as masqués, et les personnes avec qui une demande d'ami existe déjà. Une suggestion affiche uniquement le nom, le pseudo, la photo et la raison de la suggestion, par exemple le nombre d'amis en commun.</P>
-        <P><strong>Signalement et blocage.</strong> Un signalement est transmis uniquement à l'éditeur, qui est prévenu par email, et la personne signalée ne sait pas qui l'a signalée. Bloquer quelqu'un empêche entre vous les messages privés et les demandes d'ami, ignore ses invitations et masque ses messages dans les chats d'événement. La personne bloquée n'en est pas informée.</P>
+        <P><strong>Album photo d'un événement.</strong> Chaque participant peut ajouter jusqu'à 10 photos par événement. Avant l'envoi, la photo est réduite sur ton appareil et une miniature est créée. Les photos sont stockées dans un espace privé chez Supabase, jamais accessible publiquement : elles ne s'affichent qu'au travers de liens temporaires, valables 10 minutes, créés pour les personnes autorisées. Tu peux supprimer tes photos à tout moment ; l'organisateur et les co-organisateurs peuvent supprimer n'importe quelle photo de leur événement. Les fichiers sont effacés en même temps que la photo. Une photo enregistrée par un participant sur son téléphone reste sous sa responsabilité. Chaque photo peut être signalée.</P>
+        <P><strong>Signalement et blocage.</strong> Un signalement est transmis uniquement à l'éditeur, qui est prévenu par email, et la personne signalée ne sait pas qui l'a signalée. Bloquer quelqu'un empêche entre vous les messages privés et les demandes d'ami, ignore ses invitations, masque ses messages dans les chats d'événement et cache vos photos l'un à l'autre dans les albums. La personne bloquée n'en est pas informée.</P>
         <P>Tu ne reçois aucune publicité, et tes données ne servent à aucun profilage. Les emails envoyés par Amiv servent uniquement au fonctionnement du service, par exemple pour la confirmation d'inscription, la réinitialisation du mot de passe, les invitations et les relances.</P>
       </Section>
 
@@ -275,6 +278,7 @@ export function PrivacyPage() {
           <><strong>Les utilisateurs connectés</strong> voient ton nom, ton prénom, ton pseudo et ta photo.</>,
           <><strong>Tes amis</strong> voient en plus ta date de naissance.</>,
           <><strong>Les participants d'un événement</strong> voient tes réponses et tes messages dans cet événement.</>,
+          <><strong>Les photos de l'album d'un événement</strong> sont visibles uniquement par l'organisateur, les co-organisateurs et les participants qui ont accepté l'invitation, y compris la personne fêtée une fois qu'elle a accepté. Les invités en attente, « peut-être » ou qui ont refusé ne voient pas l'album.</>,
           <><strong>La personne fêtée</strong> ne voit jamais l'espace secret. Elle découvre uniquement les souvenirs, le jour de son anniversaire.</>,
           <><strong>Ton email et ta ville</strong> ne sont jamais affichés aux autres utilisateurs.</>,
           <><strong>Une date d'anniversaire transmise par lien</strong> n'est visible que par l'utilisateur qui a envoyé le lien.</>,
@@ -297,7 +301,7 @@ export function PrivacyPage() {
       <Section id="suppression-de-ton-compte" title="3. Suppression de ton compte">
         <P>La suppression automatique des comptes inactifs n'est actuellement pas activée. Après 3 ans sans activité, tu reçois un email pour t'en informer. Ton compte n'est pas supprimé pour autant. Tu peux supprimer ton compte à tout moment depuis Profil → Supprimer mon compte.</P>
         <P>La suppression est immédiate : ton profil, tes fichiers et ton compte de connexion sont effacés dès ta demande. Seules les sauvegardes peuvent contenir tes données, 7 jours maximum.</P>
-        <P>Sont alors supprimés : ton profil, ta photo, tes amis, tes blocages, les profils que tu as masqués, tes réponses, tes souvenirs, tes mots sur les cartes, tes fichiers, tes demandes d'anniversaire, tes signalements et le jeton de notification de tes appareils.</P>
+        <P>Sont alors supprimés : ton profil, ta photo, tes amis, tes blocages, les profils que tu as masqués, tes réponses, tes souvenirs, les photos que tu as ajoutées aux albums, tes mots sur les cartes, tes fichiers, tes demandes d'anniversaire, tes signalements et le jeton de notification de tes appareils.</P>
         <P>Les événements que tu organises sont transférés à un co-organisateur s'il y en a un, sinon supprimés, et les invités en sont prévenus. Tes messages dans les chats d'événement et les messages privés restent visibles par les autres participants, mais apparaissent sous « Utilisateur supprimé » : ces échanges appartiennent aussi aux autres. Les signalements faits par d'autres sur tes messages ou ton profil sont supprimés 12 mois après leur traitement, ou 12 mois après leur création s'ils ne sont pas traités.</P>      </Section>
 
       <Section id="tes-droits" title="4. Tes droits">
@@ -311,7 +315,7 @@ export function PrivacyPage() {
       </Section>
 
       <Section id="securite" title="6. Sécurité">
-        <P>Les échanges sont chiffrés (HTTPS) et les mots de passe ne sont jamais stockés en clair. L'accès aux données est limité en base : chacun ne voit que ce qui le concerne, et l'espace secret est fermé à la personne fêtée.</P>
+        <P>Les échanges sont chiffrés (HTTPS) et les mots de passe ne sont jamais stockés en clair. L'accès aux données est limité en base : chacun ne voit que ce qui le concerne, et l'espace secret est fermé à la personne fêtée. Les photos sont stockées dans un espace privé et ne s'affichent que par des liens temporaires.</P>
       </Section>
 
       <Section id="cookies-et-traceurs" title="7. Cookies et traceurs">
