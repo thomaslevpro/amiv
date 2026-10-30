@@ -103,10 +103,11 @@ describe('EventGuestsSection', () => {
 })
 
 describe('eventGuests', () => {
-  it('nom affiché : nom, prénom, @pseudo, Utilisateur Amiv', () => {
+  it('nom affiché : Prénom Nom, @pseudo, Utilisateur Amiv', () => {
     expect(guestDisplayName({ name: 'Léa Martin', first_name: 'Léa' })).toBe('Léa Martin')
-    expect(guestDisplayName({ name: 'L', first_name: 'Léa' })).toBe('Léa')
-    expect(guestDisplayName({ name: 'L', username: 'lea' })).toBe('@lea')
+    expect(guestDisplayName({ name: 'Martin', first_name: 'Léa' })).toBe('Léa Martin')
+    expect(guestDisplayName({ name: 'Léa', first_name: 'Léa' })).toBe('Léa')
+    expect(guestDisplayName({ name: '', username: 'lea' })).toBe('@lea')
     expect(guestDisplayName({ name: '' })).toBe('Utilisateur Amiv')
   })
 

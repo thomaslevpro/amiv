@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { fullName } from '../../utils/displayName'
 
 const GROUP_INTERVAL_MS = 2 * 60 * 1000
 
@@ -14,8 +15,8 @@ export function friendFirstName(friend, fallback = 'Ami') {
   const explicitFirstName = friend?.friend_first_name?.trim()
   if (explicitFirstName) return explicitFirstName
 
-  const fullName = friend?.friend_name?.trim()
-  if (fullName) return firstName(fullName)
+  const name = friend?.friend_name?.trim()
+  if (name) return firstName(name)
 
   return friend?.friend_username || fallback
 }
@@ -24,11 +25,11 @@ export function friendFirstName(friend, fallback = 'Ami') {
 export const DELETED_USER_LABEL = 'Utilisateur supprimé'
 
 export function directProfileDisplayName(profile) {
-  return profile?.first_name || profile?.name || profile?.email || 'Utilisateur'
+  return profileDisplayName(profile, 'Utilisateur')
 }
 
 export function profileDisplayName(profile, fallback = 'Ami') {
-  return profile?.first_name || profile?.name || profile?.email || fallback
+  return fullName(profile?.first_name, profile?.name) || profile?.email || fallback
 }
 
 export function notificationConversationId(notification) {

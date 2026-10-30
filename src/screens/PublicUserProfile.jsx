@@ -4,6 +4,7 @@ import { ChevronLeft, MoreHorizontal, UserPlus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { isBlockedByMe } from '../lib/safety'
 import { UserSafetySheet } from '../components/safety/SafetySheets'
+import { fullName } from '../utils/displayName'
 
 const COLORS = {
   page: '#FFFFFF',
@@ -14,13 +15,12 @@ const COLORS = {
 }
 
 function getDisplayName(profile) {
-  return [profile?.first_name, profile?.name].filter(Boolean).join(' ').trim() || 'Profil Amiv'
+  return fullName(profile?.first_name, profile?.name) || 'Profil Amiv'
 }
 
 function getInitials(profile) {
-  const parts = [profile?.first_name, profile?.name].filter(Boolean)
-  const source = parts.length ? parts : ['A']
-  return source.slice(0, 2).map(part => part.trim().charAt(0).toUpperCase()).join('')
+  const parts = getDisplayName(profile).split(/\s+/)
+  return parts.slice(0, 2).map(part => part.trim().charAt(0).toUpperCase()).join('')
 }
 
 function Toast({ message }) {

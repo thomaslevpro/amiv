@@ -38,6 +38,7 @@ import BlockedUsersModal from '../components/profile/BlockedUsersModal'
 import SupportMessageModal from '../components/profile/SupportMessageModal'
 import { unregisterPushToken } from '../lib/push'
 import { birthdayRequestStatus, createBirthdayRequest, listBirthdayRequests, shareBirthdayRequest } from '../lib/birthdayRequests'
+import { fullName } from '../utils/displayName'
 
 dayjs.locale('fr')
 
@@ -118,8 +119,7 @@ async function fetchStats(user) {
 }
 
 function getDisplayName(profile) {
-  const fullName = [profile?.first_name, profile?.name].filter(Boolean).join(' ').trim()
-  return fullName || profile?.email || 'Profil'
+  return fullName(profile?.first_name, profile?.name) || profile?.email || 'Profil'
 }
 
 function getInitial(profile) {

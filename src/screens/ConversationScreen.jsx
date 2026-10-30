@@ -7,6 +7,7 @@ import DirectFriendProfileSheet from '../components/messages/DirectFriendProfile
 import { CloseFriendBadge } from '../components/messages/MessageUI'
 import { recordSentMessage } from '../components/messages/utils'
 import MessageComposer from '../components/messages/MessageComposer'
+import { fullName } from '../utils/displayName'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
 const PAGE_BG = '#FFFFFF'
@@ -25,7 +26,7 @@ function getInitials(name) {
 }
 
 function friendName(friend) {
-  return friend?.friend_name || friend?.full_name || friend?.name || friend?.email || 'Ami'
+  return fullName(friend?.friend_first_name, friend?.friend_name) || friend?.full_name || friend?.name || friend?.email || 'Ami'
 }
 
 function friendAvatar(friend) {

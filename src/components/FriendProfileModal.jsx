@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { getDaysUntilBirthday } from '../utils/dateUtils'
 import { formatBirthday as formatProfileBirthday } from '../utils/birthday'
+import { friendFullName } from '../utils/displayName'
 
 function getInitials(name) {
   return (name ?? '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -66,7 +67,7 @@ export default function FriendProfileModal({ friend, onClose, onSendMessage }) {
             {friend.friend_avatar ? (
               <img
                 src={friend.friend_avatar}
-                alt={friend.friend_name}
+                alt={friendFullName(friend)}
                 style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }}
               />
             ) : (
@@ -76,12 +77,12 @@ export default function FriendProfileModal({ friend, onClose, onSendMessage }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 28, fontWeight: 700, color: '#fff', flexShrink: 0,
               }}>
-                {getInitials(friend.friend_name)}
+                {getInitials(friendFullName(friend))}
               </div>
             )}
 
             <div style={{ fontSize: 18, fontWeight: 700, color: '#1C1C1E', textAlign: 'center' }}>
-              {friend.friend_name}
+              {friendFullName(friend)}
             </div>
 
             {birthdayText && (

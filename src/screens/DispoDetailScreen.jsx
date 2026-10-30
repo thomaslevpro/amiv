@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { profileFullName } from '../utils/displayName'
 
 const moodEmoji = {
   cafe: '☕',
@@ -12,7 +13,7 @@ const moodEmoji = {
 }
 
 function name(profile) {
-  return [profile?.first_name, profile?.name].filter(Boolean).join(' ') || 'Ami'
+  return profileFullName(profile)
 }
 
 function firstName(profile) {

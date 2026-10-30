@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { captureSupabaseError } from './monitoring'
+import { profileFullName } from '../utils/displayName'
 
 // Statuts renvoyés par get_event_guest_list / get_event_guest_counts, dans
 // l'ordre d'affichage.
@@ -99,11 +100,5 @@ export function toCardStats(counts) {
 // Même règle que get_event_guest_list : nom, sinon prénom, sinon @pseudo,
 // sinon « Utilisateur Amiv » (un nom d'une lettre compte comme absent).
 export function guestDisplayName(profile) {
-  const name = profile?.name?.trim()
-  if (name && name.length > 1) return name
-  const firstName = profile?.first_name?.trim()
-  if (firstName && firstName.length > 1) return firstName
-  const username = profile?.username?.trim()
-  if (username) return `@${username}`
-  return 'Utilisateur Amiv'
+  return profileFullName(profile, 'Utilisateur Amiv')
 }

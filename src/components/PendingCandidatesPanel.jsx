@@ -1,4 +1,5 @@
 import { Check, X } from 'lucide-react'
+import { profileFullName } from '../utils/displayName'
 
 const COLORS = {
   card: '#FFFFFF',
@@ -19,7 +20,7 @@ function hashIndex(value = '') {
 }
 
 function displayName(profile) {
-  return [profile?.first_name, profile?.name].filter(Boolean).join(' ').trim() || profile?.name || 'Invité'
+  return profileFullName(profile, 'Invité')
 }
 
 export default function PendingCandidatesPanel({

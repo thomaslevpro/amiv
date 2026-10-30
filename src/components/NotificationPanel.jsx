@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/fr'
 import { supabase } from '../lib/supabase'
+import { profileFullName } from '../utils/displayName'
 
 dayjs.extend(relativeTime)
 dayjs.locale('fr')
@@ -25,7 +26,7 @@ function avatarColor(id = '') {
 }
 
 function displayName(profile) {
-  return profile?.first_name || profile?.name || '?'
+  return profileFullName(profile, '?')
 }
 
 function initials(profile) {

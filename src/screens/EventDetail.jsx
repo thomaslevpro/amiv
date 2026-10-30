@@ -17,6 +17,7 @@ import PlusOneRequest from '../components/PlusOneRequest'
 import PlusOneReviewList from '../components/PlusOneReviewList'
 import { BottomSheet } from '../components/safety/SafetySheets'
 import useEventDetail from '../hooks/useEventDetail'
+import { profileFullName } from '../utils/displayName'
 
 // Âge atteint à la date de l'événement (ou aujourd'hui sans date)
 function ageAt(birthday, dateStr) {
@@ -192,7 +193,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick, on
             {coOrgLoading ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#8E8E93', fontSize: 14 }}>Chargement…</div> : confirmedParticipants.length === 0 ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#8E8E93', fontSize: 14 }}>Aucun participant confirmé disponible</div> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
                 {confirmedParticipants.map(participant => {
-                  const name = participant.first_name || participant.name || 'Invité'
+                  const name = profileFullName(participant, 'Invité')
                   return <div key={participant.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{participant.avatar_url ? <img src={participant.avatar_url} alt={name} style={{ width: 38, height: 38, borderRadius: 19, objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 38, height: 38, borderRadius: 19, background: getAvatarColor(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{name.charAt(0).toUpperCase()}</div>}<div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#1C1C1E' }}>{name}</div><button type="button" disabled={coOrgSubmitting} onClick={() => handleAddCoOrganizer(participant.id)} style={{ padding: '7px 14px', borderRadius: 20, border: 'none', background: 'linear-gradient(135deg,#e055aa,#f5a623)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: coOrgSubmitting ? 'default' : 'pointer', opacity: coOrgSubmitting ? 0.6 : 1, flexShrink: 0, whiteSpace: 'nowrap' }}>Ajouter</button></div>
                 })}
               </div>

@@ -1,5 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import { useFriendships } from '../hooks/useFriendships'
+import { friendFullName } from '../utils/displayName'
 
 export default function CloseFriendsScreen({ onBack, userId }) {
   const { friends, toggleCloseFriend } = useFriendships(userId)
@@ -38,8 +39,8 @@ export default function CloseFriendsScreen({ onBack, userId }) {
         </div>
       ) : (
         friends.map(friend => {
-          const displayName = `${friend.friend_first_name ?? ''} ${friend.friend_name ?? ''}`.trim()
-          const initials = `${friend.friend_first_name?.[0] ?? ''}${friend.friend_name?.[0] ?? ''}`.toUpperCase()
+          const displayName = friendFullName(friend)
+          const initials = displayName.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
           return (
             <div

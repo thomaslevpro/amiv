@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import { BG, BLACK, FONT, GRAY1, WHITE } from './constants'
 import { Avatar, SkeletonRow } from './MessageUI'
-import { friendFirstName } from './utils'
+import { friendFullName } from '../../utils/displayName'
 
 export default function NewMessageSheet({ friends, loading, onClose, onSelectFriend }) {
   return (
@@ -62,7 +62,7 @@ export default function NewMessageSheet({ friends, loading, onClose, onSelectFri
               Aucun ami disponible pour le moment
             </div>
           ) : friends.map((friend, index) => {
-            const label = friendFirstName(friend)
+            const label = friendFullName(friend)
             return (
               <div key={friend.friend_id}>
                 <button

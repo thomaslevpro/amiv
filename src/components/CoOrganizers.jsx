@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Trash2, UserPlus, X } from 'lucide-react'
 import { addCoOrganizer, getOrganizers, removeCoOrganizer } from '../lib/organizers'
+import { fullName } from '../utils/displayName'
 
 const fontFamily = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif"
 const gradient = 'linear-gradient(135deg, #e055aa 0%, #f5a623 100%)'
 
 function displayName(profile) {
-  return profile?.first_name || profile?.name || profile?.username || profile?.email || 'Invité'
+  return fullName(profile?.first_name, profile?.name) || profile?.username || profile?.email || 'Invité'
 }
 
 function avatarInitial(profile) {

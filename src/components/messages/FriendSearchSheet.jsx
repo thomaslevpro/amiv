@@ -5,9 +5,10 @@ import { supabase } from '../../lib/supabase'
 import AmivQrModal from '../profile/AmivQrModal'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { Avatar } from './MessageUI'
+import { fullName } from '../../utils/displayName'
 
 function requestName(request) {
-  return request.requester_first_name || request.requester_name || request.friend_name || request.name || 'Utilisateur'
+  return request.requester_name || fullName(request.friend_first_name, request.friend_name) || request.name || 'Utilisateur'
 }
 
 function requestAvatar(request) {

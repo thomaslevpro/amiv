@@ -40,6 +40,7 @@ import EventPage from './pages/EventPage'
 import DispoCalendarPage from './pages/DispoCalendarPage'
 import UsernamePrompt from './components/UsernamePrompt'
 import PushPermissionPrompt from './components/PushPermissionPrompt'
+import { profileFullName } from './utils/displayName'
 
 // Écrans secondaires chargés à la demande (hors premier écran)
 const SecretSpacePage = lazy(() => import('./pages/SecretSpacePage'))
@@ -443,7 +444,8 @@ function MainApp() {
         conversationId,
         friend: {
           friend_id: senderId,
-          friend_name: [data?.first_name, data?.name].filter(Boolean).join(' ') || 'Ami',
+          friend_name: profileFullName(data),
+          friend_first_name: data?.first_name ?? null,
           friend_avatar: data?.avatar_url ?? '',
         },
       },

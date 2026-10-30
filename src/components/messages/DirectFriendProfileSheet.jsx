@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { BG, BLACK, FONT, GRAY1, WHITE } from './constants'
 import { CloseFriendBadge } from './MessageUI'
 import { formatBirthday as formatProfileBirthday } from '../../utils/birthday'
+import { fullName } from '../../utils/displayName'
 
 const GRADIENT = 'linear-gradient(135deg,#e055aa,#f5a623)'
 
@@ -20,11 +21,7 @@ function getInitials(firstName, lastName, fallbackName) {
 }
 
 function getDisplayName(profile, friend) {
-  // name contient souvent déjà le prénom (« Olga » + « Olga » → « Olga Olga »)
-  const first = profile?.first_name?.trim()
-  const name = profile?.name?.trim()
-  const fullName = first && name?.toLowerCase().startsWith(first.toLowerCase()) ? name : [first, name].filter(Boolean).join(' ')
-  return fullName || friend?.friend_name || friend?.full_name || friend?.name || 'Ami'
+  return fullName(profile?.first_name, profile?.name) || fullName(friend?.friend_first_name, friend?.friend_name) || friend?.full_name || friend?.name || 'Ami'
 }
 
 function getFriendId(friend) {
