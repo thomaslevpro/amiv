@@ -11,6 +11,9 @@ import { buildAuthEmails, normalizeEventType, type AuthEmailPayload } from './em
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SEND_EMAIL_HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
+// Transition : « true » ajoute sous le code un lien de secours pour les
+// anciennes versions de l'app iOS (sans écran de code). À retirer ensuite.
+const FALLBACK_LINKS = Deno.env.get('AUTH_EMAIL_FALLBACK_LINK') === 'true'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -34,7 +37,7 @@ Deno.serve(async (req) => {
   }
 
   const eventType = normalizeEventType(payload)
-  const emails = buildAuthEmails(payload, SUPABASE_URL)
+  const emails = buildAuthEmails(payload, SUPABASE_URL, { fallbackLinks: FALLBACK_LINKS })
   if (!Array.isArray(emails)) {
     console.error('auth email refused', { type: eventType, error: emails.error })
     return json({ error: emails.error }, 400)

@@ -72,3 +72,13 @@ Deno.test('unknown type is refused', () => {
   const result = buildAuthEmails({ user, email_data: { email_action_type: 'invite', token: '1', token_hash: 'x' } }, SUPABASE_URL)
   assert(!Array.isArray(result), 'invite should be refused (no template)')
 })
+
+Deno.test('transition: fallback link under the code only when enabled', () => {
+  const payload = { user, email_data: { email_action_type: 'signup', token: '123456', token_hash: 'abc' } }
+  const off = single(buildAuthEmails(payload, SUPABASE_URL)).content
+  const on = single(buildAuthEmails(payload, SUPABASE_URL, { fallbackLinks: true })).content
+  assert(!off.html.includes('href'), 'no link by default')
+  assert(on.html.includes('123456') && on.html.includes('type=email&amp;token=abc'), 'fallback link missing')
+  const recovery = single(buildAuthEmails({ user, email_data: { email_action_type: 'recovery', token: '1', token_hash: 'r' } }, SUPABASE_URL, { fallbackLinks: true })).content
+  assert(recovery.html.includes('type=recovery&amp;token=r') && recovery.html.includes('auth%2Freset'), 'recovery fallback must go to /auth/reset')
+})

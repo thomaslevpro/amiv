@@ -21,6 +21,7 @@ export type AuthEmailPayload = {
 export type AuthEmail = { to: string; content: EmailContent }
 
 const AUTH_CALLBACK_URL = 'https://amiv.app/auth/callback'
+const AUTH_RESET_URL = 'https://amiv.app/auth/reset'
 
 const SIGNUP_TYPES = ['signup', 'signupconfirmation', 'confirmation', 'confirm']
 const RECOVERY_TYPES = ['recovery', 'passwordreset', 'resetpassword', 'passwordrecovery']
@@ -30,11 +31,11 @@ export function normalizeEventType(payload: AuthEmailPayload) {
   return payload.email_data?.email_action_type?.toLowerCase().replace(/[\s_-]+/g, '')
 }
 
-function verifyUrl(supabaseUrl: string, tokenHash: string, type: string) {
+function verifyUrl(supabaseUrl: string, tokenHash: string, type: string, redirectTo = AUTH_CALLBACK_URL) {
   const url = new URL(`${supabaseUrl}/auth/v1/verify`)
   url.searchParams.set('type', type)
   url.searchParams.set('token', tokenHash)
-  url.searchParams.set('redirect_to', AUTH_CALLBACK_URL)
+  url.searchParams.set('redirect_to', redirectTo)
   return url.toString()
 }
 
@@ -51,8 +52,13 @@ function layout(inner: string) {
   `
 }
 
-function codeEmail({ subject, title, intro, code, footer }: { subject: string; title: string; intro: string; code: string; footer: string }): EmailContent {
+// fallbackUrl : lien de secours pour les versions de l'app qui n'ont pas
+// encore l'écran du code (transition, voir AUTH_EMAIL_FALLBACK_LINK).
+function codeEmail({ subject, title, intro, code, footer, fallbackUrl }: { subject: string; title: string; intro: string; code: string; footer: string; fallbackUrl?: string }): EmailContent {
   const safeCode = escapeHtml(code)
+  const fallback = fallbackUrl
+    ? `<p style="margin:0 0 16px;color:#AEAEB2;font-size:12px;line-height:1.5;">Ton app ne te demande pas de code ? Mets-la à jour, ou <a href="${escapeHtml(fallbackUrl)}" style="color:#e055aa;">utilise ce lien</a>.</p>`
+    : ''
   return {
     subject,
     html: layout(`
@@ -62,9 +68,10 @@ function codeEmail({ subject, title, intro, code, footer }: { subject: string; t
           <div style="font-size:38px;font-weight:800;letter-spacing:10px;color:#1C1C1E;font-family:'SF Mono',Menlo,Consolas,monospace;">${safeCode}</div>
         </div>
         <p style="margin:0 0 8px;color:#8E8E93;font-size:13px;line-height:1.5;">Ce code est valable 1 heure.</p>
+        ${fallback}
         <p style="margin:0;color:#AEAEB2;font-size:12px;line-height:1.5;">${footer}</p>
     `),
-    text: `${title}\n\n${intro}\n\nTon code : ${code}\n\nCe code est valable 1 heure.\n\n${footer}`,
+    text: `${title}\n\n${intro}\n\nTon code : ${code}\n\nCe code est valable 1 heure.${fallbackUrl ? `\n\nTon app ne te demande pas de code ? Utilise ce lien : ${fallbackUrl}` : ''}\n\n${footer}`,
   }
 }
 
@@ -84,8 +91,9 @@ function linkEmail({ subject, title, intro, button, url, footer }: { subject: st
   }
 }
 
-export function signupEmail(code: string) {
+export function signupEmail(code: string, fallbackUrl?: string) {
   return codeEmail({
+    fallbackUrl,
     subject: `Ton code Amiv : ${code}`,
     title: 'Bienvenue sur Amiv !',
     intro: "Voici ton code pour confirmer ton adresse email. Saisis-le dans l'app pour finir ton inscription.",
@@ -94,8 +102,9 @@ export function signupEmail(code: string) {
   })
 }
 
-export function recoveryEmail(code: string) {
+export function recoveryEmail(code: string, fallbackUrl?: string) {
   return codeEmail({
+    fallbackUrl,
     subject: `Ton code pour changer de mot de passe : ${code}`,
     title: 'Mot de passe oublié ?',
     intro: "Pas de souci. Saisis ce code dans l'app pour choisir un nouveau mot de passe.",
@@ -140,7 +149,7 @@ function magicLinkEmail(url: string) {
 
 // Emails à envoyer pour un appel du hook (deux pour un changement d'email
 // sécurisé : ancienne et nouvelle adresse), ou une erreur.
-export function buildAuthEmails(payload: AuthEmailPayload, supabaseUrl: string | undefined): AuthEmail[] | { error: string } {
+export function buildAuthEmails(payload: AuthEmailPayload, supabaseUrl: string | undefined, { fallbackLinks = false } = {}): AuthEmail[] | { error: string } {
   const eventType = normalizeEventType(payload)
   const data = payload.email_data
   const email = payload.user?.email
@@ -149,8 +158,10 @@ export function buildAuthEmails(payload: AuthEmailPayload, supabaseUrl: string |
 
   if (SIGNUP_TYPES.includes(eventType) || RECOVERY_TYPES.includes(eventType) || eventType === 'reauthentication') {
     if (!data?.token) return { error: 'Missing token' }
-    const content = SIGNUP_TYPES.includes(eventType) ? signupEmail(data.token)
-      : RECOVERY_TYPES.includes(eventType) ? recoveryEmail(data.token)
+    const fallback = (type: string, redirectTo?: string) =>
+      fallbackLinks && supabaseUrl && data.token_hash ? verifyUrl(supabaseUrl, data.token_hash, type, redirectTo) : undefined
+    const content = SIGNUP_TYPES.includes(eventType) ? signupEmail(data.token, fallback('email'))
+      : RECOVERY_TYPES.includes(eventType) ? recoveryEmail(data.token, fallback('recovery', AUTH_RESET_URL))
       : reauthenticationEmail(data.token)
     return [{ to: email, content }]
   }
