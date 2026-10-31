@@ -1,6 +1,8 @@
 -- Vérification de 20261102140000 : un +1 accepté compte comme un participant
 -- (compteurs, liste « +1 de … », écran d'invitation reçue) et disparaît quand
--- l'organisateur le retire ou quand la personne qui l'amène décline.
+-- l'organisateur le retire ou quand la personne qui l'amène décline ; il est à
+-- revalider quand elle revient après avoir décliné ou après un retrait de son
+-- invitation (20261102160000).
 -- Run against the linked database with:
 --   supabase db query --linked -f supabase/tests/plus_one_guests_verification.sql
 --
@@ -15,6 +17,7 @@ declare
   B uuid := '00000000-0000-4000-a000-000000000073';
   F uuid := '00000000-0000-4000-a000-000000000074';
   X uuid := '00000000-0000-4000-a000-000000000075';
+  G uuid := '00000000-0000-4000-a000-000000000076';
   cases text[][] := array[
     -- O organise EV, invite A (Lola Martin) et B ; F co-organisateur.
     ['événement', 'postgres', $s$with e as (insert into events(id, name, user_id, invite_token) values ('00000000-0000-4000-e000-000000000071', 'Dry +1', '00000000-0000-4000-a000-000000000071', '00000000-0000-4000-c000-000000000071') returning 1) select count(*) from e$s$, '1'],
@@ -49,13 +52,31 @@ declare
 
     -- Le +1 suit le statut de la personne qui l'amène
     ['A passe à peut-être', 'A', $s$with i as (update invitations set status = 'maybe' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (update rsvps set status = 'pending' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1) select (select count(*) from i) + (select count(*) from r)$s$, '2'],
+    ['présente → peut-être : +1 toujours accepté', 'postgres', $s$select plus_one_status from rsvps where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072'$s$, 'accepted'],
     ['+1 peut-être aussi', 'O', $s$select total || ',' || confirmed || ',' || maybe from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '5,3,2'],
     ['A décline', 'A', $s$with r as (update rsvps set status = 'declined' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1) select count(*) from r$s$, '1'],
     ['A décline : +1 disparu', 'O', $s$select total || ',' || confirmed || ',' || declined from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '4,3,1'],
     ['A décline : liste sans +1', 'B', $s$select count(*) from get_event_guest_list('00000000-0000-4000-e000-000000000071') where role = 'plus_one'$s$, '0'],
     ['A décline : invitation reçue 3', 'anon', $s$select confirmed_count from get_event_by_share_token('00000000-0000-4000-c000-000000000071')$s$, '3'],
-    ['A revient', 'A', $s$with r as (update rsvps set status = 'going' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1) select count(*) from r$s$, '1'],
-    ['A revient : +1 de retour', 'O', $s$select total || ',' || confirmed from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '5,5'],
+    ['A revient : la ligne renvoyée montre déjà « en attente »', 'A', $s$with r as (update rsvps set status = 'going' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning plus_one_status) select string_agg(plus_one_status, ',') from r$s$, 'pending'],
+    ['A revient : nom et message gardés', 'postgres', $s$select plus_one_requested || ',' || plus_one_status || ',' || plus_one_name || ',' || plus_one_message from rsvps where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072'$s$, 'true,pending,Marc,Mon copain'],
+    ['A revient : +1 pas compté', 'O', $s$select total || ',' || confirmed from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '4,4'],
+    ['A revient : pas dans la liste', 'B', $s$select count(*) from get_event_guest_list('00000000-0000-4000-e000-000000000071') where role = 'plus_one'$s$, '0'],
+    ['A revient : invitation reçue 4', 'anon', $s$select confirmed_count from get_event_by_share_token('00000000-0000-4000-c000-000000000071')$s$, '4'],
+    ['A revient : O notifié à nouveau', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'plus_one_request' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '2'],
+    ['A revient : demande visible par O', 'O', $s$select count(*) from rsvps where event_id = '00000000-0000-4000-e000-000000000071' and plus_one_status = 'pending'$s$, '1'],
+    ['A ne peut pas se revalider', 'A', $s$update rsvps set plus_one_status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1$s$, 'ERR 42501'],
+    ['O revalide', 'O', $s$with r as (update rsvps set plus_one_status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072' returning 1) select count(*) from r$s$, '1'],
+    ['revalidé : +1 compté', 'O', $s$select total || ',' || confirmed from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '5,5'],
+
+    -- Décliné → peut-être : aussi à revalider ; peut-être → présente : non
+    ['A décline encore', 'A', $s$with r as (update rsvps set status = 'declined' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1) select count(*) from r$s$, '1'],
+    ['A revient en peut-être', 'A', $s$with i as (update invitations set status = 'maybe' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (update rsvps set status = 'pending' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1) select (select count(*) from i) + (select count(*) from r)$s$, '2'],
+    ['peut-être : +1 en attente', 'postgres', $s$select plus_one_status from rsvps where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072'$s$, 'pending'],
+    ['peut-être : O notifié', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'plus_one_request' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '3'],
+    ['O revalide (peut-être)', 'O', $s$with r as (update rsvps set plus_one_status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072' returning 1) select count(*) from r$s$, '1'],
+    ['peut-être → présente (upsert)', 'A', $s$with i as (update invitations set status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (insert into rsvps(event_id, user_id, status) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'going') on conflict (event_id, user_id) do update set status = excluded.status returning plus_one_status) select (select count(*) from i) || ',' || (select string_agg(plus_one_status, ',') from r)$s$, '1,accepted'],
+    ['toujours compté, pas de nouvelle demande', 'O', $s$select c.total || ',' || c.confirmed || ',' || (select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'plus_one_request' and data->>'event_id' = '00000000-0000-4000-e000-000000000071') from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[]) c$s$, '5,5,3'],
 
     -- L'organisateur retire le +1
     ['F retire le +1', 'F', $s$with r as (update rsvps set plus_one_status = 'declined' where id = (select plus_one_rsvp_id from get_event_guest_list('00000000-0000-4000-e000-000000000071') where role = 'plus_one') returning 1) select count(*) from r$s$, '1'],
@@ -65,6 +86,7 @@ declare
     -- +1 sans prénom (effacé par la rétention) : « +1 de Lola »
     ['+1 accepté sans prénom', 'postgres', $s$with r as (update rsvps set plus_one_status = 'accepted', plus_one_name = null where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072' returning 1) select count(*) from r$s$, '1'],
     ['nom de repli', 'B', $s$select display_name from get_event_guest_list('00000000-0000-4000-e000-000000000071') where role = 'plus_one'$s$, '+1 de Lola'],
+    ['prénom remis', 'postgres', $s$with r as (update rsvps set plus_one_name = 'Marc' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072' returning 1) select count(*) from r$s$, '1'],
 
     -- +1 d'une personne venue par le lien public
     ['Paul (lien) vient avec Julie', 'postgres', $s$insert into guest_rsvps(event_id, guest_name, guest_email, response, plus_one_requested, plus_one_status, plus_one_name) values ('00000000-0000-4000-e000-000000000071', 'Paul', 'paul@amiv.test', 'yes', true, 'accepted', 'Julie') returning 1$s$, '1'],
@@ -76,7 +98,26 @@ declare
     -- Retirer l'invitation de A retire aussi son +1
     ['O retire A', 'O', $s$select count(*) from (select remove_event_invitation((select id from invitations where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = '00000000-0000-4000-a000-000000000072'))) x$s$, '1'],
     ['plus de +1', 'O', $s$select count(*) from get_event_guest_list('00000000-0000-4000-e000-000000000071') where role = 'plus_one'$s$, '0'],
-    ['compteurs finaux', 'O', $s$select total || ',' || confirmed || ',' || declined from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '4,3,1']
+    ['compteurs après retrait', 'O', $s$select total || ',' || confirmed || ',' || declined from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '4,3,1'],
+    ['+1 mis de côté', 'postgres', $s$select plus_one_name from plus_one_holds where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072'$s$, 'Marc'],
+    ['mis de côté : illisible pour A', 'A', $s$select count(*) from plus_one_holds$s$, 'ERR 42501'],
+
+    -- Réinvitée : décline d'abord (rien), puis vient -> +1 à revalider
+    ['O réinvite A', 'O', $s$select count(*) from (select public.invite_friends_to_event('00000000-0000-4000-e000-000000000071', array['00000000-0000-4000-a000-000000000072']::uuid[])) x$s$, '1'],
+    ['A décline la nouvelle invitation', 'A', $s$with i as (update invitations set status = 'declined' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (insert into rsvps(event_id, user_id, status) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'declined') on conflict (event_id, user_id) do update set status = excluded.status returning plus_one_status) select (select count(*) from i) || ',' || (select string_agg(plus_one_status, ',') from r)$s$, '1,none'],
+    ['décliné : +1 toujours de côté', 'postgres', $s$select count(*) from plus_one_holds where event_id = '00000000-0000-4000-e000-000000000071'$s$, '1'],
+    ['A vient finalement (upsert)', 'A', $s$with i as (update invitations set status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and invited_user_id = auth.uid() returning 1), r as (insert into rsvps(event_id, user_id, status) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'going') on conflict (event_id, user_id) do update set status = excluded.status returning plus_one_status) select (select count(*) from i) || ',' || (select string_agg(plus_one_status, ',') from r)$s$, '1,pending'],
+    ['réinvitée : nom et message gardés, plus de côté', 'postgres', $s$select r.plus_one_name || ',' || r.plus_one_message || ',' || (select count(*) from plus_one_holds h where h.event_id = r.event_id) from rsvps r where r.event_id = '00000000-0000-4000-e000-000000000071' and r.user_id = '00000000-0000-4000-a000-000000000072'$s$, 'Marc,Mon copain,0'],
+    ['réinvitée : O notifié', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'plus_one_request' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '4'],
+    ['réinvitée : +1 pas compté', 'O', $s$select total || ',' || confirmed || ',' || (select count(*) from get_event_guest_list('00000000-0000-4000-e000-000000000071') where role = 'plus_one') from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '5,4,0'],
+    ['O revalide (réinvitée)', 'O', $s$with r as (update rsvps set plus_one_status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = '00000000-0000-4000-a000-000000000072' returning 1) select count(*) from r$s$, '1'],
+    ['compteurs finaux', 'O', $s$select total || ',' || confirmed || ',' || declined from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '6,5,1'],
+
+    -- Un invité ne peut pas créer sa réponse avec un +1 déjà accepté
+    ['O invite G', 'O', $s$select count(*) from (select public.invite_friends_to_event('00000000-0000-4000-e000-000000000071', array['00000000-0000-4000-a000-000000000076']::uuid[])) x$s$, '1'],
+    ['G insère un +1 accepté -> refusé', 'G', $s$insert into rsvps(event_id, user_id, status, plus_one_requested, plus_one_status, plus_one_name) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'going', true, 'accepted', 'Intrus') returning 1$s$, 'ERR 42501'],
+    ['G peut demander un +1 à la création', 'G', $s$insert into rsvps(event_id, user_id, status, plus_one_requested, plus_one_status, plus_one_name) values ('00000000-0000-4000-e000-000000000071', auth.uid(), 'going', true, 'pending', 'Ami') returning plus_one_status$s$, 'pending'],
+    ['G : O notifié de la demande', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'plus_one_request' and data->>'rsvp_id' = (select id::text from rsvps where user_id = '00000000-0000-4000-a000-000000000076')$s$, '1']
   ];
   i int; who text; who_id uuid; res text; out text := ''; fails int := 0;
 begin
@@ -90,11 +131,12 @@ begin
     (A, 'dry-po-a@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
     (B, 'dry-po-b@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
     (F, 'dry-po-f@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
-    (X, 'dry-po-x@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
+    (X, 'dry-po-x@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'),
+    (G, 'dry-po-g@amiv.test', 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000');
 
   for i in 1 .. array_length(cases, 1) loop
     who := cases[i][2];
-    who_id := case who when 'O' then O when 'A' then A when 'B' then B when 'F' then F when 'X' then X end;
+    who_id := case who when 'O' then O when 'A' then A when 'B' then B when 'F' then F when 'X' then X when 'G' then G end;
     begin
       if who = 'anon' then
         execute 'set local role anon';
