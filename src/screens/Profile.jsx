@@ -674,9 +674,7 @@ export default function Profile({ session, onCalendarClick, initialSection = nul
             <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.15, overflowWrap: 'anywhere' }}>{loading ? 'Profil' : displayName}</div>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)', marginTop: 5, overflowWrap: 'anywhere' }}>{profile?.username ? `@${profile.username}` : (profile?.email ?? session?.user?.email ?? '—')}</div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
-              <div style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '5px 12px' }}>🎉 Membre depuis {memberSince}</div>
-              <div style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '5px 12px' }}>⭐ Bêta</div>
-            </div>
+              <div style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '5px 12px' }}>🎉 Membre depuis {memberSince}</div>            </div>
           </div>
           <div style={{ height: 28, background: COLORS.page, borderRadius: '24px 24px 0 0', marginTop: 24 }} />
         </div>
