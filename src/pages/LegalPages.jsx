@@ -33,7 +33,7 @@ function LegalLayout({ title, description, sections = [], summary = [], children
           Amiv
         </Link>
         <h1 style={{ fontSize: 28, fontWeight: 900, margin: '20px 0 12px', lineHeight: 1.2 }}>{title}</h1>
-        {legal && <><div style={{ color: COLORS.secondary, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}><div>Date d'effet : 29 octobre 2026</div><div>Dernière mise à jour : 30 octobre 2026</div></div>
+        {legal && <><div style={{ color: COLORS.secondary, fontSize: 13, lineHeight: 1.5, marginBottom: 18 }}><div>Date d'effet : 29 octobre 2026</div><div>Dernière mise à jour : 31 octobre 2026</div></div>
         {description && <div style={{ fontSize: 15, lineHeight: 1.65, color: COLORS.body, margin: '0 0 20px' }}>{description}</div>}
         <details style={{ background: COLORS.card, borderRadius: 14, padding: '14px 16px', margin: '0 0 22px', fontSize: 14, lineHeight: 1.55 }}>
           <summary style={{ fontWeight: 800, cursor: 'pointer', color: COLORS.text }}>En bref</summary>
@@ -257,6 +257,7 @@ export function PrivacyPage() {
             ['Suggestions d\'amis : profils que tu as masqués', 'Ne plus te proposer ces personnes', 'Exécution des CGU', "Jusqu'à la suppression du compte"],
             ['Données de personnes sans compte : nom, email, réponse à une invitation', "Inviter quelqu'un qui n'a pas Amiv", 'Intérêt légitime', "12 mois après la date de l'événement"],
             ['Anniversaires et contacts que tu ajoutes', 'Te rappeler les anniversaires', 'Intérêt légitime', "Jusqu'à leur suppression ou celle de ton compte"],
+            ["Date de naissance de tes amis Amiv (jour, mois, et année s'ils l'ont renseignée), ajoutée automatiquement à tes anniversaires quand une demande d'ami est acceptée et mise à jour quand ils la modifient", "Te rappeler l'anniversaire de tes amis", 'Exécution des CGU', "Tant que vous êtes amis. Supprimée quand l'amitié prend fin, quand ton ami efface sa date ou supprime son compte, ou quand tu la supprimes de tes anniversaires (elle n'est alors plus ajoutée)"],
             ["Dates d'anniversaire transmises par lien : prénom, jour et mois de naissance, et année si la personne le souhaite", "Rappeler cet anniversaire à l'utilisateur qui a envoyé le lien", 'Consentement de la personne, qui choisit de répondre', "Dans les rappels de l'utilisateur tant qu'il ne les supprime pas, et au plus tard jusqu'à la suppression de son compte. Le suivi de la demande (prénom, statut, dates d'envoi et de réponse) est supprimé 90 jours après l'envoi du lien. Un lien non utilisé expire au bout de 30 jours."],
             ["Empreinte pseudonymisée de l'adresse IP de la personne qui répond à un lien d'anniversaire, jamais l'adresse elle-même", 'Limiter les abus', 'Intérêt légitime', '24 heures'],
             ['Notifications', "T'informer dans l'application et sur ton iPhone", 'Exécution des CGU', '6 mois'],
@@ -276,7 +277,7 @@ export function PrivacyPage() {
       <Section id="qui-voit-tes-donnees" title="2. Qui voit tes données">
         <List items={[
           <><strong>Les utilisateurs connectés</strong> voient ton nom, ton prénom, ton pseudo et ta photo.</>,
-          <><strong>Tes amis</strong> voient en plus ta date de naissance.</>,
+          <><strong>Tes amis</strong> voient en plus ta date de naissance (jour et mois, et année si tu l'as renseignée) : elle s'ajoute à leurs anniversaires pour qu'ils soient prévenus du tien.</>,
           <><strong>Les participants d'un événement</strong> voient tes réponses et tes messages dans cet événement.</>,
           <><strong>Les photos de l'album d'un événement</strong> sont visibles uniquement par l'organisateur, les co-organisateurs et les participants qui ont accepté l'invitation, y compris la personne fêtée une fois qu'elle a accepté. Les invités en attente, « peut-être » ou qui ont refusé ne voient pas l'album.</>,
           <><strong>La personne fêtée</strong> ne voit jamais l'espace secret. Elle découvre uniquement les souvenirs, le jour de son anniversaire.</>,

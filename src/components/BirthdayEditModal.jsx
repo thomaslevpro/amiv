@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { birthdateHasYear } from '../utils/birthday'
+import { BIRTHDAYS_UNKNOWN_YEAR, birthdayHasYear } from '../utils/birthday'
 
 function calculateAge(birthdate) {
   const today = new Date()
@@ -47,18 +47,22 @@ function calculateBirthdateFromAge(age, birthdate) {
 
 export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast }) {
   const amiv = birthday
+  // Ami Amiv : la date suit son profil, elle ne se modifie pas ici
+  const dateFromProfile = !!amiv.friend_user_id
   const nameParts = (amiv.name ?? '').trim().split(/\s+/).filter(Boolean)
   const initialFirstName = amiv.last_name ? amiv.name ?? '' : nameParts[0] ?? ''
   const initialLastName = amiv.last_name ?? nameParts.slice(1).join(' ')
   const [firstName, setFirstName] = useState(initialFirstName)
   const [lastName, setLastName]   = useState(initialLastName)
   const [date, setDate]           = useState(amiv.birthdate)
-  const [age, setAge]             = useState(() => (birthdateHasYear(amiv.birthdate) ? calculateAge(amiv.birthdate) : ''))
+  const [yearKnown, setYearKnown] = useState(() => birthdayHasYear(amiv))
+  const [age, setAge]             = useState(() => (birthdayHasYear(amiv) ? calculateAge(amiv.birthdate) : ''))
   const [saving, setSaving]       = useState(false)
 
   function handleAgeChange(e) {
     const nextAge = e.target.value
     setAge(nextAge)
+    setYearKnown(nextAge !== '')
 
     if (nextAge === '') return
     setDate(calculateBirthdateFromAge(nextAge, date))
@@ -67,7 +71,10 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
   function handleDateChange(e) {
     const nextDate = e.target.value
     setDate(nextDate)
-    setAge(birthdateHasYear(nextDate) ? calculateAge(nextDate) : '')
+    // Année inconnue : elle le reste tant que l'année affichée (2000) ne change pas
+    const known = yearKnown || Number(String(nextDate).slice(0, 4)) !== BIRTHDAYS_UNKNOWN_YEAR
+    setYearKnown(known)
+    setAge(known ? calculateAge(nextDate) : '')
   }
 
   async function handleSave(e) {
@@ -76,7 +83,11 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
     if (!trimFirst || !date) return
     const trimLast  = lastName.trim()
     const birthdate = date instanceof Date ? date.toISOString().slice(0, 10) : String(date).slice(0, 10)
-    const payload = { name: trimFirst, last_name: trimLast || null, birthdate }
+    const payload = { name: trimFirst, last_name: trimLast || null }
+    if (!dateFromProfile) {
+      payload.birthdate = birthdate
+      payload.birth_year_known = yearKnown
+    }
     setSaving(true)
     const { error } = await supabase
       .from('birthdays')
@@ -155,29 +166,37 @@ export default function BirthdayEditModal({ birthday, onClose, onSaved, onToast 
               fontSize: 15, outline: 'none', color: '#1C1C1E', background: '#fff',
             }}
           />
-          <input
-            type="number"
-            placeholder="Âge"
-            value={age}
-            onChange={handleAgeChange}
-            min="0"
-            step="1"
-            inputMode="numeric"
-            style={{
-              border: '1px solid #E5E5EA', borderRadius: 12, padding: '13px 14px',
-              fontSize: 15, outline: 'none', color: '#1C1C1E', background: '#fff',
-            }}
-          />
-          <input
-            type="date"
-            value={date}
-            onChange={handleDateChange}
-            required
-            style={{
-              border: '1px solid #E5E5EA', borderRadius: 12, padding: '13px 14px',
-              fontSize: 15, outline: 'none', color: '#1C1C1E', background: '#fff',
-            }}
-          />
+          {dateFromProfile ? (
+            <div style={{ fontSize: 13, color: '#8E8E93', lineHeight: 1.4, padding: '4px 4px 0' }}>
+              La date vient de son profil Amiv et se met à jour toute seule.
+            </div>
+          ) : (
+            <>
+              <input
+                type="number"
+                placeholder="Âge"
+                value={age}
+                onChange={handleAgeChange}
+                min="0"
+                step="1"
+                inputMode="numeric"
+                style={{
+                  border: '1px solid #E5E5EA', borderRadius: 12, padding: '13px 14px',
+                  fontSize: 15, outline: 'none', color: '#1C1C1E', background: '#fff',
+                }}
+              />
+              <input
+                type="date"
+                value={date}
+                onChange={handleDateChange}
+                required
+                style={{
+                  border: '1px solid #E5E5EA', borderRadius: 12, padding: '13px 14px',
+                  fontSize: 15, outline: 'none', color: '#1C1C1E', background: '#fff',
+                }}
+              />
+            </>
+          )}
 
           <button
             type="submit"

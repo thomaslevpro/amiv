@@ -3,17 +3,18 @@ import { Bell, Link2, Pencil, Trash2, X } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
 import { supabase } from '../lib/supabase'
-import { birthdateHasYear } from '../utils/birthday'
+import { birthdayHasYear } from '../utils/birthday'
 
 dayjs.locale('fr')
 
-function calcStats(birthdate) {
+function calcStats(birthday) {
+  const { birthdate } = birthday
   const today = dayjs().startOf('day')
   const bday = dayjs(birthdate)
   const thisYear = bday.year(today.year())
   const nextBday = thisYear.isBefore(today) ? thisYear.add(1, 'year') : thisYear
   const daysUntil = nextBday.diff(today, 'day')
-  const age = birthdateHasYear(birthdate) ? nextBday.year() - bday.year() : null
+  const age = birthdayHasYear(birthday) ? nextBday.year() - bday.year() : null
   return { daysUntil, age }
 }
 
@@ -256,7 +257,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
     setLinkingId(null)
   }
 
-  const { daysUntil, age } = calcStats(birthday.birthdate)
+  const { daysUntil, age } = calcStats(birthday)
   const dateShort = formatDateFR(birthday.birthdate)
   const isToday = daysUntil === 0
   const daysDisplay = isToday ? 'Auj.' : `J-${daysUntil}`

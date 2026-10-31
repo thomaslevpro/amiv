@@ -38,11 +38,11 @@ export default function StepBirthdays({ userId, header, direction, onDone }) {
     if (!canAdd || saving) return
     setSaving(true)
     setError(null)
-    // Année inconnue : 2000, comme l'ajout manuel depuis l'accueil
+    // Année inconnue : 2000 + birth_year_known = false, comme l'ajout manuel
     const birthdate = toBirthdayValue({ day: Number(day), month: Number(month), year: 2000 })
     const { data, error: insertError } = await supabase
       .from('birthdays')
-      .insert({ user_id: userId, name: name.trim().slice(0, 60), birthdate })
+      .insert({ user_id: userId, name: name.trim().slice(0, 60), birthdate, birth_year_known: false })
       .select('id')
       .single()
     setSaving(false)

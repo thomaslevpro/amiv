@@ -4,7 +4,7 @@ vi.mock('./supabase', () => ({ supabase: {} }))
 vi.mock('./monitoring', () => ({ captureSupabaseError() {} }))
 
 const { STEP, cleanUsername, resumeStep, slugify, USERNAME_REGEX } = await import('./onboarding')
-const { ageOn, birthdateHasYear, formatBirthday, hasBirthYear, ownBirthdayError, parseBirthday, toBirthdayValue, UNKNOWN_BIRTH_YEAR } = await import('../utils/birthday')
+const { ageOn, birthdayHasYear, formatBirthday, hasBirthYear, ownBirthdayError, parseBirthday, toBirthdayValue, UNKNOWN_BIRTH_YEAR } = await import('../utils/birthday')
 const { gettingStartedItems } = await import('../components/home/GettingStartedCard')
 
 const full = { first_name: 'Léa', username: 'lea', birthday: '1996-12-02' }
@@ -51,10 +51,15 @@ describe('anniversaire sans année', () => {
     expect(formatBirthday(value)).toBe('29 février')
     expect(formatBirthday('1996-12-01')).toBe('1er décembre 1996')
   })
-  it('anniversaires ajoutés à la main : 2000 = année inconnue', () => {
-    expect(birthdateHasYear('2000-03-12')).toBe(false)
-    expect(birthdateHasYear(`${UNKNOWN_BIRTH_YEAR}-03-12`)).toBe(false)
-    expect(birthdateHasYear('1995-03-12')).toBe(true)
+  it('anniversaires de la table birthdays : birth_year_known décide', () => {
+    expect(birthdayHasYear({ birthdate: '2000-03-12', birth_year_known: true })).toBe(true)
+    expect(birthdayHasYear({ birthdate: '2000-03-12', birth_year_known: false })).toBe(false)
+    expect(birthdayHasYear({ birthdate: '1995-03-12', birth_year_known: true })).toBe(true)
+  })
+  it('ligne chargée sans birth_year_known : 2000 = année inconnue', () => {
+    expect(birthdayHasYear({ birthdate: '2000-03-12' })).toBe(false)
+    expect(birthdayHasYear({ birthdate: `${UNKNOWN_BIRTH_YEAR}-03-12` })).toBe(false)
+    expect(birthdayHasYear({ birthdate: '1995-03-12' })).toBe(true)
   })
   it('âge minimum des CGU : 15 ans', () => {
     const ref = new Date(2026, 9, 30)

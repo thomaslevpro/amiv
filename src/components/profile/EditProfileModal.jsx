@@ -354,6 +354,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
               Date de naissance
             </label>
             <BirthdayFields value={birthday} onChange={setBirthday} selectStyle={{ ...inputStyle, minWidth: 0, width: 'auto', padding: '13px 10px' }} />
+            <div style={{ fontSize: 12, color: '#8E8E93', marginTop: 7 }}>Visible par tes amis Amiv</div>
           </div>
 
           <div style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}>

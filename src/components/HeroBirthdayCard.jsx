@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Cake, Link2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { birthdateHasYear } from '../utils/birthday'
+import { birthdayHasYear } from '../utils/birthday'
 
 // Rappels en plus du jour J (toujours envoyé si le rappel est activé)
 const REMINDER_OPTIONS = [1, 3, 7, 14]
@@ -273,7 +273,7 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
   const subtitle = isToday
     ? 'Souhaite-lui un joyeux anniversaire 🎂'
     : birthdayLabel
-  const ageLabel = birthdateHasYear(birthdate) ? `${age} ans` : null
+  const ageLabel = birthdayHasYear(birthday) ? `${age} ans` : null
 
   return (
     <>

@@ -2,8 +2,8 @@
 // facultative : sans année, on enregistre UNKNOWN_BIRTH_YEAR, année
 // bissextile (le 29 février reste possible) et antérieure à 1900, donc
 // jamais prise pour un âge (EventDetail ignore déjà les années < 1900).
-// Les anniversaires ajoutés à la main (table birthdays) gardent 2000 :
-// voir birthdateHasYear.
+// Les anniversaires de la table birthdays gardent 2000 avec
+// birth_year_known = false : voir birthdayHasYear.
 
 export const UNKNOWN_BIRTH_YEAR = 1896
 
@@ -60,13 +60,15 @@ export function ownBirthdayError(value) {
   return null
 }
 
-// Anniversaire de la table birthdays (ajout à la main, lien « Demander son
-// anniversaire ») : sans année, la date est enregistrée en 2000. On ne peut
-// pas la distinguer d'une vraie naissance en 2000, donc aucun âge n'est
-// affiché pour 2000.
+// Anniversaire de la table birthdays : sans année, la date est enregistrée
+// en 2000 (bissextile) avec birth_year_known = false. C'est ce champ, pas
+// l'année, qui dit si un âge peut être affiché : une vraie naissance en 2000
+// a son âge.
 export const BIRTHDAYS_UNKNOWN_YEAR = 2000
 
-export function birthdateHasYear(value) {
-  const year = parseBirthday(value)?.year
+export function birthdayHasYear(birthday) {
+  if (typeof birthday?.birth_year_known === 'boolean') return birthday.birth_year_known
+  // Ligne chargée sans la colonne : ancienne convention (2000 = inconnue)
+  const year = parseBirthday(birthday?.birthdate)?.year
   return year != null && year !== BIRTHDAYS_UNKNOWN_YEAR
 }

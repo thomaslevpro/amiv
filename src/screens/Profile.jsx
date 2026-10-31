@@ -744,7 +744,7 @@ export default function Profile({ session, onCalendarClick }) {
                 {birthdayStats ? (
                   <>
                     <div style={{ fontSize: 14, fontWeight: 800, color: COLORS.text }}>{birthdayStats.dateLabel}{birthdayStats.nextAge != null ? ` · ${birthdayStats.nextAge} ans` : ''}</div>
-                    <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 3 }}>Tes amis seront notifiés 7 j avant</div>
+                    <div style={{ fontSize: 11, color: COLORS.secondary, marginTop: 3 }}>Tes amis Amiv seront prévenus de ton anniversaire</div>
                   </>
                 ) : (
                   <button type="button" onClick={openBirthdayEdit} style={{ border: 'none', padding: 0, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', fontSize: 14, fontWeight: 800, ...gradientText() }}>

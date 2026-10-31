@@ -74,7 +74,7 @@ export default function StepBirthday({ userId, profile, header, direction, onDon
         </PrimaryButton>
       )}
     >
-      <StepTitle icon={Cake} title="C'est quand, ton anniversaire ?" subtitle="Tes amis seront prévenus 7 jours avant." />
+      <StepTitle icon={Cake} title="C'est quand, ton anniversaire ?" subtitle="Tes amis Amiv seront prévenus de ton anniversaire." />
 
       <WheelPicker>
         <WheelColumn label="Jour" options={dayOptions} value={safeDay} onChange={change(setDay)} flex={0.7} />
@@ -83,6 +83,7 @@ export default function StepBirthday({ userId, profile, header, direction, onDon
       </WheelPicker>
 
       <div style={{ fontSize: 13, color: GRAY, lineHeight: 1.5, margin: '12px 4px 16px' }}>
+        Visible par tes amis Amiv.<br />
         L'année est facultative : sans elle, ton âge n'apparaît nulle part.
       </div>
 

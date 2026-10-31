@@ -403,7 +403,7 @@ export default function BirthdaySection({
     setLoading(true)
     let { data, error } = await supabase
       .from('birthdays')
-      .select('id, name, last_name, birthdate, linked_profile_id, reminder_enabled, reminder_days, linked_profile:profiles(id, first_name, name, avatar_url)')
+      .select('id, name, last_name, birthdate, birth_year_known, linked_profile_id, friend_user_id, reminder_enabled, reminder_days, linked_profile:profiles(id, first_name, name, avatar_url)')
       .eq('user_id', user.id)
       .order('birthdate', { ascending: true })
 
@@ -416,7 +416,7 @@ export default function BirthdaySection({
       })
       const fallback = await supabase
         .from('birthdays')
-        .select('id, name, last_name, birthdate, linked_profile_id, reminder_enabled, reminder_days')
+        .select('id, name, last_name, birthdate, birth_year_known, linked_profile_id, friend_user_id, reminder_enabled, reminder_days')
         .eq('user_id', user.id)
         .order('birthdate', { ascending: true })
 
