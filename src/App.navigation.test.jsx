@@ -6,6 +6,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useNavigate } from 'react-router-dom'
 
 const EVENT = { id: '11111111-1111-1111-1111-111111111111', name: 'Soirée' }
+// Session simulée : `emit` joue un événement de Supabase Auth (connexion…)
+const auth = vi.hoisted(() => ({
+  listeners: new Set(),
+  emit(event, session) { auth.listeners.forEach(listener => listener(event, session)) },
+}))
+const SESSION = { user: { id: 'me' } }
 
 vi.mock('@capacitor/app', () => ({ App: { addListener: () => Promise.resolve({ remove() {} }) } }))
 vi.mock('./lib/native', () => ({ isNative: false, parseDeepLink: () => null, setStatusBarDark() {} }))
@@ -29,8 +35,11 @@ vi.mock('./lib/supabase', () => {
   return {
     supabase: {
       auth: {
-        getSession: () => Promise.resolve({ data: { session: { user: { id: 'me' } } } }),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+        getSession: () => Promise.resolve({ data: { session: SESSION } }),
+        onAuthStateChange: listener => {
+          auth.listeners.add(listener)
+          return { data: { subscription: { unsubscribe: () => auth.listeners.delete(listener) } } }
+        },
       },
       rpc: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: { onboarding_completed: true, username: 'moi' }, error: null }) }) }),
       from: () => query,
@@ -117,7 +126,7 @@ vi.mock('./screens/PublicUserProfile', () => ({
 }))
 vi.mock('./screens/EditProfile', () => ({ default: ({ onBack }) => <div><h1>Édition du profil</h1><Back onBack={onBack} /></div> }))
 vi.mock('./screens/Create', () => ({ default: ({ onBack }) => <div><h1>Création</h1><Back onBack={onBack} /></div> }))
-vi.mock('./screens/Auth', () => ({ default: () => null }))
+vi.mock('./screens/Auth', () => ({ default: () => <h1>Connexion</h1> }))
 vi.mock('./screens/AuthCallback', () => ({ default: () => null }))
 vi.mock('./screens/Invitation', () => ({ default: () => null }))
 vi.mock('./screens/AllEvents', () => ({ default: () => null }))
@@ -341,4 +350,29 @@ it('lien direct vers l\'espace secret : retour vers la page de l\'événement pu
   tap('Retour')
   await expectPage('Accueil')
   expectNav(true)
+})
+
+// Reconnexion : toujours l'Accueil, quel que soit l'écran au moment de la
+// déconnexion (Profil, page d'un événement…).
+it('déconnexion depuis le Profil puis reconnexion : Accueil', async () => {
+  await start()
+  tapTab(4)
+  await expectPage('Profil')
+  act(() => auth.emit('SIGNED_OUT', null))
+  await expectPage('Connexion')
+  act(() => auth.emit('SIGNED_IN', SESSION))
+  await expectPage('Accueil')
+  expectNav(true)
+})
+
+it('déconnexion depuis un événement puis reconnexion : Accueil, et le retour n\'y ramène pas', async () => {
+  await start()
+  tap('Ouvrir l\'événement')
+  await expectPage('Page de l\'événement')
+  act(() => auth.emit('SIGNED_OUT', null))
+  await expectPage('Connexion')
+  act(() => auth.emit('SIGNED_IN', SESSION))
+  await expectPage('Accueil')
+  act(() => { window.history.back() })
+  await expectPage('Accueil')
 })

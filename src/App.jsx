@@ -331,6 +331,10 @@ function MainApp() {
       setSession(session)
       if (_event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
       if (!session) {
+        // Les écrans ouverts restent dans l'historique pendant la
+        // déconnexion : on les oublie pour que la connexion suivante (même
+        // compte ou un autre) arrive sur l'Accueil, y compris après « retour ».
+        navEntries.clear()
         setPasswordRecovery(false)
         if (_event === 'SIGNED_OUT') {
           track('logout')
