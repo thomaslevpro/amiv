@@ -79,7 +79,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     const suffix = Math.random().toString(36).slice(2, 8)
     const channel = supabase.channel(`messages:${event.id}:${isSecret ? 'secret' : 'general'}:${suffix}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `is_secret=eq.${isSecret}` }, async (payload) => {
       if (payload.new.event_id !== event.id) return
-      const { data, error } = await supabase.from('messages').select('*, profiles(id, name, first_name, avatar_url)').eq('id', payload.new.id).eq('is_secret', isSecret).single()
+      const { data, error } = await supabase.from('messages').select('*, profiles(id, name, first_name, username, avatar_url)').eq('id', payload.new.id).eq('is_secret', isSecret).single()
       let message = null
       if (error) {
         const fallback = await supabase.from('messages').select('*').eq('id', payload.new.id).eq('is_secret', isSecret).single()

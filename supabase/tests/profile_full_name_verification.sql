@@ -1,4 +1,5 @@
--- Vérification de profile_full_name (migration 20261102110000), à exécuter
+-- Vérification de profile_full_name (migrations 20261102110000 et
+-- 20261102150000 : une lettre seule n'est pas un nom), à exécuter
 -- sur staging après la migration. Lecture seule.
 do $$
 declare
@@ -20,7 +21,14 @@ begin
       ('', '', null),
       (null, null, null),
       ('Jean', 'Jeanne', 'Jean Jeanne'),
-      ('Marie', 'Marie-Claire Dupont', 'Marie Marie-Claire Dupont')
+      ('Marie', 'Marie-Claire Dupont', 'Marie Marie-Claire Dupont'),
+      ('', 'L', null),
+      (null, ' L ', null),
+      ('L', '', null),
+      ('L', 'l', null),
+      ('Léa', 'M', 'Léa M'),
+      ('L', 'Martin', 'L Martin'),
+      ('Al', '', 'Al')
     ) v(first_name, name, expected)
   loop
     got := public.profile_full_name(c.first_name, c.name);

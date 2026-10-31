@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import { fullName } from '../../utils/displayName'
+import { profileFullName } from '../../utils/displayName'
 
 const GROUP_INTERVAL_MS = 2 * 60 * 1000
 
@@ -28,8 +28,9 @@ export function directProfileDisplayName(profile) {
   return profileDisplayName(profile, 'Utilisateur')
 }
 
+// Même règle que la liste des invités : Prénom Nom, sinon @pseudo, sinon le repli
 export function profileDisplayName(profile, fallback = 'Ami') {
-  return fullName(profile?.first_name, profile?.name) || profile?.email || fallback
+  return profileFullName(profile, fallback)
 }
 
 export function notificationConversationId(notification) {
@@ -248,7 +249,7 @@ export function isOwnMessage(message, currentUserId) {
 
 export async function fetchProfilesByIds(ids) {
   if (!ids.length) return []
-  const { data } = await supabase.from('profiles').select('id, name, first_name, avatar_url').in('id', ids)
+  const { data } = await supabase.from('profiles').select('id, name, first_name, username, avatar_url').in('id', ids)
   return data ?? []
 }
 

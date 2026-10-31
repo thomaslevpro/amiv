@@ -12,6 +12,7 @@ import MemoryCard from '../components/secretSpace/MemoryCard'
 import MemoryActionSheet from '../components/secretSpace/MemoryActionSheet'
 import { MEMORY_IMAGES_BUCKET, uploadMemoryImage, withMemoryImageUrls } from '../lib/memories'
 import { sortGuests } from '../lib/eventGuests'
+import { profileFullName } from '../utils/displayName'
 
 const TABS = [
   { id: 'flashback', label: 'Flashback' },
@@ -81,7 +82,7 @@ async function fetchProfilesByIds(ids) {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, first_name, name, avatar_url')
+    .select('id, first_name, name, username, avatar_url')
     .in('id', uniqueIds)
 
   if (error) throw error
@@ -232,7 +233,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
       return
     }
     setRemindedIds(prev => new Set([...prev, contributor.invited_user_id]))
-    const name = firstName(contributor.profile, 'Cette personne')
+    const name = contributor.profile?.name || 'Cette personne'
     showToast(data === 'too_soon' ? `${name} a déjà été relancé·e aujourd’hui` : `Relance envoyée dans la discussion secrète`)
   }
 
@@ -729,7 +730,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, alignItems: 'start' }}>
                   {memories.map((memory, index) => {
-                    const author = firstName(memory.profile, 'Ami')
+                    const author = profileFullName(memory.profile, 'Ami')
                     return (
                       <MemoryCard
                         key={memory.id}
@@ -761,7 +762,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                 ) : (
                   <div style={{ background: COLORS.card, borderRadius: 16, overflow: 'hidden' }}>
                     {contributors.map((contributor, index) => {
-                      const name = firstName(contributor.profile, 'Invité')
+                      const name = contributor.profile?.name || 'Invité'
                       const contributed = contributor.nb_memories > 0
                       // Relance seulement pour qui a accepté (le serveur vérifie)
                       const canRemind = !contributed && contributor.status === 'confirmed' && !!contributor.invited_user_id && contributor.invited_user_id !== currentUserId
@@ -827,7 +828,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                       <div style={{ fontSize: 15, fontWeight: 850, lineHeight: 1.25 }}>{item.label}</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 7 }}>
                         {formatMoney(item.price_estimate) && <span style={{ borderRadius: 999, background: 'rgba(224,85,170,0.10)', color: COLORS.pink, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>{formatMoney(item.price_estimate)}</span>}
-                        {item.claimed_by && <span style={{ borderRadius: 999, background: 'rgba(52,199,89,0.12)', color: COLORS.green, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Pris par {firstName(item.claimedProfile)}</span>}
+                        {item.claimed_by && <span style={{ borderRadius: 999, background: 'rgba(52,199,89,0.12)', color: COLORS.green, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Pris par {profileFullName(item.claimedProfile, 'Quelqu’un')}</span>}
                       </div>
                     </div>
                   </div>
@@ -848,7 +849,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                     {formatMoney(gift.price) && <span style={{ borderRadius: 999, background: 'rgba(224,85,170,0.10)', color: COLORS.pink, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>{formatMoney(gift.price)}</span>}
                     {gift.needs_contribution && <span style={{ borderRadius: 999, background: '#FFF3E0', color: '#A76500', fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Contribution {formatMoney(gift.contribution_amount) ?? 'ouverte'}</span>}
-                    {gift.claimed_by && <span style={{ borderRadius: 999, background: 'rgba(52,199,89,0.12)', color: COLORS.green, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Pris par {firstName(gift.claimedProfile)}</span>}
+                    {gift.claimed_by && <span style={{ borderRadius: 999, background: 'rgba(52,199,89,0.12)', color: COLORS.green, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Pris par {profileFullName(gift.claimedProfile, 'Quelqu’un')}</span>}
                   </div>
                 </article>
               ))}

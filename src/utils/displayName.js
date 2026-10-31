@@ -1,10 +1,14 @@
 // Nom affiché d'un utilisateur : « Prénom Nom ». Même règle que la fonction SQL
 // public.profile_full_name. Selon l'époque du compte, name contient le nom de
 // famille, le prénom (onboarding actuel) ou le nom complet : on évite donc
-// « Thomas Thomas » et « Thomas Thomas Levy ».
+// « Thomas Thomas » et « Thomas Thomas Levy ». Une lettre seule (« L ») ne
+// compte pas comme un nom : on renvoie '' et l'appelant passe au @pseudo.
 export function fullName(firstName, lastName) {
-  const first = firstName?.trim() || ''
-  const last = lastName?.trim() || ''
+  const name = joinNames(firstName?.trim() || '', lastName?.trim() || '')
+  return name.length > 1 ? name : ''
+}
+
+function joinNames(first, last) {
   if (!first) return last
   if (!last || last.toLowerCase() === first.toLowerCase()) return first
   if (last.toLowerCase().startsWith(`${first.toLowerCase()} `)) return last

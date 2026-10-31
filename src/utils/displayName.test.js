@@ -14,6 +14,11 @@ describe('fullName', () => {
     [null, 'Levy', 'Levy'],
     ['', '', ''],
     ['Jean', 'Jeanne', 'Jean Jeanne'],
+    ['', 'L', ''],
+    ['L', '', ''],
+    ['L', 'l', ''],
+    ['Léa', 'M', 'Léa M'],
+    ['L', 'Martin', 'L Martin'],
   ])('(%s, %s) → %s', (first, last, expected) => {
     expect(fullName(first, last)).toBe(expected)
   })
@@ -24,6 +29,8 @@ describe('profileFullName', () => {
     expect(profileFullName({ first_name: '', name: '', username: 'tom' })).toBe('@tom')
     expect(profileFullName({ first_name: null, name: '' }, 'Invité')).toBe('Invité')
     expect(profileFullName(null)).toBe('Ami')
+    expect(profileFullName({ first_name: '', name: 'L', username: 'lea' })).toBe('@lea')
+    expect(profileFullName({ first_name: null, name: 'L' }, 'Utilisateur Amiv')).toBe('Utilisateur Amiv')
   })
 })
 

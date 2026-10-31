@@ -27,6 +27,7 @@ declare
     -- Demande en attente : pas encore comptée
     ['A demande un +1 (Marc)', 'A', $s$with r as (update rsvps set plus_one_requested = true, plus_one_status = 'pending', plus_one_name = 'Marc', plus_one_message = 'Mon copain' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1) select count(*) from r$s$, '1'],
     ['O notifié de la demande', 'postgres', $s$select count(*) from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'plus_one_request' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, '1'],
+    ['notification : Prénom Nom', 'postgres', $s$select title from notifications where user_id = '00000000-0000-4000-a000-000000000071' and type = 'plus_one_request' and data->>'event_id' = '00000000-0000-4000-e000-000000000071'$s$, 'Lola Martin veut amener un +1'],
     ['en attente : pas compté', 'O', $s$select total || ',' || confirmed from get_event_guest_counts(array['00000000-0000-4000-e000-000000000071']::uuid[])$s$, '4,4'],
     ['en attente : pas dans la liste', 'O', $s$select count(*) from get_event_guest_list('00000000-0000-4000-e000-000000000071') where role = 'plus_one'$s$, '0'],
     ['A ne peut pas accepter son +1', 'A', $s$update rsvps set plus_one_status = 'accepted' where event_id = '00000000-0000-4000-e000-000000000071' and user_id = auth.uid() returning 1$s$, 'ERR 42501'],

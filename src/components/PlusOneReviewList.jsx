@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { usePlusOne } from '../hooks/usePlusOne'
 import { supabase } from '../lib/supabase'
 import { SECTION_TITLE } from './event/eventUtils'
+import { profileFullName } from '../utils/displayName'
 
 const GRADIENT = 'var(--gradient)'
 
@@ -127,7 +128,7 @@ async function supabaseWithProfiles(eventId) {
 
   const userIds = [...new Set((rsvps ?? []).map(row => row.user_id).filter(Boolean))]
   const { data: profiles } = userIds.length
-    ? await supabase.from('profiles').select('id, first_name, name').in('id', userIds)
+    ? await supabase.from('profiles').select('id, first_name, name, username').in('id', userIds)
     : { data: [] }
   const profileMap = Object.fromEntries((profiles ?? []).map(profile => [profile.id, profile]))
 
@@ -138,7 +139,7 @@ async function supabaseWithProfiles(eventId) {
       id: row.id,
       table: 'rsvps',
       inviteeUserId: row.user_id,
-      inviteeName: profile?.first_name || profile?.name || 'Invité',
+      inviteeName: profileFullName(profile, 'Invité'),
       plusOneName: row.plus_one_name,
       message: row.plus_one_message,
     }
