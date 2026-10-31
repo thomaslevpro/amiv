@@ -178,6 +178,35 @@ export async function joinPendingInvite(session) {
   return event ?? null
 }
 
+// ── Lien d'événement en attente ──────────────────────────────────────────────
+// Lien /events/<id> ouvert sans être connecté : l'événement est gardé le temps
+// de se connecter ou de créer son compte (même si l'app est fermée entre-temps),
+// puis l'app l'ouvre, ou affiche « pas accès » si la personne n'y est pas invitée.
+
+const EVENT_LINK_KEY = 'amiv_pending_event_link'
+const EVENT_LINK_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+export function savePendingEventLink(eventId) {
+  if (!UUID_REGEX.test(eventId ?? '')) return
+  try {
+    localStorage.setItem(EVENT_LINK_KEY, JSON.stringify({ eventId, savedAt: Date.now() }))
+  } catch {
+    // Stockage indisponible : on arrivera sur l'Accueil
+  }
+}
+
+// Renvoie l'id gardé (une seule fois) ou null
+export function takePendingEventLink() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(EVENT_LINK_KEY) ?? 'null')
+    localStorage.removeItem(EVENT_LINK_KEY)
+    if (stored?.eventId && Date.now() - stored.savedAt < EVENT_LINK_MAX_AGE_MS && UUID_REGEX.test(stored.eventId)) return stored.eventId
+  } catch {
+    // ignoré
+  }
+  return null
+}
+
 // ── Carte « Bien démarrer » ──────────────────────────────────────────────────
 
 export async function loadGettingStarted(userId) {

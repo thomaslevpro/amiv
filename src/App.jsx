@@ -14,7 +14,7 @@ import AddAmivModal from './components/AddAmivModal'
 import AskBirthdaySheet from './components/AskBirthdaySheet'
 import OnboardingFlow from './pages/Onboarding'
 import Onboarding from './components/onboarding/Onboarding'
-import { getPendingInviteToken, hasSeenIntro, joinPendingInvite, markIntroSeen } from './lib/onboarding'
+import { getPendingInviteToken, hasSeenIntro, joinPendingInvite, markIntroSeen, takePendingEventLink } from './lib/onboarding'
 import av1 from '../assets/onboarding/av1.jpg'
 import av2 from '../assets/onboarding/av2.jpg'
 import av3 from '../assets/onboarding/av3.jpg'
@@ -38,6 +38,7 @@ import GuestRsvpPage from './screens/GuestRsvpPage'
 import AllEvents from './screens/AllEvents'
 import ConversationScreen from './screens/ConversationScreen'
 import EventPage from './pages/EventPage'
+import EventUnavailable from './components/event/EventUnavailable'
 import DispoCalendarPage from './pages/DispoCalendarPage'
 import UsernamePrompt from './components/UsernamePrompt'
 import PushPermissionPrompt from './components/PushPermissionPrompt'
@@ -206,7 +207,7 @@ function currentView(nav) {
   if (nav.showCreateDispo) return 'createDispo'
   if (nav.dispoDetailId) return 'dispoDetail'
   if (nav.secretSpace) return 'secretSpace'
-  if (['allEvents', 'dispoCalendar', 'create', 'editProfile'].includes(nav.screen)) return nav.screen
+  if (['allEvents', 'dispoCalendar', 'create', 'editProfile', 'eventUnavailable'].includes(nav.screen)) return nav.screen
   if (nav.selectedEvent) {
     if (nav.screen === 'messages') return 'eventChat'
     if (nav.screen === 'eventDetail' || nav.screen === 'invitation') return nav.screen
@@ -383,14 +384,17 @@ function MainApp() {
     if (!UUID_REGEX.test(id)) return
     supabase.from('events').select('*').eq('id', id).maybeSingle().then(({ data, error }) => {
       if (error) captureSupabaseError(error, { operation: 'load_pending_event' })
-      if (data) {
-        window.history.replaceState(window.history.state, '', '/')
-        replaceScreen({ selectedEvent: data, screen: 'eventDetail' })
-        // Lien direct vers l'espace secret : par-dessus la fiche, le retour y mène
-        if (pendingSecretSpace.current) {
-          pendingSecretSpace.current = false
-          pushNavEntry({ ...ROOT_NAV, selectedEvent: data, screen: 'eventDetail', secretSpace: { eventId: data.id, tab: 'flashback', focusItemId: null }, depth: 1 }, false)
-        }
+      window.history.replaceState(window.history.state, '', '/')
+      // Pas invité, ou événement supprimé : message plutôt qu'un Accueil muet
+      if (!data) {
+        replaceScreen({ screen: 'eventUnavailable' })
+        return
+      }
+      replaceScreen({ selectedEvent: data, screen: 'eventDetail' })
+      // Lien direct vers l'espace secret : par-dessus la fiche, le retour y mène
+      if (pendingSecretSpace.current) {
+        pendingSecretSpace.current = false
+        pushNavEntry({ ...ROOT_NAV, selectedEvent: data, screen: 'eventDetail', secretSpace: { eventId: data.id, tab: 'flashback', focusItemId: null }, depth: 1 }, false)
       }
     })
   }, [session])
@@ -432,6 +436,18 @@ function MainApp() {
       if (event) openScreen({ ...ROOT_NAV, selectedEvent: event, screen: 'eventDetail' })
     })
   }, [appReady, session])
+
+  // Lien /events/<id> ouvert sans être connecté (EventPage l'a gardé) : une
+  // fois connecté et l'onboarding fini, l'événement s'ouvre par-dessus l'Accueil.
+  useEffect(() => {
+    if (!appReady) return
+    const eventId = takePendingEventLink()
+    if (!eventId) return
+    supabase.from('events').select('*').eq('id', eventId).maybeSingle().then(({ data, error }) => {
+      if (error) captureSupabaseError(error, { operation: 'load_pending_event_link' })
+      openScreen(data ? { ...ROOT_NAV, selectedEvent: data, screen: 'eventDetail' } : { ...ROOT_NAV, screen: 'eventUnavailable' })
+    })
+  }, [appReady])
 
   // Message privé : ouvre la conversation avec l'expéditeur (forme « friend »
   // attendue par ConversationScreen) et marque ses notifications comme lues.
@@ -577,6 +593,7 @@ function MainApp() {
       )
       case 'allEvents': return <AllEvents onBack={() => goBack({ screen: 'home' })} onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} />
       case 'dispoCalendar': return <DispoCalendarPage userId={session.user.id} onBack={() => goBack({ screen: 'home' })} />
+      case 'eventUnavailable': return <EventUnavailable onBack={() => goBack({ screen: 'home' })} />
       case 'create': return <Create onBack={() => goBack({ screen: 'home' })} session={session} initialData={createInitialData} />
       case 'editProfile': return (
         <EditProfile

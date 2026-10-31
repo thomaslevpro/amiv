@@ -9,6 +9,9 @@ const EVENT = { id: '11111111-1111-1111-1111-111111111111', name: 'Soirée' }
 // Session simulée : `emit` joue un événement de Supabase Auth (connexion…)
 const auth = vi.hoisted(() => ({
   listeners: new Set(),
+  // Session au lancement, et événement renvoyé par la base (null = pas accès)
+  initialSession: { user: { id: 'me' } },
+  event: { id: '11111111-1111-1111-1111-111111111111', name: 'Soirée' },
   emit(event, session) { auth.listeners.forEach(listener => listener(event, session)) },
 }))
 const SESSION = { user: { id: 'me' } }
@@ -30,12 +33,12 @@ vi.mock('./lib/supabase', () => {
     select: () => query,
     eq: () => query,
     update: () => query,
-    maybeSingle: () => Promise.resolve({ data: EVENT, error: null }),
+    maybeSingle: () => Promise.resolve({ data: auth.event, error: null }),
   }
   return {
     supabase: {
       auth: {
-        getSession: () => Promise.resolve({ data: { session: SESSION } }),
+        getSession: () => Promise.resolve({ data: { session: auth.initialSession } }),
         onAuthStateChange: listener => {
           auth.listeners.add(listener)
           return { data: { subscription: { unsubscribe: () => auth.listeners.delete(listener) } } }
@@ -145,6 +148,7 @@ vi.mock('./components/CreateActionSheet', () => ({
 }))
 
 const { default: App } = await import('./App')
+const { markIntroSeen, savePendingEventLink, takePendingEventLink } = await import('./lib/onboarding')
 
 const tap = name => fireEvent.click(screen.getByRole('button', { name }))
 const tapTab = index => fireEvent.click(screen.getByRole('navigation').firstChild.children[index])
@@ -160,6 +164,9 @@ const BACKS = {
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/')
+  window.localStorage.clear()
+  auth.initialSession = SESSION
+  auth.event = EVENT
 })
 afterEach(cleanup)
 
@@ -375,4 +382,43 @@ it('déconnexion depuis un événement puis reconnexion : Accueil, et le retour 
   await expectPage('Accueil')
   act(() => { window.history.back() })
   await expectPage('Accueil')
+})
+
+// Lien /events/<id> ouvert sans être connecté : EventPage garde l'événement,
+// l'app l'ouvre une fois connecté.
+describe('lien d\'événement ouvert sans être connecté', () => {
+  beforeEach(() => {
+    auth.initialSession = null
+    markIntroSeen()
+    savePendingEventLink(EVENT.id)
+  })
+
+  it('connexion : la page de l\'événement s\'ouvre, le retour mène à l\'Accueil', async () => {
+    render(<App />)
+    await expectPage('Connexion')
+    act(() => auth.emit('SIGNED_IN', SESSION))
+    await expectPage('Page de l\'événement')
+    tap('Retour')
+    await expectPage('Accueil')
+    expectNav(true)
+  })
+
+  it('pas invité : message d\'accès refusé, puis l\'Accueil', async () => {
+    auth.event = null
+    render(<App />)
+    await expectPage('Connexion')
+    act(() => auth.emit('SIGNED_IN', SESSION))
+    await expectPage('Tu n\'as pas accès à cet événement')
+    expectNav(false)
+    tap('Retour à l\'accueil')
+    await expectPage('Accueil')
+  })
+
+  it('le lien ne sert qu\'une fois', async () => {
+    render(<App />)
+    await expectPage('Connexion')
+    act(() => auth.emit('SIGNED_IN', SESSION))
+    await expectPage('Page de l\'événement')
+    expect(takePendingEventLink()).toBe(null)
+  })
 })
