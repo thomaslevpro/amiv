@@ -122,22 +122,11 @@ function Avatar({ notification }) {
   )
 }
 
-function EventThumb({ notification }) {
-  return (
-    <div style={{ width: 44, height: 44, borderRadius: 10, background: '#FFF5F0', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 22 }}>
-      {notification.event?.emoji || '🎉'}
-    </div>
-  )
-}
-
 function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFriend, onDismiss }) {
   const [removing, setRemoving] = useState(false)
   const title = notification.title || 'Activité'
   const body = notification.body || ''
   const isBirthdayReminder = notification.type === 'birthday_reminder'
-  const hasEventThumb = ['rsvp_received', 'message_received', 'event_invitation', 'invitation_reminder', 'poll_reminder', 'co_organizer_added', 'guest_leader_request', 'guest_leader_approved', 'guest_leader_rejected', 'plus_one_request', 'plus_one_response', 'memories_revealed', 'secret_space_reminder', 'cagnotte_reminder', 'event_photos_added', 'event_photos_expiring'].includes(notification.type)
-    // message privé : pas d'événement à afficher
-    && (notification.type !== 'message_received' || !!notification.data?.event_id)
   const friendshipId = notification.data?.friendship_id || notification.data?.request_id
 
   async function handleFriendAction(action, event) {
@@ -207,8 +196,6 @@ function NotificationRow({ notification, onNavigate, onAcceptFriend, onDeclineFr
             Refuser
           </button>
         </div>
-      ) : hasEventThumb ? (
-        <EventThumb notification={notification} />
       ) : !notification.read ? (
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: GRADIENT, flexShrink: 0 }} />
       ) : null}
