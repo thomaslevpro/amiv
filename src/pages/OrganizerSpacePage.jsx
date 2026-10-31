@@ -978,7 +978,7 @@ const styles = `
 .org-avatar-fallback { display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; }
 .org-backdrop { position: fixed; inset: 0; z-index: 800; background: rgba(0,0,0,0); display: flex; flex-direction: column; justify-content: flex-end; transition: background 0.28s ease; }
 .org-backdrop.shown { background: rgba(0,0,0,0.4); }
-.org-sheet { background: white; border-radius: 20px 20px 0 0; padding: 10px 16px 40px; transform: translateY(100%); transition: transform 0.28s ease-out; max-height: 88dvh; overflow-y: auto; display: grid; gap: 12px; }
+.org-sheet { background: white; border-radius: 20px 20px 0 0; padding: 10px 16px 40px; transform: translateY(100%); transition: transform 0.28s ease-out; max-height: calc(100% - env(safe-area-inset-top, 0px) - 24px); overflow-y: auto; display: grid; gap: 12px; }
 .org-sheet.shown { transform: translateY(0); }
 .org-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--gray2); justify-self: center; margin-bottom: 8px; }
 .org-sheet-title-row { display: flex; align-items: center; justify-content: space-between; }

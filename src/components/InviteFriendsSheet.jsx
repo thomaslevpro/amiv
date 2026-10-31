@@ -100,7 +100,7 @@ export default function InviteFriendsSheet({ eventId, onClose, onInvited }) {
         role="dialog"
         aria-label="Inviter des amis"
         onClick={e => e.stopPropagation()}
-        style={{ background: '#fff', borderRadius: '20px 20px 0 0', transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)', height: '85vh', maxHeight: 'calc(100vh - env(safe-area-inset-top) - 24px)', display: 'flex', flexDirection: 'column', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+        style={{ background: '#fff', borderRadius: '20px 20px 0 0', transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)', height: '85%', maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - 24px)', display: 'flex', flexDirection: 'column', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
       >
         <div style={{ paddingTop: 8, display: 'flex', justifyContent: 'center' }}>
           <div style={{ width: 36, height: 5, background: '#D1D1D6', borderRadius: 3 }} />

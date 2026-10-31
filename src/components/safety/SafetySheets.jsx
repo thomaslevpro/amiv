@@ -30,7 +30,7 @@ export function BottomSheet({ title, onClose, children }) {
           padding: '18px 16px max(28px, env(safe-area-inset-bottom))',
           boxShadow: '0 -8px 36px rgba(0,0,0,0.18)',
           boxSizing: 'border-box',
-          maxHeight: '85vh',
+          maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - 24px)',
           overflowY: 'auto',
           fontFamily: FONT,
         }}

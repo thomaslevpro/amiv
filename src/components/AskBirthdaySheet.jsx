@@ -67,6 +67,8 @@ export default function AskBirthdaySheet({ onClose }) {
         boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
         transform: visible ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform 0.3s cubic-bezier(0.32,0.72,0,1)',
+        maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - 24px)',
+        overflowY: 'auto',
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
         padding: '0 20px calc(24px + env(safe-area-inset-bottom, 0px))',
       }}>

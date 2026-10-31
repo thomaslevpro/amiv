@@ -819,7 +819,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                 onChange={event => setMemoryForm(current => ({ ...current, text: event.target.value }))}
                 placeholder="Un souvenir, une private joke, un mot doux..."
                 rows={4}
-                style={{ width: '100%', border: 'none', borderRadius: 12, padding: '12px 13px', fontSize: 14, color: COLORS.text, background: COLORS.bg, outline: 'none', resize: 'none' }}
+                style={{ width: '100%', border: 'none', borderRadius: 12, padding: '12px 13px', fontSize: 16, color: COLORS.text, background: COLORS.bg, outline: 'none', resize: 'none' }}
               />
             </label>
 

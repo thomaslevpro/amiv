@@ -109,6 +109,8 @@ export default function ChangePasswordModal({ isOpen, onClose }) {
         style={{
           width: '100%',
           maxWidth: 430,
+          maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - 24px)',
+          overflowY: 'auto',
           background: '#F5F5F5',
           borderRadius: '20px 20px 0 0',
           padding: '20px 20px max(28px, env(safe-area-inset-bottom))',

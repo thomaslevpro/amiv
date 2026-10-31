@@ -254,7 +254,7 @@ export default function EditProfileModal({ isOpen, onClose, profile, onSaved }) 
         style={{
           width: '100%',
           maxWidth: 430,
-          maxHeight: '92vh',
+          maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - 24px)',
           overflowY: 'auto',
           background: '#F5F5F5',
           borderRadius: '20px 20px 0 0',

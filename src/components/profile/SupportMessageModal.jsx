@@ -53,7 +53,7 @@ export default function SupportMessageModal({ category, onClose, onSuccess }) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: FONT }}>
-      <form onSubmit={submit} onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: 560, background: '#fff', borderRadius: '22px 22px 0 0', padding: '24px 20px calc(24px + env(safe-area-inset-bottom, 0px))', boxSizing: 'border-box' }}>
+      <form onSubmit={submit} onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: 560, maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - 24px)', overflowY: 'auto', background: '#fff', borderRadius: '22px 22px 0 0', padding: '24px 20px calc(24px + env(safe-area-inset-bottom, 0px))', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <h2 style={{ fontSize: 20, margin: 0, color: '#1C1C1E' }}>{isBug ? 'Signaler un bug' : 'Nous contacter'}</h2>
           <button type="button" aria-label="Fermer" onClick={onClose} style={{ border: 0, background: '#F2F2F7', width: 34, height: 34, borderRadius: 17, color: '#636366', display: 'grid', placeItems: 'center' }}><X size={18} /></button>

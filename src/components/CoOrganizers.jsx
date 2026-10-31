@@ -141,7 +141,7 @@ export default function CoOrganizers({ eventId, isOwner }) {
 
       {modalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 16px 20px', fontFamily }}>
-          <form onSubmit={handleAdd} style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 20, padding: '18px 16px 16px', boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
+          <form onSubmit={handleAdd} style={{ width: '100%', maxWidth: 430, background: '#fff', maxHeight: 'calc(100% - env(safe-area-inset-top, 0px) - 24px)', overflowY: 'auto', borderRadius: 20, padding: '18px 16px 16px', boxShadow: '0 -4px 30px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: '#1C1C1E' }}>Ajouter un co-organisateur</div>
               <button type="button" onClick={() => setModalOpen(false)} style={{ width: 34, height: 34, borderRadius: 17, border: 'none', background: '#F5F5F5', color: '#8E8E93', display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
