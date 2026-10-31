@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ConversationList from '../components/messages/ConversationList'
 import MessageThread from '../components/messages/MessageThread'
 import { typeEmoji } from '../components/messages/constants'
-import { applyIncomingMessage, buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, applySentMessages, isConversationHidden, notificationConversationId, recordSentMessage, readChannelLastRead, readHiddenConversations, readSeen, sortConversationsByActivity, sortConversationsForInbox, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
+import { applyIncomingMessage, buildEventMessageRows, DELETED_USER_LABEL, directProfileDisplayName, enrichMessagesWithProfiles, fetchProfilesByIds, firstName, applySentMessages, forgetSentMessage, isConversationHidden, notificationConversationId, recordSentMessage, readChannelLastRead, readHiddenConversations, readSeen, sortConversationsByActivity, sortConversationsForInbox, writeChannelLastRead, writeHiddenConversations, writeSeen } from '../components/messages/utils'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useGuestLeader } from '../hooks/useGuestLeader'
+import { useMessageReactions } from '../hooks/useMessageReactions'
 import { findOrCreateDirectConversation } from '../lib/conversations'
 import { getFriends } from '../lib/friendships'
 import { RSVP_CHANGED_EVENT } from '../lib/eventGuests'
@@ -33,6 +34,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const { guestLeaders } = useGuestLeader(event?.id)
   const guestLeaderIds = useMemo(() => new Set(guestLeaders.map(guestLeader => guestLeader.user_id)), [guestLeaders])
   const canUseSecretChannel = canLinkSecretSpace(event, userId)
+  const eventReactions = useMessageReactions({ table: 'event_message_reactions', messages, currentUserId: userId, channelKey: event?.id ? `${event.id}:${isSecret}` : null })
   const birthdayPersonFirstName = event?.birthdayFirstName || event?.birthday_person?.first_name || event?.birthdayPerson?.first_name || birthdayPersonProfile?.first_name || (birthdayPersonProfile?.name ? firstName(birthdayPersonProfile.name) : null) || 'La personne fêtée'
 
   useEffect(() => {
@@ -401,15 +403,17 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     for (const id of notifications.filter(n => n.type === 'message_received' && !n.read && notificationConversationId(n) === conv.conversationId).map(n => n.id)) markAsRead?.(id)
     onDirectConvOpen?.({ conversationId: conv.conversationId, friend: conv.friend })
   }
-  async function send() {
-    if (!input.trim() || !userId || !event?.id) return
+  // Renvoie false si l'envoi a échoué (la réponse en cours est alors gardée)
+  async function send({ replyToId = null } = {}) {
+    if (!input.trim() || !userId || !event?.id) return false
     const content = input.trim()
-    const optimistic = { id: crypto.randomUUID(), event_id: event.id, user_id: userId, content, created_at: new Date().toISOString(), profile: null, is_secret: isSecret, isOptimistic: true }
+    const optimistic = { id: crypto.randomUUID(), event_id: event.id, user_id: userId, content, reply_to_id: replyToId, created_at: new Date().toISOString(), profile: null, is_secret: isSecret, isOptimistic: true }
     setInput('')
     setMessages(prev => [...prev, optimistic])
-    const { data: sent, error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content, is_secret: isSecret }).select('id, event_id, content, created_at, user_id, is_secret').maybeSingle()
+    const { data: sent, error } = await supabase.from('messages').insert({ event_id: event.id, user_id: userId, content, is_secret: isSecret, reply_to_id: replyToId }).select('id, event_id, content, created_at, user_id, is_secret, reply_to_id').maybeSingle()
     if (error) {
       setMessages(prev => prev.filter(message => message.id !== optimistic.id))
+      setInput(content)
       console.log('Erreur Supabase:', JSON.stringify(error))
       captureSupabaseError(error, { operation: 'send_event_message' })
       track('message_send_failed', {
@@ -418,7 +422,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         error_code: error.code,
         error_status: error.status,
       })
-      return
+      return false
     }
     recordSentMessage('messages', sent ?? { ...optimistic, isOptimistic: undefined })
     track('message_sent', {
@@ -426,11 +430,28 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
       is_secret: isSecret,
     })
     // Notifications créées par le trigger notify_event_message
+    return true
+  }
+
+  // Mon message, retiré pour tout le monde (ses réactions partent avec en base)
+  async function deleteMessage(message) {
+    const removedReactions = eventReactions.reactions.filter(r => r.message_id === message.id)
+    setMessages(prev => prev.filter(m => m.id !== message.id))
+    eventReactions.forgetMessage(message.id)
+    forgetSentMessage(message.id)
+    const { data, error } = await supabase.from('messages').delete().eq('id', message.id).select('id')
+    if (error || !data?.length) {
+      setMessages(prev => [...prev, message].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)))
+      eventReactions.restore(removedReactions)
+      if (error) captureSupabaseError(error, { operation: 'delete_event_message' })
+      return false
+    }
+    return true
   }
 
   if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} deleteEventConversation={deleteEventConversation} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
   const openSecretSpace = onOpenSecretSpace && canUseSecretChannel
     ? (tab, focusItemId = null) => onOpenSecretSpace({ eventId: event.id, tab: tab ?? mostRelevantSecretTab(messages), focusItemId })
     : null
-  return <MessageThread event={event} onBack={onBack} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} onOpenSecretSpace={openSecretSpace} currentUserId={userId} onOpenEvent={onOpenEvent} onSendDirectMessage={openDirectMessageWith} />
+  return <MessageThread event={event} onBack={onBack} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} onOpenSecretSpace={openSecretSpace} currentUserId={userId} onOpenEvent={onOpenEvent} onSendDirectMessage={openDirectMessageWith} reactions={eventReactions} onDeleteMessage={deleteMessage} />
 }

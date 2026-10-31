@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Ban, Flag, X } from 'lucide-react'
+import { Ban, Flag, UserRound, X } from 'lucide-react'
 import { REPORT_REASONS, blockUser, submitReport, unblockUser } from '../../lib/safety'
 
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
@@ -139,7 +139,8 @@ export function ReportSheet({ targetType, targetId, subjectLabel, onClose, onDon
 }
 
 // Menu « … » d'un utilisateur : signaler le profil, bloquer / débloquer.
-export function UserSafetySheet({ userId, userName, isBlocked, onClose, onBlockedChange, initialStep = 'menu' }) {
+// Avec onViewProfile (en-tête d'une conversation) : Voir le profil, Bloquer, Signaler.
+export function UserSafetySheet({ userId, userName, isBlocked, onClose, onBlockedChange, onViewProfile = null, initialStep = 'menu' }) {
   const [step, setStep] = useState(initialStep)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -179,12 +180,13 @@ export function UserSafetySheet({ userId, userName, isBlocked, onClose, onBlocke
     )
   }
 
-  const rows = [
-    { key: 'report', label: 'Signaler', icon: <Flag size={18} strokeWidth={1.8} color={DESTRUCTIVE} />, onClick: () => setStep('report') },
-    isBlocked
-      ? { key: 'unblock', label: 'Débloquer cet utilisateur', icon: <Ban size={18} strokeWidth={1.8} color={SECONDARY} />, onClick: toggleBlock }
-      : { key: 'block', label: 'Bloquer cet utilisateur', icon: <Ban size={18} strokeWidth={1.8} color={DESTRUCTIVE} />, onClick: () => setStep('confirmBlock') },
-  ]
+  const reportRow = { key: 'report', label: 'Signaler', color: DESTRUCTIVE, icon: <Flag size={18} strokeWidth={1.8} color={DESTRUCTIVE} />, onClick: () => setStep('report') }
+  const blockRow = isBlocked
+    ? { key: 'unblock', label: 'Débloquer cet utilisateur', color: TEXT, icon: <Ban size={18} strokeWidth={1.8} color={SECONDARY} />, onClick: toggleBlock }
+    : { key: 'block', label: 'Bloquer cet utilisateur', color: DESTRUCTIVE, icon: <Ban size={18} strokeWidth={1.8} color={DESTRUCTIVE} />, onClick: () => setStep('confirmBlock') }
+  const rows = onViewProfile
+    ? [{ key: 'profile', label: 'Voir le profil', color: TEXT, icon: <UserRound size={18} strokeWidth={1.8} color={SECONDARY} />, onClick: onViewProfile }, blockRow, reportRow]
+    : [reportRow, blockRow]
 
   return (
     <BottomSheet title={userName || 'Options'} onClose={onClose}>
@@ -195,7 +197,7 @@ export function UserSafetySheet({ userId, userName, isBlocked, onClose, onBlocke
             type="button"
             onClick={row.onClick}
             disabled={busy}
-            style={{ width: '100%', border: 'none', borderTop: index ? '0.5px solid rgba(0,0,0,0.07)' : 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '15px 16px', fontSize: 15, color: row.key === 'unblock' ? TEXT : DESTRUCTIVE, fontWeight: 700, fontFamily: FONT, cursor: 'pointer', textAlign: 'left' }}
+            style={{ width: '100%', border: 'none', borderTop: index ? '0.5px solid rgba(0,0,0,0.07)' : 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '15px 16px', fontSize: 15, color: row.color, fontWeight: 700, fontFamily: FONT, cursor: 'pointer', textAlign: 'left' }}
           >
             {row.icon}
             {row.label}
@@ -203,43 +205,6 @@ export function UserSafetySheet({ userId, userName, isBlocked, onClose, onBlocke
         ))}
       </div>
       {error && <div style={{ color: DESTRUCTIVE, fontSize: 13, fontWeight: 700, marginTop: 10, padding: '0 4px' }}>{error}</div>}
-    </BottomSheet>
-  )
-}
-
-// Appui long sur un message reçu : signaler le message ou bloquer son auteur.
-export function MessageSafetySheet({ targetType, messageId, authorId, authorName, onClose, onBlockedChange }) {
-  const [step, setStep] = useState('menu')
-
-  if (step === 'report') {
-    return <ReportSheet targetType={targetType} targetId={messageId} subjectLabel="ce message" onClose={onClose} />
-  }
-  if (step === 'block') {
-    return <UserSafetySheet userId={authorId} userName={authorName} isBlocked={false} initialStep="confirmBlock" onClose={onClose} onBlockedChange={onBlockedChange} />
-  }
-
-  return (
-    <BottomSheet title="Message" onClose={onClose}>
-      <div style={{ background: CARD, borderRadius: 16, overflow: 'hidden' }}>
-        <button
-          type="button"
-          onClick={() => setStep('report')}
-          style={{ width: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '15px 16px', fontSize: 15, color: DESTRUCTIVE, fontWeight: 700, fontFamily: FONT, cursor: 'pointer', textAlign: 'left' }}
-        >
-          <Flag size={18} strokeWidth={1.8} color={DESTRUCTIVE} />
-          Signaler ce message
-        </button>
-        {authorId && (
-          <button
-            type="button"
-            onClick={() => setStep('block')}
-            style={{ width: '100%', border: 'none', borderTop: '0.5px solid rgba(0,0,0,0.07)', background: 'transparent', display: 'flex', alignItems: 'center', gap: 12, padding: '15px 16px', fontSize: 15, color: DESTRUCTIVE, fontWeight: 700, fontFamily: FONT, cursor: 'pointer', textAlign: 'left' }}
-          >
-            <Ban size={18} strokeWidth={1.8} color={DESTRUCTIVE} />
-            Bloquer {authorName || 'cet utilisateur'}
-          </button>
-        )}
-      </div>
     </BottomSheet>
   )
 }

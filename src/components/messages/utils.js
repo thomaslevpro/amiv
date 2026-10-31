@@ -236,6 +236,11 @@ export function recordSentMessage(table, message) {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('amiv:message-sent', { detail: { table, message } }))
 }
 
+// Message supprimé par son auteur : ne plus le proposer comme dernier message
+export function forgetSentMessage(messageId) {
+  sentMessages = sentMessages.filter(entry => entry.message?.id !== messageId)
+}
+
 export function applySentMessages(conversations) {
   const now = Date.now()
   sentMessages = sentMessages.filter(entry => now - entry.recordedAt < SENT_MESSAGE_TTL_MS)

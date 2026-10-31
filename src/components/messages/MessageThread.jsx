@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Calendar as CalendarIcon, ChevronLeft, Lock, MapPin, MessageCircle } from 'lucide-react'
 import { BG, BLACK, FONT, GRADIENT, GRAY1, WHITE } from './constants'
 import { DELETED_USER_LABEL, formatEventHeaderDate, profileDisplayName } from './utils'
@@ -8,10 +8,13 @@ import ChatMembersSheet from './ChatMembersSheet'
 import DirectFriendProfileSheet from './DirectFriendProfileSheet'
 import { getCoverUrl } from '../home/MyEventsSection'
 import { useKeyboardOpen } from '../../hooks/useKeyboardOpen'
-import { MessageSafetySheet } from '../safety/SafetySheets'
+import { ReportSheet, UserSafetySheet } from '../safety/SafetySheets'
+import MessageActionOverlay, { copyText } from './MessageActionOverlay'
+import { NO_NATIVE_PRESS, ReactionPills, ReplyBar, ReplyQuote } from './MessageReactions'
+import { useMessageGestures } from '../../hooks/useMessageGestures'
 import { secretConversationLabel, SECRET_ACCENT, SECRET_ACCENT_SOFT, secretTabForMessage } from '../../lib/secretSpace'
 
-const LONG_PRESS_MS = 450
+const NO_REACTIONS = { reactionsByMessage: {}, myEmojis: () => new Set(), toggleReaction() {} }
 
 function formatTime(ts) {
   const d = new Date(ts)
@@ -38,31 +41,110 @@ export default function MessageThread({
   currentUserId = null,
   onOpenEvent,
   onSendDirectMessage,
+  reactions = NO_REACTIONS,
+  onDeleteMessage,
 }) {
   const inputRef = useRef(null)
   const listRef = useRef(null)
   const keyboardOpen = useKeyboardOpen()
-  const longPressRef = useRef(null)
-  const [actionMessage, setActionMessage] = useState(null)
   const [showMembers, setShowMembers] = useState(false)
   const [selectedMember, setSelectedMember] = useState(null)
+  // Appui long : { message, isMine, rect } de la bulle mise en avant
+  const [actionTarget, setActionTarget] = useState(null)
+  const [replyTo, setReplyTo] = useState(null)
+  const [reportMessageId, setReportMessageId] = useState(null)
+  // Tap sur le nom ou la photo d'un auteur : Voir le profil, Bloquer, Signaler
+  const [safetyAuthor, setSafetyAuthor] = useState(null)
+  const [notice, setNotice] = useState(null)
+  const { reactionsByMessage, myEmojis, toggleReaction } = reactions
+  const { bubbleHandlers } = useMessageGestures({
+    onLongPress: (msg, element) => setActionTarget({ message: msg, isMine: msg.user_id === currentUserId, rect: element.getBoundingClientRect() }),
+    onDoubleTap: msg => toggleReaction(msg.id, '❤️'),
+  })
+  const messagesById = new Map(messages.map(m => [m.id, m]))
 
-  function clearLongPress() {
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current)
-      longPressRef.current = null
-    }
-  }
+  // Message supprimé (ici ou par son auteur) : plus de réponse ni de menu dessus
+  useEffect(() => {
+    const ids = new Set(messages.map(m => m.id))
+    setReplyTo(prev => (prev && !ids.has(prev.id) ? null : prev))
+    setActionTarget(prev => (prev && !ids.has(prev.message.id) ? null : prev))
+  }, [messages])
 
-  function startLongPress(msg) {
-    clearLongPress()
-    longPressRef.current = setTimeout(() => setActionMessage(msg), LONG_PRESS_MS)
-  }
-
-  function handleSend() {
+  async function handleSend() {
+    if (!canSend(input)) return
     // Garde le clavier ouvert pour enchaîner (focus synchrone : iOS l'exige dans le geste)
-    if (canSend(input) && document.activeElement !== inputRef.current) inputRef.current?.focus()
-    send()
+    if (document.activeElement !== inputRef.current) inputRef.current?.focus()
+    const quoted = replyTo
+    setReplyTo(null)
+    const sent = await send({ replyToId: quoted?.id ?? null })
+    if (sent === false && quoted) setReplyTo(quoted)
+  }
+
+  function showNotice(text) {
+    setNotice(text)
+    window.setTimeout(() => setNotice(null), 2000)
+  }
+
+  const closeActions = useCallback(() => setActionTarget(null), [])
+
+  // Lit le message visé et referme le menu
+  function takeAction() {
+    const target = actionTarget
+    setActionTarget(null)
+    return target?.message ?? null
+  }
+
+  function handleReact(emoji) {
+    const msg = takeAction()
+    if (msg) toggleReaction(msg.id, emoji)
+  }
+
+  function handleReply() {
+    const msg = takeAction()
+    if (!msg) return
+    setReplyTo(msg)
+    // Synchrone, dans le geste : sinon iOS n'ouvre pas le clavier
+    inputRef.current?.focus()
+  }
+
+  async function handleCopy() {
+    const msg = takeAction()
+    if (msg) showNotice(await copyText(msg.content ?? '') ? 'Message copié' : 'Impossible de copier ce message.')
+  }
+
+  function handleReport() {
+    const msg = takeAction()
+    if (msg) setReportMessageId(msg.id)
+  }
+
+  async function handleDelete() {
+    const msg = takeAction()
+    if (msg && onDeleteMessage && !(await onDeleteMessage(msg))) showNotice('Impossible de supprimer ce message.')
+  }
+
+  function authorName(msg) {
+    if (msg.user_id === currentUserId) return 'Toi'
+    return msg.user_id ? profileDisplayName(msg.profile) : DELETED_USER_LABEL
+  }
+
+  function openAuthor(msg) {
+    if (!msg.user_id || msg.user_id === currentUserId) return
+    setSafetyAuthor({ id: msg.user_id, name: profileDisplayName(msg.profile), avatarUrl: msg.profile?.avatar_url || '', isBlocked: msg.is_hidden === true })
+  }
+
+  function bubbleStyle(msg, isMine) {
+    return { padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : msg.is_hidden ? GRAY1 : BLACK, fontStyle: msg.is_hidden ? 'italic' : 'normal', fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', whiteSpace: 'pre-wrap', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)', boxSizing: 'border-box', ...NO_NATIVE_PRESS }
+  }
+
+  function renderBubbleContent(msg, isMine) {
+    if (msg.is_hidden) return 'Message masqué'
+    const quoted = msg.reply_to_id ? messagesById.get(msg.reply_to_id) : null
+    return (
+      <>
+        {quoted && <ReplyQuote quotedName={authorName(quoted)} content={quoted.is_hidden ? 'Message masqué' : quoted.content} isMine={isMine} />}
+        {msg.content}
+      </>
+    )
   }
 
   // Clavier ouvert : la WebView rétrécit (resize: 'native'), la liste aussi.
@@ -184,13 +266,17 @@ export default function MessageThread({
             }
             const { message: msg, isMine, compactTop, showName, showAvatar } = row
             const senderName = msg.user_id ? profileDisplayName(msg.profile) : DELETED_USER_LABEL
-            const canReport = !isMine && !msg.isOptimistic && !msg.is_hidden
+            const canAct = !msg.isOptimistic && !msg.is_hidden
+            const canOpenAuthor = !isMine && !!msg.user_id
             const showCoordinatorBadge = isSecret && guestLeaderIds.has(msg.profile?.id) && !isMine
+            const authorButton = { border: 'none', background: 'transparent', padding: 0, margin: 0, fontFamily: FONT, cursor: canOpenAuthor ? 'pointer' : 'default' }
             return (
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', marginTop: compactTop ? 2 : 10 }}>
                 {!isMine && showName && (
                   <div style={{ fontSize: 11, fontWeight: 700, color: GRAY1, marginBottom: 3, paddingLeft: 36, display: 'flex', alignItems: 'center' }}>
-                    {senderName}
+                    <button type="button" disabled={!canOpenAuthor} onClick={() => openAuthor(msg)} style={{ ...authorButton, fontSize: 11, fontWeight: 700, color: GRAY1 }}>
+                      {senderName}
+                    </button>
                     {showCoordinatorBadge && (
                       <span style={{ fontSize: 10, fontWeight: 700, color: '#e055aa', background: 'rgba(224,85,170,0.10)', padding: '2px 7px', borderRadius: 20, marginLeft: 5 }}>
                         ✦ Coordinateur
@@ -199,21 +285,26 @@ export default function MessageThread({
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7, maxWidth: '78%' }}>
-                  {!isMine && (showAvatar ? <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} isCloseFriend={closeFriendIds.has(msg.profile?.id)} /> : <div style={{ width: 28, flexShrink: 0 }} />)}
+                  {!isMine && (showAvatar
+                    ? (
+                      <button type="button" disabled={!canOpenAuthor} onClick={() => openAuthor(msg)} aria-label={canOpenAuthor ? `Options pour ${senderName}` : undefined} style={{ ...authorButton, borderRadius: '50%', flexShrink: 0, alignSelf: 'flex-start', marginTop: 'auto' }}>
+                        <Avatar name={senderName} url={msg.profile?.avatar_url} size={28} isCloseFriend={closeFriendIds.has(msg.profile?.id)} />
+                      </button>
+                    )
+                    : <div style={{ width: 28, flexShrink: 0 }} />)}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start', minWidth: 0 }}>
                     <div
-                      onMouseDown={() => canReport && startLongPress(msg)}
-                      onMouseUp={clearLongPress}
-                      onMouseLeave={clearLongPress}
-                      onTouchStart={() => canReport && startLongPress(msg)}
-                      onTouchEnd={clearLongPress}
-                      onTouchMove={clearLongPress}
-                      onTouchCancel={clearLongPress}
-                      onContextMenu={e => { if (canReport) { e.preventDefault(); setActionMessage(msg) } }}
-                      style={{ padding: '9px 13px', borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMine ? GRADIENT : WHITE, color: isMine ? WHITE : msg.is_hidden ? GRAY1 : BLACK, fontStyle: msg.is_hidden ? 'italic' : 'normal', fontSize: 14, lineHeight: 1.4, wordBreak: 'break-word', whiteSpace: 'pre-wrap', opacity: msg.isOptimistic ? 0.7 : 1, boxShadow: isMine ? 'none' : '0 1px 6px rgba(0,0,0,0.08)', userSelect: canReport ? 'none' : 'auto', WebkitUserSelect: canReport ? 'none' : 'auto', WebkitTouchCallout: 'none' }}
+                      data-message-id={msg.id}
+                      {...bubbleHandlers(msg, canAct)}
+                      style={{ ...bubbleStyle(msg, isMine), visibility: actionTarget?.message.id === msg.id ? 'hidden' : 'visible' }}
                     >
-                      {msg.is_hidden ? 'Message masqué' : msg.content}
+                      {renderBubbleContent(msg, isMine)}
                     </div>
+                    <ReactionPills
+                      reactions={Object.values(reactionsByMessage[msg.id] ?? {})}
+                      isMine={isMine}
+                      onToggle={emoji => toggleReaction(msg.id, emoji)}
+                    />
                     <div style={{ fontSize: 10, color: GRAY1, marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>
                       {formatTime(msg.created_at)}
                     </div>
@@ -226,20 +317,58 @@ export default function MessageThread({
         <div ref={bottomRef} />
       </div>
 
-      {actionMessage && (
-        <MessageSafetySheet
-          targetType="event_message"
-          messageId={actionMessage.id}
-          authorId={actionMessage.user_id}
-          authorName={profileDisplayName(actionMessage.profile)}
-          onClose={() => setActionMessage(null)}
+      {notice && (
+        <div role="status" style={{ padding: '8px 16px', background: BG, color: BLACK, fontSize: 13, fontWeight: 700, textAlign: 'center', flexShrink: 0 }}>
+          {notice}
+        </div>
+      )}
+
+      <div style={{ background: WHITE, flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+        {replyTo && (
+          <ReplyBar
+            label={replyTo.user_id === currentUserId ? 'Réponse à toi-même' : `Réponse à ${authorName(replyTo)}`}
+            content={replyTo.content}
+            onCancel={() => setReplyTo(null)}
+          />
+        )}
+        <div style={{ padding: keyboardOpen ? '8px 14px' : '10px 14px max(20px, env(safe-area-inset-bottom))', display: 'flex', gap: 9, alignItems: 'flex-end' }}>
+          <MessageComposer ref={inputRef} value={input} onChange={setInput} onSend={handleSend} />
+        </div>
+      </div>
+
+      {actionTarget && (
+        <MessageActionOverlay
+          rect={actionTarget.rect}
+          isMine={actionTarget.isMine}
+          myEmojis={myEmojis(actionTarget.message.id)}
+          onReact={handleReact}
+          onReply={handleReply}
+          onCopy={handleCopy}
+          onReport={handleReport}
+          onDelete={handleDelete}
+          onClose={closeActions}
+        >
+          <div style={{ ...bubbleStyle(actionTarget.message, actionTarget.isMine), width: '100%', height: '100%' }}>
+            {renderBubbleContent(actionTarget.message, actionTarget.isMine)}
+          </div>
+        </MessageActionOverlay>
+      )}
+      {reportMessageId && (
+        <ReportSheet targetType="event_message" targetId={reportMessageId} subjectLabel="ce message" onClose={() => setReportMessageId(null)} />
+      )}
+      {safetyAuthor && (
+        <UserSafetySheet
+          userId={safetyAuthor.id}
+          userName={safetyAuthor.name}
+          isBlocked={safetyAuthor.isBlocked}
+          onViewProfile={() => {
+            setSafetyAuthor(null)
+            setSelectedMember({ user_id: safetyAuthor.id, display_name: safetyAuthor.name, avatar_url: safetyAuthor.avatarUrl })
+          }}
+          onClose={() => setSafetyAuthor(null)}
           onBlockedChange={() => onAuthorBlocked?.()}
         />
       )}
-
-      <div style={{ padding: keyboardOpen ? '8px 14px' : '10px 14px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 9, alignItems: 'flex-end', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
-        <MessageComposer ref={inputRef} value={input} onChange={setInput} onSend={handleSend} />
-      </div>
 
       {showMembers && (
         <ChatMembersSheet

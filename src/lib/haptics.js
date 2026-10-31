@@ -17,6 +17,12 @@ export function hapticLight() {
   Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
 }
 
+// Appui long reconnu (menu d'un message)
+export function hapticMedium() {
+  if (!available) return
+  Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {})
+}
+
 // Saisie refusée (âge minimum, pseudo pris)
 export function hapticError() {
   if (!available) return

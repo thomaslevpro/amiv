@@ -1,11 +1,15 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { ChevronLeft, Flag, MoreHorizontal } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { isBlockedByMe, unblockUser } from '../lib/safety'
+import { useMessageGestures } from '../hooks/useMessageGestures'
+import { useMessageReactions } from '../hooks/useMessageReactions'
 import { ReportSheet, UserSafetySheet } from '../components/safety/SafetySheets'
 import DirectFriendProfileSheet from '../components/messages/DirectFriendProfileSheet'
 import { CloseFriendBadge } from '../components/messages/MessageUI'
-import { recordSentMessage } from '../components/messages/utils'
+import MessageActionOverlay, { copyText } from '../components/messages/MessageActionOverlay'
+import { NO_NATIVE_PRESS, ReactionPills, ReplyBar, ReplyQuote } from '../components/messages/MessageReactions'
+import { forgetSentMessage, recordSentMessage } from '../components/messages/utils'
 import MessageComposer from '../components/messages/MessageComposer'
 import { fullName } from '../utils/displayName'
 
@@ -16,10 +20,9 @@ const WHITE = '#FFFFFF'
 const BLACK = '#1C1C1E'
 const GRAY = '#8E8E93'
 const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif"
-const LONG_PRESS_MS = 400
 const GROUP_INTERVAL_MS = 2 * 60 * 1000
 const ONLINE_INTERVAL_MS = 5 * 60 * 1000
-const EMOJIS = ['❤️', '😂', '😮', '😢', '👍', '🎉']
+const MESSAGE_COLUMNS = 'id, conversation_id, content, created_at, sender_id, reply_to_id'
 
 function getInitials(name) {
   return (name ?? '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
@@ -107,24 +110,6 @@ function buildMessageRows(messages, currentUserId) {
   })
 }
 
-function aggregateReactions(reactions, currentUserId) {
-  return reactions.reduce((acc, reaction) => {
-    if (!acc[reaction.message_id]) acc[reaction.message_id] = {}
-    if (!acc[reaction.message_id][reaction.emoji]) {
-      acc[reaction.message_id][reaction.emoji] = {
-        emoji: reaction.emoji,
-        count: 0,
-        reactedByMe: false,
-      }
-    }
-    acc[reaction.message_id][reaction.emoji].count += 1
-    if (reaction.user_id === currentUserId) {
-      acc[reaction.message_id][reaction.emoji].reactedByMe = true
-    }
-    return acc
-  }, {})
-}
-
 function Avatar({ name, url, size = 28, isCloseFriend = false }) {
   return (
     <span style={{ position: 'relative', width: size, height: size, display: 'block', flexShrink: 0 }}>
@@ -155,102 +140,20 @@ function Avatar({ name, url, size = 28, isCloseFriend = false }) {
   )
 }
 
-function EmojiPicker({ onSelect, isMine, onReport }) {
-  return (
-    <div style={{
-      position: 'absolute',
-      left: isMine ? 'auto' : 0,
-      right: isMine ? 0 : 'auto',
-      bottom: 'calc(100% + 8px)',
-      zIndex: 5,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 4,
-      padding: '7px 8px',
-      borderRadius: 24,
-      background: WHITE,
-      boxShadow: '0 8px 28px rgba(0,0,0,0.18)',
-      border: '0.5px solid rgba(0,0,0,0.08)',
-    }}>
-      {EMOJIS.map(emoji => (
-        <button
-          key={emoji}
-          type="button"
-          onClick={() => onSelect(emoji)}
-          style={{
-            width: 32,
-            height: 32,
-            border: 'none',
-            borderRadius: '50%',
-            background: 'transparent',
-            fontSize: 19,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 0,
-          }}
-        >
-          {emoji}
-        </button>
-      ))}
-      {onReport && (
-        <button
-          type="button"
-          onClick={onReport}
-          aria-label="Signaler ce message"
-          style={{
-            height: 32,
-            border: 'none',
-            borderLeft: '0.5px solid rgba(0,0,0,0.12)',
-            background: 'transparent',
-            color: '#FF3B30',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '0 4px 0 9px',
-            fontFamily: FONT,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Flag size={14} strokeWidth={2} />
-          Signaler
-        </button>
-      )}
-    </div>
-  )
-}
-
-function ReactionPill({ reaction, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        border: reaction.reactedByMe ? '1.5px solid transparent' : '1px solid rgba(0,0,0,0.06)',
-        background: reaction.reactedByMe
-          ? `linear-gradient(${WHITE}, ${WHITE}) padding-box, ${GRADIENT} border-box`
-          : WHITE,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-        borderRadius: 14,
-        padding: '2px 7px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 3,
-        fontSize: 12,
-        lineHeight: 1.2,
-        color: BLACK,
-        cursor: 'pointer',
-        fontFamily: FONT,
-      }}
-    >
-      <span>{reaction.emoji}</span>
-      <span style={{ fontSize: 11, fontWeight: 700 }}>{reaction.count}</span>
-    </button>
-  )
+function bubbleStyle({ isMine, isOptimistic, receivedBubbleBg, receivedTextColor }) {
+  return {
+    padding: '9px 14px',
+    borderRadius: isMine ? '18px 18px 5px 18px' : '18px 18px 18px 5px',
+    background: isMine ? GRADIENT : receivedBubbleBg,
+    color: isMine ? WHITE : receivedTextColor,
+    fontSize: 15,
+    lineHeight: 1.38,
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
+    opacity: isOptimistic ? 0.72 : 1,
+    ...NO_NATIVE_PRESS,
+    boxSizing: 'border-box',
+  }
 }
 
 async function markAsRead(conversationId, userId) {
@@ -268,11 +171,12 @@ async function markAsRead(conversationId, userId) {
 
 export default function ConversationScreen({ conversationId, friend, onBack, onFriendChange }) {
   const [messages, setMessages] = useState([])
-  const [reactions, setReactions] = useState([])
   const [otherLastReadAt, setOtherLastReadAt] = useState(null)
   const [input, setInput] = useState('')
   const [currentUserId, setCurrentUserId] = useState(null)
-  const [activePicker, setActivePicker] = useState(null)
+  // Appui long : { message, isMine, rect } de la bulle mise en avant
+  const [actionTarget, setActionTarget] = useState(null)
+  const [replyTo, setReplyTo] = useState(null)
   const [isDark, setIsDark] = useState(false)
   const [showFriendProfile, setShowFriendProfile] = useState(false)
   const [isCloseFriend, setIsCloseFriend] = useState(friend?.is_close_friend === true || friend?.isCloseFriend === true)
@@ -280,10 +184,9 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
   const [showSafety, setShowSafety] = useState(false)
   const [reportMessageId, setReportMessageId] = useState(null)
   const [sendError, setSendError] = useState(null)
+  const [notice, setNotice] = useState(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
-  const longPressRef = useRef(null)
-  const messageIdsRef = useRef(new Set())
   const otherUserId = friendId(friend)
   // Sans autre participant, l'interlocuteur a supprimé son compte
   const isDeletedUser = !otherUserId
@@ -332,6 +235,15 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           const withoutOptimistic = prev.filter(m => !(m.isOptimistic && m.sender_id === payload.new.sender_id && m.content === payload.new.content))
           return [...withoutOptimistic, payload.new]
         })
+      )
+      // Message supprimé par son auteur (seul l'id arrive, sans filtre possible sur un DELETE)
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'direct_messages' },
+        (payload) => {
+          const deletedId = payload.old?.id
+          if (deletedId) removeMessageLocally(deletedId)
+        }
       )
       .subscribe()
 
@@ -404,57 +316,16 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
     onFriendChange?.({ ...friend, is_close_friend: nextValue, isCloseFriend: nextValue })
   }
 
-  const messageIds = useMemo(
-    () => messages.filter(msg => !msg.isOptimistic).map(msg => msg.id),
-    [messages]
-  )
-  const messageIdsKey = messageIds.join(',')
-
-  useEffect(() => {
-    messageIdsRef.current = new Set(messageIds)
-    if (!messageIds.length) {
-      setReactions([])
-      return
-    }
-
-    supabase
-      .from('message_reactions')
-      .select('id, message_id, user_id, emoji, created_at')
-      .in('message_id', messageIds)
-      .then(({ data }) => setReactions(data ?? []))
-  }, [messageIdsKey])
-
-  useEffect(() => {
-    if (!conversationId) return undefined
-
-    const refreshReactions = () => {
-      const ids = Array.from(messageIdsRef.current)
-      if (!ids.length) {
-        setReactions([])
-        return
-      }
-      supabase
-        .from('message_reactions')
-        .select('id, message_id, user_id, emoji, created_at')
-        .in('message_id', ids)
-        .then(({ data }) => setReactions(data ?? []))
-    }
-
-    const suffix = Math.random().toString(36).slice(2, 8)
-    const channel = supabase
-      .channel(`message_reactions:${conversationId}:${suffix}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'message_reactions' },
-        (payload) => {
-          const messageId = payload.new?.message_id || payload.old?.message_id
-          if (!messageId || messageIdsRef.current.has(messageId)) refreshReactions()
-        }
-      )
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [conversationId])
+  const { reactionsByMessage, myEmojis, toggleReaction, forgetMessage: forgetReactions, restore: restoreReactions, reactions } = useMessageReactions({
+    table: 'message_reactions',
+    messages,
+    currentUserId,
+    channelKey: conversationId,
+  })
+  const { bubbleHandlers } = useMessageGestures({
+    onLongPress: (msg, element) => setActionTarget({ message: msg, isMine: msg.sender_id === currentUserId, rect: element.getBoundingClientRect() }),
+    onDoubleTap: msg => toggleReaction(msg.id, '❤️'),
+  })
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -467,15 +338,18 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
   async function handleSend() {
     const text = input.trim()
     if (!text || !currentUserId) return
+    const quoted = replyTo
     const optimistic = {
       id: crypto.randomUUID(),
       conversation_id: conversationId,
       sender_id: currentUserId,
       content: text,
+      reply_to_id: quoted?.id ?? null,
       created_at: new Date().toISOString(),
       isOptimistic: true,
     }
     setInput('')
+    setReplyTo(null)
     // Garde le clavier ouvert pour enchaîner (focus synchrone : iOS l'exige dans le geste)
     if (document.activeElement !== inputRef.current) inputRef.current?.focus()
     setMessages(prev => [...prev, optimistic])
@@ -483,15 +357,26 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       conversation_id: conversationId,
       sender_id: currentUserId,
       content: text,
-    }).select('id, conversation_id, content, created_at, sender_id').maybeSingle()
+      reply_to_id: optimistic.reply_to_id,
+    }).select(MESSAGE_COLUMNS).maybeSingle()
     if (!error) recordSentMessage('direct_messages', sent ?? { ...optimistic, isOptimistic: undefined })
     if (error) {
       setMessages(prev => prev.filter(m => m.id !== optimistic.id))
       setInput(text)
+      setReplyTo(quoted)
       // Refusé en base si l'un de vous a bloqué l'autre (trigger guard_direct_message_block)
-      setSendError("Impossible d'envoyer ce message.")
-      window.setTimeout(() => setSendError(null), 2600)
+      showError("Impossible d'envoyer ce message.")
     }
+  }
+
+  function showError(text) {
+    setSendError(text)
+    window.setTimeout(() => setSendError(null), 2600)
+  }
+
+  function showNotice(text) {
+    setNotice(text)
+    window.setTimeout(() => setNotice(null), 1600)
   }
 
   async function handleUnblock() {
@@ -499,8 +384,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       await unblockUser(otherUserId)
       setIsBlocked(false)
     } catch {
-      setSendError('Impossible de débloquer pour le moment.')
-      window.setTimeout(() => setSendError(null), 2600)
+      showError('Impossible de débloquer pour le moment.')
     }
   }
 
@@ -508,66 +392,64 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
     () => buildMessageRows(messages, currentUserId),
     [messages, currentUserId]
   )
-  const reactionsByMessage = useMemo(
-    () => aggregateReactions(reactions, currentUserId),
-    [reactions, currentUserId]
-  )
 
-  function clearLongPress() {
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current)
-      longPressRef.current = null
-    }
+  // Retire un message (supprimé ici ou par l'autre) : ses réactions partent
+  // avec en base, une réponse qui le citait perd sa citation.
+  function removeMessageLocally(messageId) {
+    setMessages(prev => (prev.some(m => m.id === messageId) ? prev.filter(m => m.id !== messageId) : prev))
+    forgetReactions(messageId)
+    setReplyTo(prev => (prev?.id === messageId ? null : prev))
+    setActionTarget(prev => (prev?.message.id === messageId ? null : prev))
   }
 
-  function startLongPress(messageId) {
-    clearLongPress()
-    longPressRef.current = setTimeout(() => {
-      setActivePicker(messageId)
-    }, LONG_PRESS_MS)
+  const closeActions = useCallback(() => setActionTarget(null), [])
+
+  function handleReact(emoji) {
+    const target = actionTarget
+    setActionTarget(null)
+    if (target) toggleReaction(target.message.id, emoji)
   }
 
-  async function toggleReaction(messageId, emoji) {
-    if (!messageId || !currentUserId) return
-    setActivePicker(null)
+  function handleReply() {
+    const target = actionTarget
+    setActionTarget(null)
+    if (!target) return
+    setReplyTo(target.message)
+    // Synchrone, dans le geste : sinon iOS n'ouvre pas le clavier
+    inputRef.current?.focus()
+  }
 
-    const existing = reactions.find(reaction => (
-      reaction.message_id === messageId
-      && reaction.user_id === currentUserId
-      && reaction.emoji === emoji
-    ))
+  async function handleCopy() {
+    const target = actionTarget
+    setActionTarget(null)
+    if (!target) return
+    if (await copyText(target.message.content ?? '')) showNotice('Message copié')
+    else showError('Impossible de copier ce message.')
+  }
 
-    if (existing) {
-      setReactions(prev => prev.filter(reaction => reaction.id !== existing.id))
-      const { error } = await supabase
-        .from('message_reactions')
-        .delete()
-        .eq('id', existing.id)
-      if (error) {
-        setReactions(prev => [...prev, existing])
-      }
-      return
-    }
+  function handleReport() {
+    const target = actionTarget
+    setActionTarget(null)
+    if (target) setReportMessageId(target.message.id)
+  }
 
-    const optimistic = {
-      id: `optimistic-${crypto.randomUUID()}`,
-      message_id: messageId,
-      user_id: currentUserId,
-      emoji,
-      created_at: new Date().toISOString(),
-      isOptimistic: true,
-    }
-    setReactions(prev => [...prev, optimistic])
+  async function handleDelete() {
+    const target = actionTarget
+    setActionTarget(null)
+    if (!target) return
+    const removed = target.message
+    const removedReactions = reactions.filter(r => r.message_id === removed.id)
+    removeMessageLocally(removed.id)
+    forgetSentMessage(removed.id)
     const { data, error } = await supabase
-      .from('message_reactions')
-      .insert({ message_id: messageId, user_id: currentUserId, emoji })
-      .select('id, message_id, user_id, emoji, created_at')
-      .single()
-
-    if (error) {
-      setReactions(prev => prev.filter(reaction => reaction.id !== optimistic.id))
-    } else if (data) {
-      setReactions(prev => prev.map(reaction => reaction.id === optimistic.id ? data : reaction))
+      .from('direct_messages')
+      .delete()
+      .eq('id', removed.id)
+      .select('id')
+    if (error || !data?.length) {
+      setMessages(prev => [...prev, removed].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)))
+      restoreReactions(removedReactions)
+      showError('Impossible de supprimer ce message.')
     }
   }
 
@@ -577,13 +459,34 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
   const receivedBubbleBg = isDark ? '#3A3A3C' : '#EBEBEB'
   const receivedTextColor = isDark ? WHITE : BLACK
 
+  const messagesById = new Map(messages.map(m => [m.id, m]))
+  const bubbleColors = { receivedBubbleBg, receivedTextColor }
+
+  function renderBubbleContent(msg, isMine) {
+    const quoted = msg.reply_to_id ? messagesById.get(msg.reply_to_id) : null
+    return (
+      <>
+        {quoted && (
+          <ReplyQuote
+            quotedName={quoted.sender_id === currentUserId ? 'Toi' : otherName}
+            content={quoted.content}
+            isMine={isMine}
+          />
+        )}
+        {msg.content}
+      </>
+    )
+  }
+
+  const actionMessage = actionTarget?.message
+  const myEmojisOnAction = myEmojis(actionMessage?.id)
+
   return (
     <div
-      onClick={() => setActivePicker(null)}
       style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: PAGE_BG, overflow: 'hidden', fontFamily: FONT }}
     >
 
-      {/* Header */}
+      {/* Header : tap sur la personne → Voir le profil, Bloquer, Signaler */}
       <div style={{
         padding: '9px 12px', background: WHITE,
         borderBottom: '0.5px solid rgba(0,0,0,0.08)',
@@ -613,45 +516,34 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
 
         <button
           type="button"
-          aria-label={`Voir le profil de ${otherName}`}
-          onClick={() => setShowFriendProfile(true)}
+          aria-label={`Options pour ${otherName}`}
+          onClick={() => setShowSafety(true)}
           disabled={isDeletedUser}
           style={{
+            flex: 1,
+            minWidth: 0,
             border: 'none',
             background: 'transparent',
             padding: 0,
             margin: 0,
             cursor: isDeletedUser ? 'default' : 'pointer',
-            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
+            gap: 10,
+            textAlign: 'left',
+            fontFamily: FONT,
           }}
         >
           <Avatar name={otherName} url={otherAvatar} size={38} isCloseFriend={isCloseFriend} />
+          <span style={{ flex: 1, minWidth: 0, display: 'block' }}>
+            <span style={{ display: 'block', fontSize: 16, fontWeight: 800, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {otherName}
+            </span>
+            <span style={{ display: 'block', marginTop: 1, fontSize: 12, color: GRAY, fontWeight: 500 }}>
+              {isDeletedUser ? 'Compte supprimé' : presence}
+            </span>
+          </span>
         </button>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: BLACK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {otherName}
-          </div>
-          <div style={{ marginTop: 1, fontSize: 12, color: GRAY, fontWeight: 500 }}>
-            {isDeletedUser ? 'Compte supprimé' : presence}
-          </div>
-        </div>
-
-        {!isDeletedUser && (
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); setShowSafety(true) }}
-            aria-label="Plus d'options"
-            style={{ width: 34, height: 34, border: 'none', borderRadius: '50%', background: 'transparent', color: BLACK, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer', flexShrink: 0 }}
-          >
-            <MoreHorizontal size={22} strokeWidth={2} />
-          </button>
-        )}
-
       </div>
 
       {/* Messages */}
@@ -675,6 +567,7 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
 
             const { message: msg, isMine, isGroupedWithNext, showAvatar, compactTop } = row
             const messageReactions = Object.values(reactionsByMessage[msg.id] ?? {})
+            const isHighlighted = actionMessage?.id === msg.id
             return (
               <div
                 key={msg.id}
@@ -693,7 +586,6 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
                     : <div style={{ width: 28, flexShrink: 0 }} />
                 )}
                 <div
-                  onClick={e => e.stopPropagation()}
                   style={{
                     position: 'relative',
                     maxWidth: '72%',
@@ -702,56 +594,22 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
                     alignItems: isMine ? 'flex-end' : 'flex-start',
                   }}
                 >
-                  {activePicker === msg.id && !msg.isOptimistic && (
-                    <EmojiPicker
-                      isMine={isMine}
-                      onSelect={emoji => toggleReaction(msg.id, emoji)}
-                      onReport={isMine ? null : () => { setActivePicker(null); setReportMessageId(msg.id) }}
-                    />
-                  )}
                   <div
-                    onMouseDown={() => !msg.isOptimistic && startLongPress(msg.id)}
-                    onMouseUp={clearLongPress}
-                    onMouseLeave={clearLongPress}
-                    onTouchStart={() => !msg.isOptimistic && startLongPress(msg.id)}
-                    onTouchEnd={clearLongPress}
-                    onTouchCancel={clearLongPress}
+                    data-message-id={msg.id}
+                    {...bubbleHandlers(msg, !msg.isOptimistic)}
                     style={{
-                      padding: '9px 14px',
-                      borderRadius: isMine ? '18px 18px 5px 18px' : '18px 18px 18px 5px',
-                      background: isMine ? GRADIENT : receivedBubbleBg,
-                      color: isMine ? WHITE : receivedTextColor,
-                      fontSize: 15,
-                      lineHeight: 1.38,
-                      wordBreak: 'break-word',
-                      whiteSpace: 'pre-wrap',
-                      opacity: msg.isOptimistic ? 0.72 : 1,
-                      userSelect: 'none',
-                      WebkitUserSelect: 'none',
-                      cursor: msg.isOptimistic ? 'default' : 'pointer',
+                      ...bubbleStyle({ isMine, isOptimistic: msg.isOptimistic, ...bubbleColors }),
+                      // La copie mise en avant dans l'overlay la remplace à l'écran
+                      visibility: isHighlighted ? 'hidden' : 'visible',
                     }}
                   >
-                    {msg.content}
+                    {renderBubbleContent(msg, isMine)}
                   </div>
-                  {messageReactions.length > 0 && (
-                    <div style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      justifyContent: isMine ? 'flex-end' : 'flex-start',
-                      gap: 4,
-                      marginTop: 4,
-                      paddingLeft: isMine ? 0 : 4,
-                      paddingRight: isMine ? 4 : 0,
-                    }}>
-                      {messageReactions.map(reaction => (
-                        <ReactionPill
-                          key={reaction.emoji}
-                          reaction={reaction}
-                          onClick={() => toggleReaction(msg.id, reaction.emoji)}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <ReactionPills
+                    reactions={messageReactions}
+                    isMine={isMine}
+                    onToggle={emoji => toggleReaction(msg.id, emoji)}
+                  />
                 </div>
               </div>
             )
@@ -763,6 +621,11 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
       {sendError && (
         <div style={{ padding: '8px 16px', background: '#FFF2F1', color: '#FF3B30', fontSize: 13, fontWeight: 700, textAlign: 'center', flexShrink: 0 }}>
           {sendError}
+        </div>
+      )}
+      {notice && !sendError && (
+        <div role="status" style={{ padding: '8px 16px', background: BG, color: BLACK, fontSize: 13, fontWeight: 700, textAlign: 'center', flexShrink: 0 }}>
+          {notice}
         </div>
       )}
 
@@ -779,15 +642,42 @@ export default function ConversationScreen({ conversationId, friend, onBack, onF
           </button>
         </div>
       ) : (
-      <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', background: WHITE, display: 'flex', gap: 10, alignItems: 'flex-end', flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
-        <MessageComposer ref={inputRef} value={input} onChange={setInput} onSend={handleSend} paddingX={14} buttonSize={36} iconSize={16} />
+      <div style={{ background: WHITE, flexShrink: 0, borderTop: '0.5px solid rgba(0,0,0,0.08)' }}>
+        {replyTo && (
+          <ReplyBar
+            label={replyTo.sender_id === currentUserId ? 'Réponse à toi-même' : `Réponse à ${otherName}`}
+            content={replyTo.content}
+            onCancel={() => setReplyTo(null)}
+          />
+        )}
+        <div style={{ padding: '10px 16px max(20px, env(safe-area-inset-bottom))', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <MessageComposer ref={inputRef} value={input} onChange={setInput} onSend={handleSend} paddingX={14} buttonSize={36} iconSize={16} />
+        </div>
       </div>
       )}
-      {showSafety && (
+      {actionTarget && (
+        <MessageActionOverlay
+          rect={actionTarget.rect}
+          isMine={actionTarget.isMine}
+          myEmojis={myEmojisOnAction}
+          onReact={handleReact}
+          onReply={handleReply}
+          onCopy={handleCopy}
+          onReport={handleReport}
+          onDelete={handleDelete}
+          onClose={closeActions}
+        >
+          <div style={{ ...bubbleStyle({ isMine: actionTarget.isMine, ...bubbleColors }), width: '100%', height: '100%' }}>
+            {renderBubbleContent(actionTarget.message, actionTarget.isMine)}
+          </div>
+        </MessageActionOverlay>
+      )}
+      {showSafety && !isDeletedUser && (
         <UserSafetySheet
           userId={otherUserId}
           userName={otherName}
           isBlocked={isBlocked}
+          onViewProfile={() => { setShowSafety(false); setShowFriendProfile(true) }}
           onClose={() => setShowSafety(false)}
           onBlockedChange={setIsBlocked}
         />
