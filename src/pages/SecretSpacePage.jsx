@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronLeft, Gift, Image, Lock, MessageCircle, Plus, Upload, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { captureSupabaseError } from '../lib/monitoring'
-import { daysUntil, fetchSecretUnreadCount, formatEuros, hiddenFromLabel, SECRET_ACCENT, SECRET_ACCENT_ON_DARK, SECRET_ACCENT_SOFT, SECRET_SPACE_TABS, secretRevealDate } from '../lib/secretSpace'
+import { daysUntilReveal, fetchSecretUnreadCount, formatEuros, formatRevealDay, hiddenFromLabel, memoriesRevealed, SECRET_ACCENT, SECRET_ACCENT_ON_DARK, SECRET_ACCENT_SOFT, SECRET_SPACE_TABS, secretRevealDay } from '../lib/secretSpace'
 import GuestLeaderBanner from '../components/GuestLeaderBanner'
 import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
 import { useGuestLeader } from '../hooks/useGuestLeader'
 import { COLORS, EmptyCard, Input, PrimaryButton, Sheet } from '../components/secretSpace/ui'
 import CagnotteTab from '../components/secretSpace/CagnotteTab'
-import { uploadMemoryImage, withMemoryImageUrls } from '../lib/memories'
+import MemoryCard from '../components/secretSpace/MemoryCard'
+import MemoryActionSheet from '../components/secretSpace/MemoryActionSheet'
+import { MEMORY_IMAGES_BUCKET, uploadMemoryImage, withMemoryImageUrls } from '../lib/memories'
 import { sortGuests } from '../lib/eventGuests'
 
 const TABS = [
@@ -45,11 +47,6 @@ function formatHeroDate(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'date à définir'
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-}
-
-function isRevealed(value) {
-  const days = daysUntil(value)
-  return days !== null && days <= 0
 }
 
 function formatMoney(value) {
@@ -117,6 +114,13 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
   const [memoryImageFile, setMemoryImageFile] = useState(null)
   const [memoryImagePreview, setMemoryImagePreview] = useState('')
   const [memorySaving, setMemorySaving] = useState(false)
+  const [memoriesLoaded, setMemoriesLoaded] = useState(false)
+  // Remplacement : souvenir d'origine, et son image du bucket gardée tant
+  // qu'on n'en choisit pas une autre
+  const [replacingMemory, setReplacingMemory] = useState(null)
+  const [keptImage, setKeptImage] = useState(null)
+  const [memoryAction, setMemoryAction] = useState(null)
+  const [memoryDeleting, setMemoryDeleting] = useState(false)
 
   const [giftItems, setGiftItems] = useState([])
   const [collectiveGifts, setCollectiveGifts] = useState([])
@@ -124,9 +128,9 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
   const [giftForm, setGiftForm] = useState(EMPTY_GIFT_FORM)
   const [giftSaving, setGiftSaving] = useState(false)
 
-  const revealDate = useMemo(() => secretRevealDate(event?.date), [event?.date])
-  const revealDays = useMemo(() => daysUntil(revealDate), [revealDate])
-  const revealed = useMemo(() => isRevealed(event?.date), [event?.date])
+  const revealDay = useMemo(() => secretRevealDay(event?.date), [event?.date])
+  const revealDays = useMemo(() => daysUntilReveal(event?.date), [event?.date])
+  const revealed = useMemo(() => memoriesRevealed(event?.date), [event?.date])
   const birthdayFirstName = firstName(event?.birthdayProfile, 'la personne fêtée')
   const contributorCount = contributors.filter(contributor => contributor.nb_memories > 0).length
   const guestCount = contributors.length
@@ -204,11 +208,18 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
   useEffect(() => {
     if (!highlightedId) return undefined
     const element = document.getElementById(`secret-item-${highlightedId}`)
-    if (!element) return undefined
+    if (!element) {
+      // Lien du chat vers un souvenir supprimé entre-temps
+      if (activeTab === 'flashback' && memoriesLoaded && !memories.some(memory => memory.id === highlightedId)) {
+        setHighlightedId(null)
+        showToast('Ce souvenir a été supprimé')
+      }
+      return undefined
+    }
     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
     const timer = window.setTimeout(() => setHighlightedId(null), 2400)
     return () => window.clearTimeout(timer)
-  }, [highlightedId, memories, giftItems, activeTab])
+  }, [highlightedId, memories, memoriesLoaded, giftItems, activeTab, showToast])
 
   async function handleRemind(contributor) {
     if (!contributor.invited_user_id || remindingId) return
@@ -249,26 +260,33 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     }
     setCardId(nextCardId)
 
-    const { data: memoryRows, error: memoriesError } = await supabase
-      .from('collective_memories')
-      .select('id, card_id, event_id, contributor_id, text, image_url, emoji, bg_color, created_at, collective_cards!inner(event_id)')
-      .eq('collective_cards.event_id', eventId)
-      .order('created_at', { ascending: false })
-
-    if (memoriesError) throw memoriesError
-    const loadedMemories = memoryRows ?? []
+    // Tous les souvenirs sans contenu (auteur, date), puis le contenu de ceux
+    // que la RLS laisse lire : les siens avant la révélation. Les autres
+    // restent des cartes masquées.
+    const [entriesRes, contentRes] = await Promise.all([
+      supabase.rpc('get_flashback_entries', { p_event_id: eventId }),
+      supabase
+        .from('collective_memories')
+        .select('id, card_id, event_id, contributor_id, text, image_url, emoji, bg_color, created_at')
+        .eq('event_id', eventId),
+    ])
+    if (entriesRes.error) throw entriesRes.error
+    if (contentRes.error) throw contentRes.error
+    const entries = entriesRes.data ?? []
     // Liste complète pour tout membre (les invitations des autres ne sont
     // lisibles que par les organisateurs)
     const { data: guestRows, error: guestError } = await supabase.rpc('get_event_guest_list', { p_event_id: eventId })
     if (guestError) throw guestError
-    const profilesById = await fetchProfilesByIds(loadedMemories.map(memory => memory.contributor_id))
-    const memoriesWithImages = await withMemoryImageUrls(loadedMemories)
-    setMemories(memoriesWithImages.map(memory => ({
-      ...memory,
-      profile: profilesById[memory.contributor_id] ?? null,
+    const profilesById = await fetchProfilesByIds(entries.map(entry => entry.contributor_id))
+    const readable = await withMemoryImageUrls(contentRes.data ?? [])
+    const contentById = Object.fromEntries(readable.map(memory => [memory.id, memory]))
+    setMemories(entries.map(entry => ({
+      ...(contentById[entry.id] ?? { ...entry, hidden: true }),
+      profile: profilesById[entry.contributor_id] ?? null,
     })))
+    setMemoriesLoaded(true)
 
-    const counts = loadedMemories.reduce((acc, memory) => {
+    const counts = entries.reduce((acc, memory) => {
       if (!memory.contributor_id) return acc
       acc[memory.contributor_id] = (acc[memory.contributor_id] ?? 0) + 1
       return acc
@@ -412,7 +430,8 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     const text = memoryForm.text.trim()
     const emoji = memoryForm.emoji.trim()
     const imageUrl = memoryForm.image_url.trim()
-    if (!text && !emoji && !imageUrl && !memoryImageFile) return
+    const keptPath = keptImage?.path ?? null
+    if (!text && !emoji && !imageUrl && !memoryImageFile && !keptPath) return
 
     setMemorySaving(true)
     let uploadedUrl = null
@@ -425,34 +444,99 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
       return
     }
 
-    const { error } = await supabase
-      .from('collective_memories')
-      .insert({
-        card_id: cardId,
-        event_id: eventId,
-        contributor_id: currentUserId,
-        text: text || null,
-        emoji: emoji || null,
-        image_url: uploadedUrl || imageUrl || null,
-        bg_color: memoryForm.bg_color || '#fbeaf0',
+    const image = uploadedUrl || imageUrl || keptPath || null
+    const bgColor = memoryForm.bg_color || '#fbeaf0'
+    // Remplacement : nouveau souvenir puis suppression de l'ancien, dans une
+    // seule transaction (l'ancienne image est purgée côté serveur)
+    const { error } = replacingMemory
+      ? await supabase.rpc('replace_flashback_memory', {
+        p_memory_id: replacingMemory.id,
+        p_text: text,
+        p_emoji: emoji,
+        p_image_url: image,
+        p_bg_color: bgColor,
       })
+      : await supabase
+        .from('collective_memories')
+        .insert({
+          card_id: cardId,
+          event_id: eventId,
+          contributor_id: currentUserId,
+          text: text || null,
+          emoji: emoji || null,
+          image_url: image,
+          bg_color: bgColor,
+        })
 
     setMemorySaving(false)
     if (error) {
-      console.error('[SecretSpace] memory insert error:', error)
-      setErrorMessage("Impossible d'ajouter le souvenir.")
+      console.error('[SecretSpace] memory save error:', error)
+      if (uploadedUrl) supabase.storage.from(MEMORY_IMAGES_BUCKET).remove([uploadedUrl])
+      setErrorMessage(replacingMemory ? 'Impossible de remplacer le souvenir.' : "Impossible d'ajouter le souvenir.")
       return
     }
+    resetMemoryForm()
+    setMemoryModalOpen(false)
+    if (replacingMemory) showToast('Souvenir remplacé')
+    await fetchFlashback()
+  }
+
+  function resetMemoryForm() {
     setMemoryForm(EMPTY_MEMORY_FORM)
     setMemoryImageFile(null)
-    setMemoryModalOpen(false)
-    await fetchFlashback()
+    setReplacingMemory(null)
+    setKeptImage(null)
   }
 
   function closeMemorySheet() {
     if (memorySaving) return
     setMemoryModalOpen(false)
+    if (replacingMemory) resetMemoryForm()
+    else setMemoryImageFile(null)
+  }
+
+  function openReplaceMemory(memory) {
+    const storedImage = memory.image_url && !/^https?:\/\//i.test(memory.image_url)
+    setMemoryAction(null)
+    setReplacingMemory(memory)
+    setMemoryForm({
+      text: memory.text ?? '',
+      emoji: memory.emoji ?? '',
+      image_url: storedImage ? '' : memory.image_url ?? '',
+      bg_color: memory.bg_color || EMPTY_MEMORY_FORM.bg_color,
+    })
+    setKeptImage(storedImage ? { path: memory.image_url, url: memory.display_image_url } : null)
     setMemoryImageFile(null)
+    setMemoryModalOpen(true)
+  }
+
+  function removeMemoryImage() {
+    setMemoryImageFile(null)
+    setKeptImage(null)
+    setMemoryForm(current => ({ ...current, image_url: '' }))
+    if (memoryFileInputRef.current) memoryFileInputRef.current.value = ''
+  }
+
+  // Auteur seulement, avant la révélation (RLS) : 0 ligne supprimée = refus
+  async function handleDeleteMemory() {
+    if (!memoryAction || memoryDeleting) return
+    const memoryId = memoryAction.id
+    setMemoryDeleting(true)
+    const { data, error } = await supabase
+      .from('collective_memories')
+      .delete()
+      .eq('id', memoryId)
+      .select('id')
+    setMemoryDeleting(false)
+    setMemoryAction(null)
+    if (error || !data?.length) {
+      if (error) captureSupabaseError(error, { operation: 'delete_flashback_memory' })
+      showToast('Impossible de supprimer ce souvenir.', true)
+      return
+    }
+    setMemories(current => current.filter(memory => memory.id !== memoryId))
+    showToast('Souvenir supprimé')
+    await fetchFlashback()
   }
 
   async function handleAddGift(event) {
@@ -556,7 +640,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
           <div style={{ position: 'relative', minHeight: 42, borderRadius: 14, background: 'rgba(255,255,255,0.06)', padding: '10px 14px', marginTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 8, height: 8, borderRadius: 4, background: COLORS.orange, animation: 'secretPulse 1.45s ease-in-out infinite', flexShrink: 0 }} />
             <span style={{ minWidth: 0, flex: 1, color: 'rgba(255,255,255,0.76)', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Révélation le {formatHeroDate(revealDate)} à 00:00
+              Révélation le {formatRevealDay(revealDay)} à 00:00
             </span>
             <span style={{ color: COLORS.orange, fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
               {revealDays === null ? 'J-?' : revealDays > 0 ? `J-${revealDays}` : 'J'}
@@ -643,39 +727,19 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
               {memories.length === 0 ? (
                 <EmptyCard>Aucun souvenir pour le moment.</EmptyCard>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, alignItems: 'start' }}>
                   {memories.map((memory, index) => {
-                    const palette = memoryPalette(memory, index)
                     const author = firstName(memory.profile, 'Ami')
-                    const color = avatarColor(memory.contributor_id || author)
-
                     return (
-                      <article key={memory.id} id={`secret-item-${memory.id}`} style={{ background: COLORS.card, borderRadius: 16, overflow: 'hidden', animation: highlightedId === memory.id ? 'secretHighlight 2.4s ease-out' : undefined }}>
-                        <div style={{ height: 110, background: palette.bg, display: 'grid', placeItems: 'center' }}>
-                        {memory.display_image_url ? (
-                          <img src={memory.display_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        ) : (
-                          <Image size={30} color={palette.icon} strokeWidth={2.1} />
-                        )}
-                      </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 10px 6px' }}>
-                          {memory.profile?.avatar_url ? (
-                            <img src={memory.profile.avatar_url} alt="" style={{ width: 22, height: 22, borderRadius: 11, objectFit: 'cover', display: 'block', flexShrink: 0 }} />
-                          ) : (
-                            <div style={{ width: 22, height: 22, borderRadius: 11, background: color, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
-                              {author.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {author}
-                          </div>
-                        </div>
-                        {memory.text && (
-                          <p style={{ fontSize: 11, lineHeight: 1.28, color: COLORS.muted, fontWeight: 500, padding: '0 10px 10px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {memory.text}
-                          </p>
-                        )}
-                      </article>
+                      <MemoryCard
+                        key={memory.id}
+                        memory={memory}
+                        author={author}
+                        palette={memoryPalette(memory, index)}
+                        avatarColor={avatarColor(memory.contributor_id || author)}
+                        highlighted={highlightedId === memory.id}
+                        onMenu={!revealed && !memory.hidden && memory.contributor_id === currentUserId ? setMemoryAction : undefined}
+                      />
                     )
                   })}
                 </div>
@@ -809,7 +873,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
       </main>
 
       {memoryModalOpen && (
-        <Sheet title="Ajouter un souvenir" onClose={closeMemorySheet}>
+        <Sheet title={replacingMemory ? 'Remplacer le souvenir' : 'Ajouter un souvenir'} onClose={closeMemorySheet}>
           <form onSubmit={handleAddMemory} style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               <span style={{ fontSize: 11, color: COLORS.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Texte</span>
@@ -846,8 +910,8 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                 onClick={() => memoryFileInputRef.current?.click()}
                 style={{ width: '100%', height: 126, borderRadius: 14, background: COLORS.bg, overflow: 'hidden', display: 'grid', placeItems: 'center', color: COLORS.muted }}
               >
-                {memoryImagePreview ? (
-                  <img src={memoryImagePreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                {memoryImagePreview || keptImage?.url ? (
+                  <img src={memoryImagePreview || keptImage.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 ) : (
                   <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700 }}>
                     <Upload size={22} color={COLORS.pink} />
@@ -862,6 +926,11 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                 onChange={event => setMemoryImageFile(event.target.files?.[0] ?? null)}
                 style={{ display: 'none' }}
               />
+              {(memoryImageFile || keptImage) && (
+                <button type="button" onClick={removeMemoryImage} style={{ marginTop: 7, fontSize: 12, fontWeight: 700, color: COLORS.red }}>
+                  Retirer l’image
+                </button>
+              )}
               <Input label="Image URL" type="url" value={memoryForm.image_url} onChange={event => setMemoryForm(current => ({ ...current, image_url: event.target.value }))} placeholder="https://..." style={{ marginTop: 9, background: COLORS.bg, border: 'none' }} />
             </div>
 
@@ -880,11 +949,20 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
               </div>
             </div>
 
-            <PrimaryButton disabled={memorySaving || (!memoryForm.text.trim() && !memoryForm.emoji.trim() && !memoryForm.image_url.trim() && !memoryImageFile)} style={{ marginTop: 3 }} type="submit">
-              {memorySaving ? 'Ajout...' : 'Ajouter'}
+            <PrimaryButton disabled={memorySaving || (!memoryForm.text.trim() && !memoryForm.emoji.trim() && !memoryForm.image_url.trim() && !memoryImageFile && !keptImage)} style={{ marginTop: 3 }} type="submit">
+              {replacingMemory ? (memorySaving ? 'Remplacement...' : 'Remplacer') : (memorySaving ? 'Ajout...' : 'Ajouter')}
             </PrimaryButton>
           </form>
         </Sheet>
+      )}
+
+      {memoryAction && (
+        <MemoryActionSheet
+          busy={memoryDeleting}
+          onReplace={() => openReplaceMemory(memoryAction)}
+          onDelete={handleDeleteMemory}
+          onClose={() => setMemoryAction(null)}
+        />
       )}
 
       {giftModalOpen && (

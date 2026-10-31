@@ -24,24 +24,36 @@ export function canLinkSecretSpace(event, userId) {
   return !!event?.birthday_person_user_id && !!userId && userId !== event.birthday_person_user_id
 }
 
-// Révélation le lendemain de l'anniversaire, à minuit
-export function secretRevealDate(eventDate) {
-  if (!eventDate) return null
-  const date = new Date(eventDate)
-  if (Number.isNaN(date.getTime())) return null
-  date.setDate(date.getDate() + 1)
-  date.setHours(0, 0, 0, 0)
-  return date
+// Même règle que memories_revealed côté serveur : la révélation a lieu le jour
+// de l'événement à 00:00, heure de Paris (quel que soit le fuseau du téléphone).
+const PARIS_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
+
+function parisDay(value) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : PARIS_DAY.format(date)
 }
 
-export function daysUntil(value) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  date.setHours(0, 0, 0, 0)
-  return Math.ceil((date - today) / 86400000)
+// Jour de révélation au format AAAA-MM-JJ (jour de l'événement à Paris)
+export function secretRevealDay(eventDate) {
+  return eventDate ? parisDay(eventDate) : null
+}
+
+// Jours restants avant la révélation (0 = révélé)
+export function daysUntilReveal(eventDate, now = new Date()) {
+  const revealDay = secretRevealDay(eventDate)
+  if (!revealDay) return null
+  const days = Math.round((Date.parse(revealDay) - Date.parse(parisDay(now))) / 86400000)
+  return Math.max(days, 0)
+}
+
+export function memoriesRevealed(eventDate, now = new Date()) {
+  return daysUntilReveal(eventDate, now) === 0
+}
+
+// « 20 novembre » pour un jour AAAA-MM-JJ
+export function formatRevealDay(revealDay) {
+  if (!revealDay) return 'date à définir'
+  return new Date(`${revealDay}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'UTC' })
 }
 
 export function formatEuros(value) {

@@ -92,6 +92,11 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         const withoutOptimistic = prev.filter(m => !(m.isOptimistic && m.user_id === message.user_id && m.content === message.content))
         return [...withoutOptimistic, message]
       })
+    }).on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
+      // Ex. « X a ajouté un souvenir » retiré avec le souvenir : la ligne
+      // disparaît (seul l'id arrive, sans filtre possible sur un DELETE)
+      const deletedId = payload.old?.id
+      if (deletedId) setMessages(prev => prev.some(m => m.id === deletedId) ? prev.filter(m => m.id !== deletedId) : prev)
     }).subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [event?.id, userId, isSecret])
