@@ -28,6 +28,7 @@ import Messages from './screens/Messages'
 import Create from './screens/Create'
 import CreateDispoScreen from './screens/CreateDispoScreen'
 import CloseFriendsScreen from './screens/CloseFriendsScreen'
+import BlockedUsersScreen from './screens/BlockedUsersScreen'
 import DispoDetailScreen from './screens/DispoDetailScreen'
 import EventDetail from './screens/EventDetail'
 import Invitation from './screens/Invitation'
@@ -170,10 +171,13 @@ const ROOT_NAV = {
   conversationEvent: null,
   directConv: null,
   showCloseFriends: false,
+  showBlockedUsers: false,
   showCreateDispo: false,
   dispoDetailId: null,
   createInitialData: null,
   editProfileFocus: null,
+  // Section de Profil à afficher à l'ouverture (ex. 'notifications')
+  profileSection: null,
   // Espace secret d'un anniversaire : { eventId, tab, focusItemId }
   secretSpace: null,
   // Espace secret ↔ chat Secret : entrée d'historique de l'autre écran quand
@@ -198,6 +202,7 @@ function withSecretChannel(entry) {
 // visibilité de la barre du bas (visible seulement sur les onglets).
 function currentView(nav) {
   if (nav.showCloseFriends) return 'closeFriends'
+  if (nav.showBlockedUsers) return 'blockedUsers'
   if (nav.showCreateDispo) return 'createDispo'
   if (nav.dispoDetailId) return 'dispoDetail'
   if (nav.secretSpace) return 'secretSpace'
@@ -246,7 +251,7 @@ function MainApp() {
   const [showAskBirthday, setShowAskBirthday] = useState(false)
   const [birthdayRefreshTrigger, setBirthdayRefreshTrigger] = useState(0)
   const appLoadedTracked = useRef(false)
-  const { notifications, unreadCount: notificationUnreadCount, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
+  const { notifications, unreadCount: notificationUnreadCount, markAsRead, markAllAsRead, markAllAsReadByType } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
   const [pushTarget, setPushTarget] = useState(() => takePendingPushTarget())
   const [showPushPrompt, setShowPushPrompt] = useState(false)
@@ -550,6 +555,7 @@ function MainApp() {
           userId={session?.user?.id}
         />
       )
+      case 'blockedUsers': return <BlockedUsersScreen onBack={() => goBack({ showBlockedUsers: false })} />
       case 'createDispo': return (
         <CreateDispoScreen
           onBack={() => goBack({ showCreateDispo: false })}
@@ -618,13 +624,15 @@ function MainApp() {
       )
       case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={openCreate} onTrendingClick={openCreate} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => openScreen({ screen: 'allEvents' })} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => openScreen({ dispoDetailId: id })} onDispoCalendarClick={() => openScreen({ screen: 'dispoCalendar' })} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} onCreateClick={() => openCreate()} onMessagesClick={ev => openScreen({ selectedEvent: ev, screen: 'messages' })} />
-      case 'messages': return <Messages onEventOpen={ev => openScreen({ conversationEvent: ev })} onDirectConvOpen={conv => openScreen({ directConv: conv })} notifications={notifications} markAsRead={markAsRead} onCreateClick={() => openCreate()} />
+      case 'messages': return <Messages onEventOpen={ev => openScreen({ conversationEvent: ev })} onDirectConvOpen={conv => openScreen({ directConv: conv })} notifications={notifications} markAsRead={markAsRead} markAllAsReadByType={markAllAsReadByType} onCreateClick={() => openCreate()} onOpenBlockedUsers={() => openScreen({ showBlockedUsers: true })} onOpenNotificationSettings={() => openScreen({ ...ROOT_NAV, tab: 'profile', screen: 'profile', profileSection: 'notifications' })} />
       case 'profile': return (
         <Profile
           session={session}
           onEdit={() => openScreen({ editProfileFocus: null, screen: 'editProfile' })}
           onAddBirthday={() => openScreen({ editProfileFocus: 'birthday', screen: 'editProfile' })}
           onCalendarClick={() => handleTabChange('calendar')}
+          initialSection={nav.profileSection}
+          onOpenBlockedUsers={() => openScreen({ showBlockedUsers: true })}
         />
       )
       default: return null

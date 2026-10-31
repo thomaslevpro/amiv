@@ -14,7 +14,7 @@ import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { canLinkSecretSpace, mostRelevantSecretTab } from '../lib/secretSpace'
 
-export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onOpenSecretSpace, onOpenEvent }) {
+export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, markAllAsReadByType, onOpenSecretSpace, onOpenEvent, onOpenBlockedUsers, onOpenNotificationSettings }) {
   const [messages, setMessages] = useState([]), [input, setInput] = useState('')
   const [userId, setUserId] = useState(null), [isSecret, setIsSecret] = useState(() => event?.initialIsSecret === true)
   const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null)
@@ -382,6 +382,23 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     onDirectConvOpen?.({ conversationId: id, friend })
     return null
   }
+  // Menu « ··· » : directs en base (last_read_at), événements sur cet
+  // appareil comme à l'ouverture d'une conversation. Badge et navbar se
+  // vident tout de suite ; le recomptage serveur suit.
+  async function markAllConversationsRead() {
+    if (!userId) return
+    conversations.filter(conv => conv.kind === 'event').forEach(conv => {
+      writeSeen(`last_seen_event_${conv.eventId}`)
+      writeChannelLastRead(conv.eventId, false)
+      writeChannelLastRead(conv.eventId, true)
+    })
+    setConversations(prev => prev.map(conv => conv.kind === 'event' ? { ...conv, unreadCount: 0, generalUnreadCount: 0, secretUnreadCount: 0 } : conv))
+    window.dispatchEvent(new Event('amiv:unread-counts-cleared'))
+    if (notifications.some(n => n.type === 'message_received' && !n.read)) markAllAsReadByType?.('message_received')
+    const { error } = await supabase.from('direct_conversation_participants').update({ last_read_at: new Date().toISOString() }).eq('user_id', userId)
+    if (error) captureSupabaseError(error, { operation: 'mark_all_conversations_read' })
+    window.dispatchEvent(new Event('amiv:unread-counts-refresh'))
+  }
   function openNewMessage() {
     if (!friendsLoading) setShowNewMessage(true)
   }
@@ -449,7 +466,7 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
     return true
   }
 
-  if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} deleteEventConversation={deleteEventConversation} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} />
+  if (!event) return <ConversationList currentUsername={currentUsername} unreadTotal={unreadTotal} openNewMessage={openNewMessage} friendsLoading={friendsLoading} friends={friends} conversationsByFriendId={conversationsByFriendId} appOpenedAtRef={appOpenedAtRef} currentUserId={userId} activeTab={activeTab} setActiveTab={setActiveTab} hiddenEventIds={hiddenEventIds} showAllHiddenEvents={showAllHiddenEvents} listLoading={listLoading} visibleConversations={visibleConversations} unreadByConversation={unreadByConversation} handleConversationTap={handleConversationTap} hideEventCard={hideEventCard} deleteEventConversation={deleteEventConversation} hideConversation={hideConversation} showNewMessage={showNewMessage} setShowNewMessage={setShowNewMessage} openFriend={openFriend} onFriendAdded={fetchAll} hasUnread={unreadTotal > 0 || inboxConversations.some(conv => conv.unreadCount > 0)} onMarkAllRead={markAllConversationsRead} onOpenBlockedUsers={onOpenBlockedUsers} onOpenNotificationSettings={onOpenNotificationSettings} />
   const openSecretSpace = onOpenSecretSpace && canUseSecretChannel
     ? (tab, focusItemId = null) => onOpenSecretSpace({ eventId: event.id, tab: tab ?? mostRelevantSecretTab(messages), focusItemId })
     : null

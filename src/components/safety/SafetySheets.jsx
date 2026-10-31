@@ -55,7 +55,7 @@ export function BottomSheet({ title, onClose, children }) {
   )
 }
 
-function SheetButton({ children, onClick, disabled, variant = 'primary' }) {
+export function SheetButton({ children, onClick, disabled, variant = 'primary' }) {
   const styles = {
     primary: { background: GRADIENT, color: '#fff' },
     destructive: { background: DESTRUCTIVE, color: '#fff' },

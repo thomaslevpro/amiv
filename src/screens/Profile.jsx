@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   AlertCircle,
   Ban,
@@ -34,7 +34,6 @@ import ChangePasswordModal from '../components/profile/ChangePasswordModal'
 import DeleteAccountModal from '../components/profile/DeleteAccountModal'
 import AmivQrModal from '../components/profile/AmivQrModal'
 import FriendsListModal from '../components/profile/FriendsListModal'
-import BlockedUsersModal from '../components/profile/BlockedUsersModal'
 import SupportMessageModal from '../components/profile/SupportMessageModal'
 import { unregisterPushToken } from '../lib/push'
 import { birthdayRequestStatus, createBirthdayRequest, listBirthdayRequests, shareBirthdayRequest } from '../lib/birthdayRequests'
@@ -288,7 +287,7 @@ function BirthdayRequestsSection() {
   )
 }
 
-export default function Profile({ session, onCalendarClick }) {
+export default function Profile({ session, onCalendarClick, initialSection = null, onOpenBlockedUsers }) {
   const navigate = useNavigate()
   const [notifs, setNotifs] = useState({ notif_birthdays: true, notif_invitations: true, notif_messages: true, notif_cagnotte: true, notif_photos: true })
   const [profile, setProfile] = useState(null)
@@ -300,7 +299,7 @@ export default function Profile({ session, onCalendarClick }) {
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
   const [showQrModal, setShowQrModal] = useState(false)
   const [showFriendsList, setShowFriendsList] = useState(false)
-  const [showBlockedUsers, setShowBlockedUsers] = useState(false)
+  const notificationsSectionRef = useRef(null)
   const [supportCategory, setSupportCategory] = useState(null)
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [calendarToken, setCalendarToken] = useState(null)
@@ -358,6 +357,12 @@ export default function Profile({ session, onCalendarClick }) {
 
     return () => { cancelled = true }
   }, [])
+
+  // Ouvert depuis Messages → ··· → Notifications des messages : une fois la
+  // page chargée (sa hauteur ne bouge plus), la section Notifications est en vue
+  useEffect(() => {
+    if (initialSection === 'notifications' && !loading) notificationsSectionRef.current?.scrollIntoView({ block: 'start' })
+  }, [initialSection, loading])
 
   const toggle = key => {
     setNotifs(n => {
@@ -542,7 +547,7 @@ export default function Profile({ session, onCalendarClick }) {
   const accountRows = [
     { icon: <UserCheck size={18} strokeWidth={1.7} color="#7c5cbf" />, bg: 'rgba(124,92,191,0.10)', label: 'Informations personnelles', desc: 'Nom, prénom, date de naissance', onClick: openEditProfile },
     { icon: <Key size={18} strokeWidth={1.7} color="#007AFF" />, bg: 'rgba(0,122,255,0.10)', label: 'Changer le mot de passe', desc: 'Modifier votre mot de passe actuel', onClick: () => setShowChangePassword(true) },
-    { icon: <Ban size={18} strokeWidth={1.7} color="#FF3B30" />, bg: 'rgba(255,59,48,0.08)', label: 'Utilisateurs bloqués', desc: 'Gérer les personnes que tu as bloquées', onClick: () => setShowBlockedUsers(true) },
+    { icon: <Ban size={18} strokeWidth={1.7} color="#FF3B30" />, bg: 'rgba(255,59,48,0.08)', label: 'Utilisateurs bloqués', desc: 'Gérer les personnes que tu as bloquées', onClick: onOpenBlockedUsers },
     { icon: <AlertCircle size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Signaler un bug', desc: 'Décrire un problème rencontré', onClick: () => setSupportCategory('bug') },
     { icon: <Mail size={18} strokeWidth={1.7} color="#e055aa" />, bg: 'rgba(224,85,170,0.10)', label: 'Nous contacter', desc: "Écrire à l'équipe Amiv", onClick: () => setSupportCategory('contact') },
   ]
@@ -835,7 +840,7 @@ export default function Profile({ session, onCalendarClick }) {
             </div>
           </div>
 
-          <div style={{ marginBottom: 18 }}>
+          <div ref={notificationsSectionRef} style={{ marginBottom: 18 }}>
             <SectionTitle>Notifications</SectionTitle>
             <div style={{ background: COLORS.card, borderRadius: 20, overflow: 'hidden', boxShadow: CARD_SHADOW }}>
               {notificationRows.map((row, index) => (
@@ -922,10 +927,6 @@ export default function Profile({ session, onCalendarClick }) {
         link={publicProfileLink}
         onClose={() => setShowQrModal(false)}
         onToast={showToast}
-      />
-      <BlockedUsersModal
-        isOpen={showBlockedUsers}
-        onClose={() => setShowBlockedUsers(false)}
       />
       <FriendsListModal
         isOpen={showFriendsList}

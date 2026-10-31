@@ -54,16 +54,20 @@ export function useUnreadCounts(userId) {
       })
 
     const handleRefresh = () => refresh()
+    // « Tout marquer comme lu » : zéro tout de suite, avant le recomptage
+    const handleCleared = () => setUnreadByConversation(new Map())
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') refresh()
     }
 
     window.addEventListener('amiv:unread-counts-refresh', handleRefresh)
+    window.addEventListener('amiv:unread-counts-cleared', handleCleared)
     document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
       supabase.removeChannel(channel)
       window.removeEventListener('amiv:unread-counts-refresh', handleRefresh)
+      window.removeEventListener('amiv:unread-counts-cleared', handleCleared)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [refresh, userId])

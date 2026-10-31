@@ -6,6 +6,7 @@ import { Avatar, EmptyState } from './MessageUI'
 import ConversationRow, { ConversationRowSkeleton } from './ConversationRow'
 import NewMessageSheet from './NewMessageSheet'
 import FriendSearchSheet from './FriendSearchSheet'
+import MessagesOptionsSheet from './MessagesOptionsSheet'
 
 function searchableFriendText(friend) {
   return [
@@ -40,8 +41,13 @@ export default function ConversationList({
   setShowNewMessage,
   openFriend,
   onFriendAdded,
+  hasUnread,
+  onMarkAllRead,
+  onOpenBlockedUsers,
+  onOpenNotificationSettings,
 }) {
   const [showFriendSearch, setShowFriendSearch] = useState(false)
+  const [showOptions, setShowOptions] = useState(false)
   const [friendQuery, setFriendQuery] = useState('')
   const effectiveUserId = currentUserId || userId
   const trimmedFriendQuery = friendQuery.trim().toLowerCase()
@@ -74,6 +80,7 @@ export default function ConversationList({
             <button
               type="button"
               aria-label="Options"
+              onClick={() => setShowOptions(true)}
               style={{ width: 34, height: 34, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer' }}
             >
               <MoreHorizontal size={24} strokeWidth={2.4} color={BLACK} />
@@ -217,6 +224,15 @@ export default function ConversationList({
           loading={friendsLoading}
           onClose={() => setShowNewMessage(false)}
           onSelectFriend={openFriend}
+        />
+      )}
+      {showOptions && (
+        <MessagesOptionsSheet
+          hasUnread={hasUnread}
+          onMarkAllRead={onMarkAllRead}
+          onOpenBlockedUsers={onOpenBlockedUsers}
+          onOpenNotificationSettings={onOpenNotificationSettings}
+          onClose={() => setShowOptions(false)}
         />
       )}
       {showFriendSearch && (
