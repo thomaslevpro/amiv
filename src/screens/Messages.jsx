@@ -11,12 +11,12 @@ import { RSVP_CHANGED_EVENT } from '../lib/eventGuests'
 import { supabase } from '../lib/supabase'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
-import { canLinkSecretSpace, fetchSecretSpaceSummary, mostRelevantSecretTab, secretSummaryParts } from '../lib/secretSpace'
+import { canLinkSecretSpace, mostRelevantSecretTab } from '../lib/secretSpace'
 
 export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen, notifications = [], markAsRead, onOpenSecretSpace, onOpenEvent }) {
   const [messages, setMessages] = useState([]), [input, setInput] = useState('')
   const [userId, setUserId] = useState(null), [isSecret, setIsSecret] = useState(() => event?.initialIsSecret === true)
-  const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null), [myRsvpStatus, setMyRsvpStatus] = useState(null)
+  const [birthdayPersonProfile, setBirthdayPersonProfile] = useState(null)
   const [currentUsername, setCurrentUsername] = useState('')
   const [conversations, setConversations] = useState([]), [listLoading, setListLoading] = useState(true)
   const [friends, setFriends] = useState([]), [friendsLoading, setFriendsLoading] = useState(true)
@@ -33,7 +33,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const { guestLeaders } = useGuestLeader(event?.id)
   const guestLeaderIds = useMemo(() => new Set(guestLeaders.map(guestLeader => guestLeader.user_id)), [guestLeaders])
   const canUseSecretChannel = canLinkSecretSpace(event, userId)
-  const [secretSummary, setSecretSummary] = useState(null)
   const birthdayPersonFirstName = event?.birthdayFirstName || event?.birthday_person?.first_name || event?.birthdayPerson?.first_name || birthdayPersonProfile?.first_name || (birthdayPersonProfile?.name ? firstName(birthdayPersonProfile.name) : null) || 'La personne fêtée'
 
   useEffect(() => {
@@ -75,30 +74,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   // Attend l'utilisateur : avant, canUseSecretChannel est faux pour tout le monde
   useEffect(() => { if (userId && !canUseSecretChannel && isSecret) setIsSecret(false) }, [userId, canUseSecretChannel, isSecret])
 
-  // Résumé de l'espace secret sous le bandeau du chat Secret
-  useEffect(() => {
-    if (!event?.id || !canUseSecretChannel || !isSecret) { setSecretSummary(null); return undefined }
-    let cancelled = false
-    refreshSecretSummary(() => cancelled)
-    return () => { cancelled = true }
-  }, [event?.id, canUseSecretChannel, isSecret])
-
-  async function refreshSecretSummary(isCancelled = () => false) {
-    try {
-      const summary = await fetchSecretSpaceSummary(event.id)
-      if (!isCancelled()) setSecretSummary(summary)
-    } catch (error) {
-      captureSupabaseError(error, { operation: 'fetch_secret_space_summary' })
-    }
-  }
-
-  useEffect(() => {
-    if (!event?.id || !userId) { setMyRsvpStatus(null); return undefined }
-    let cancelled = false
-    supabase.from('rsvps').select('status').eq('event_id', event.id).eq('user_id', userId).maybeSingle().then(({ data }) => { if (!cancelled) setMyRsvpStatus(data?.status ?? null) })
-    return () => { cancelled = true }
-  }, [event?.id, userId])
-
   useEffect(() => {
     if (!event?.id || !userId) return undefined
     const suffix = Math.random().toString(36).slice(2, 8)
@@ -112,7 +87,6 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
         message = (await enrichMessagesWithProfiles([fallback.data]))[0]
       } else message = { ...data, profile: data.profiles ?? null }
       if (!message) return
-      if (message.system_type) refreshSecretSummary()
       setMessages(prev => {
         if (prev.find(m => m.id === message.id)) return prev
         const withoutOptimistic = prev.filter(m => !(m.isOptimistic && m.user_id === message.user_id && m.content === message.content))
@@ -453,5 +427,5 @@ export default function Messages({ event, onBack, onEventOpen, onDirectConvOpen,
   const openSecretSpace = onOpenSecretSpace && canUseSecretChannel
     ? (tab, focusItemId = null) => onOpenSecretSpace({ eventId: event.id, tab: tab ?? mostRelevantSecretTab(messages), focusItemId })
     : null
-  return <MessageThread event={event} onBack={onBack} myRsvpStatus={myRsvpStatus} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} secretSummaryParts={secretSummary ? secretSummaryParts(secretSummary, event.date) : null} onOpenSecretSpace={openSecretSpace} currentUserId={userId} onOpenEvent={onOpenEvent} onSendDirectMessage={openDirectMessageWith} />
+  return <MessageThread event={event} onBack={onBack} canUseSecretChannel={canUseSecretChannel} isSecret={isSecret} setIsSecret={setIsSecret} birthdayPersonFirstName={birthdayPersonFirstName} messages={messages} eventMessageRows={eventMessageRows} bottomRef={bottomRef} input={input} setInput={setInput} send={send} guestLeaderIds={guestLeaderIds} closeFriendIds={closeFriendIds} onAuthorBlocked={fetchMessages} onOpenSecretSpace={openSecretSpace} currentUserId={userId} onOpenEvent={onOpenEvent} onSendDirectMessage={openDirectMessageWith} />
 }

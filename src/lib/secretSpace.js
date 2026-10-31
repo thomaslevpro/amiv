@@ -14,6 +14,10 @@ export function hiddenFromLabel(firstName) {
   return `Caché de ${firstName}`
 }
 
+export function secretConversationLabel(firstName) {
+  return `Conversation cachée de ${firstName}`
+}
+
 // Les liens n'existent que pour un anniversaire avec une personne fêtée,
 // et jamais pour elle (le serveur applique la même règle).
 export function canLinkSecretSpace(event, userId) {
@@ -46,42 +50,12 @@ export function formatEuros(value) {
   return `${numeric.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} €`
 }
 
-export async function fetchSecretSpaceSummary(eventId) {
-  const [memories, gifts, cagnotte, contributions] = await Promise.all([
-    supabase.from('collective_memories').select('id', { count: 'exact', head: true }).eq('event_id', eventId),
-    supabase.from('gift_items').select('id', { count: 'exact', head: true }).eq('event_id', eventId),
-    supabase.from('event_cagnottes').select('event_id').eq('event_id', eventId).maybeSingle(),
-    fetchCagnotteSummary(eventId),
-  ])
-  const error = memories.error || gifts.error || cagnotte.error
-  if (error) throw error
-  return {
-    memoryCount: memories.count ?? 0,
-    giftCount: gifts.count ?? 0,
-    hasCagnotte: !!cagnotte.data,
-    cagnotteTotal: contributions.total,
-  }
-}
-
 // Total et nombre de participants (les montants individuels ne sont lisibles
 // que par la personne elle-même et les coordinateurs)
 export async function fetchCagnotteSummary(eventId) {
   const { data, error } = await supabase.rpc('get_cagnotte_summary', { p_event_id: eventId }).maybeSingle()
   if (error) throw error
   return { participants: data?.participants ?? 0, total: Number(data?.total) || 0 }
-}
-
-// « 3 souvenirs · 2 idées cadeaux · Cagnotte 120 € · Révélation J-22 » :
-// seulement ce qui existe.
-export function secretSummaryParts(summary, eventDate) {
-  const parts = []
-  if (summary?.memoryCount > 0) parts.push(`${summary.memoryCount} souvenir${summary.memoryCount > 1 ? 's' : ''}`)
-  if (summary?.giftCount > 0) parts.push(`${summary.giftCount} idée${summary.giftCount > 1 ? 's' : ''} cadeau${summary.giftCount > 1 ? 'x' : ''}`)
-  if (summary?.cagnotteTotal > 0) parts.push(`Cagnotte ${formatEuros(summary.cagnotteTotal)}`)
-  else if (summary?.hasCagnotte) parts.push('Cagnotte ouverte')
-  const days = daysUntil(secretRevealDate(eventDate))
-  if (days !== null && days > 0) parts.push(`Révélation J-${days}`)
-  return parts
 }
 
 // Onglet de l'espace secret lié à un message système du chat Secret
