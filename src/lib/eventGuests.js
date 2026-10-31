@@ -31,10 +31,30 @@ export function sortableName(name) {
 }
 
 // Organisateur, puis confirmés, peut-être, en attente, déclinés, puis par nom.
+// Un +1 suit la personne qui l'amène (même statut qu'elle).
 export function sortGuests(guests) {
-  return [...guests].sort((a, b) =>
+  const plusOnesByHost = new Map()
+  guests.filter(isPlusOne).forEach(guest => {
+    plusOnesByHost.set(guest.plus_one_host_key, [...(plusOnesByHost.get(guest.plus_one_host_key) ?? []), guest])
+  })
+  const sorted = guests.filter(guest => !isPlusOne(guest)).sort((a, b) =>
     (ROLE_RANK[a.role] ?? STATUS_RANK[a.status] ?? 5) - (ROLE_RANK[b.role] ?? STATUS_RANK[b.status] ?? 5)
     || sortableName(a.display_name).localeCompare(sortableName(b.display_name), 'fr', { sensitivity: 'base' }))
+  const withPlusOnes = sorted.flatMap(guest => {
+    const plusOnes = plusOnesByHost.get(guest.guest_key) ?? []
+    plusOnesByHost.delete(guest.guest_key)
+    return [guest, ...plusOnes]
+  })
+  return [...withPlusOnes, ...[...plusOnesByHost.values()].flat()]
+}
+
+export function isPlusOne(guest) {
+  return guest?.role === 'plus_one'
+}
+
+// L'organisateur peut retirer un +1 accepté (demandes faites depuis un compte).
+export function canRemovePlusOne(guest) {
+  return isPlusOne(guest) && guest.plus_one_source === 'rsvps' && !!guest.plus_one_rsvp_id
 }
 
 export function formatInvitedAgo(dateStr, now = Date.now()) {
@@ -53,6 +73,7 @@ export function formatInvitedAgo(dateStr, now = Date.now()) {
 export function guestSubtitle(guest, now = Date.now()) {
   if (guest.role === 'owner') return 'Organisateur'
   if (guest.role === 'co_organizer') return 'Co-organisateur'
+  if (isPlusOne(guest)) return `+1 de ${guest.plus_one_of || 'un invité'}`
   if (guest.status === 'pending') return formatInvitedAgo(guest.invited_at, now)
   if (guest.role === 'link_guest') return 'Via le lien'
   if (guest.role === 'email_guest') return 'Invité par e-mail'

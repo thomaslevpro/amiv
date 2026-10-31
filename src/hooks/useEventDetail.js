@@ -6,7 +6,8 @@ import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { uploadEventCover } from '../lib/eventCover'
 import { keepsBirthdayPerson } from '../components/event/eventUtils'
-import { announceRsvpChange, fetchEventGuestList } from '../lib/eventGuests'
+import { announceRsvpChange, canRemovePlusOne, fetchEventGuestList } from '../lib/eventGuests'
+import { usePlusOne } from './usePlusOne'
 import { shareLink } from '../lib/share'
 import { fetchSecretUnreadCount } from '../lib/secretSpace'
 
@@ -18,6 +19,7 @@ function readSeen(key) {
 
 export default function useEventDetail(event, onBack) {
   const coverInputRef = useRef(null)
+  const { respondPlusOne } = usePlusOne()
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [myRsvp, setMyRsvp] = useState(null)
   const [userId, setUserId] = useState(null)
@@ -488,6 +490,20 @@ export default function useEventDetail(event, onBack) {
     refreshGuests()
   }
 
+  async function handleRemovePlusOne(guest) {
+    if (!canRemovePlusOne(guest)) return
+    try {
+      await respondPlusOne({ rsvpId: guest.plus_one_rsvp_id, table: 'rsvps', status: 'declined' })
+    } catch (error) {
+      captureSupabaseError(error, { operation: 'remove_plus_one' })
+      showToast('Erreur lors du retrait du +1')
+      return
+    }
+    setGuests(prev => prev.filter(g => g.guest_key !== guest.guest_key))
+    showToast('+1 retiré')
+    refreshGuests()
+  }
+
   async function handleOpenCoOrgModal() {
     setCoOrgError('')
     setConfirmedParticipants([])
@@ -606,6 +622,7 @@ export default function useEventDetail(event, onBack) {
     refreshGuests,
     handleRemindGuest,
     handleRemoveInvitation,
+    handleRemovePlusOne,
     handleOpenCoOrgModal,
     handleAddCoOrganizer,
     handleAddToCalendar,

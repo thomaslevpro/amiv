@@ -15,7 +15,7 @@ function avatarColor(name = '') {
   return colors[hash % colors.length]
 }
 
-export default function PlusOneReviewList({ eventId, isOrganizer }) {
+export default function PlusOneReviewList({ eventId, isOrganizer, onResponded }) {
   const { respondPlusOne } = usePlusOne()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(false)
@@ -51,6 +51,8 @@ export default function PlusOneReviewList({ eventId, isOrganizer }) {
         status,
       })
       setRequests(prev => prev.filter(item => item.key !== request.key))
+      // Compteurs et liste des invités à jour sans recharger la page
+      onResponded?.()
     } catch (error) {
       console.error('Erreur réponse +1 :', error)
     } finally {

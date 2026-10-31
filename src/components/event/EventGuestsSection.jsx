@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Share, UserPlus } from 'lucide-react'
 import useLongPress from '../../hooks/useLongPress'
-import { GUEST_STATUSES, GUEST_STATUS_META, canRemindGuest, countsFromGuests, guestSubtitle } from '../../lib/eventGuests'
+import { GUEST_STATUSES, GUEST_STATUS_META, canRemindGuest, canRemovePlusOne, countsFromGuests, guestSubtitle, isPlusOne } from '../../lib/eventGuests'
 import GuestAvatar from './GuestAvatar'
 import GuestStatusPill from './GuestStatusPill'
 
@@ -12,14 +12,15 @@ function GuestRow({ guest, isFirst, isMe, onLongPress }) {
   const longPress = useLongPress(() => onLongPress?.(guest), 450)
   const handlers = onLongPress ? longPress : {}
   const subtitle = guestSubtitle(guest)
+  const plusOne = isPlusOne(guest)
 
   return (
     <li
       {...handlers}
       onContextMenu={onLongPress ? e => { e.preventDefault(); onLongPress(guest) } : undefined}
-      style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, listStyle: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: plusOne ? 52 : 60, paddingLeft: plusOne ? 28 : 0, listStyle: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
     >
-      <GuestAvatar name={guest.display_name} avatarUrl={guest.avatar_url} seed={guest.guest_key} />
+      <GuestAvatar name={guest.display_name} avatarUrl={guest.avatar_url} seed={guest.guest_key} size={plusOne ? 32 : undefined} />
       <div style={{ flex: 1, minWidth: 0, alignSelf: 'stretch', display: 'flex', alignItems: 'center', gap: 10, borderTop: isFirst ? 'none' : SEPARATOR }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#1C1C1E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -33,9 +34,10 @@ function GuestRow({ guest, isFirst, isMe, onLongPress }) {
   )
 }
 
-function GuestActionSheet({ guest, onClose, onRemind, onRemove }) {
+function GuestActionSheet({ guest, onClose, onRemind, onRemove, onRemovePlusOne }) {
   const [confirmRemove, setConfirmRemove] = useState(false)
-  const remindable = guest.role !== 'email_guest'
+  const plusOne = isPlusOne(guest)
+  const remindable = !plusOne && guest.role !== 'email_guest'
   const canRemind = remindable && canRemindGuest(guest)
   const buttonStyle = { width: '100%', minHeight: 56, border: 'none', background: '#fff', fontSize: 17, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }
 
@@ -44,7 +46,7 @@ function GuestActionSheet({ guest, onClose, onRemind, onRemove }) {
       <div role="dialog" aria-label={`Actions pour ${guest.display_name}`} onClick={e => e.stopPropagation()} style={{ maxWidth: 430, width: '100%', margin: '0 auto' }}>
         <div style={{ borderRadius: 14, overflow: 'hidden', background: '#fff' }}>
           <div style={{ padding: '14px 16px', textAlign: 'center', fontSize: 13, color: '#8E8E93', borderBottom: SEPARATOR }}>
-            {guest.display_name} n'a pas encore répondu
+            {plusOne ? `${guest.display_name} · +1 de ${guest.plus_one_of}` : `${guest.display_name} n'a pas encore répondu`}
           </div>
           {remindable && (
             <button type="button" disabled={!canRemind} onClick={() => { onRemind(guest); onClose() }} style={{ ...buttonStyle, color: canRemind ? '#007AFF' : '#AEAEB2', cursor: canRemind ? 'pointer' : 'default', borderBottom: SEPARATOR }}>
@@ -52,8 +54,8 @@ function GuestActionSheet({ guest, onClose, onRemind, onRemove }) {
               {!canRemind && <span style={{ fontSize: 12, color: '#AEAEB2' }}>Déjà relancé il y a moins de 24 h</span>}
             </button>
           )}
-          <button type="button" onClick={() => { if (!confirmRemove) { setConfirmRemove(true); return } onRemove(guest); onClose() }} style={{ ...buttonStyle, color: '#FF3B30', fontWeight: confirmRemove ? 600 : 400 }}>
-            {confirmRemove ? 'Confirmer le retrait' : "Retirer l'invitation"}
+          <button type="button" onClick={() => { if (!confirmRemove) { setConfirmRemove(true); return } (plusOne ? onRemovePlusOne : onRemove)(guest); onClose() }} style={{ ...buttonStyle, color: '#FF3B30', fontWeight: confirmRemove ? 600 : 400 }}>
+            {confirmRemove ? 'Confirmer le retrait' : plusOne ? 'Retirer le +1' : "Retirer l'invitation"}
           </button>
         </div>
         <button type="button" onClick={onClose} style={{ ...buttonStyle, marginTop: 8, borderRadius: 14, fontWeight: 600, color: '#007AFF' }}>Annuler</button>
@@ -62,7 +64,7 @@ function GuestActionSheet({ guest, onClose, onRemind, onRemove }) {
   )
 }
 
-export default function EventGuestsSection({ guests, loading, canManage, userId, onInvite, onShare, onRemind, onRemove }) {
+export default function EventGuestsSection({ guests, loading, canManage, userId, onInvite, onShare, onRemind, onRemove, onRemovePlusOne }) {
   const [filter, setFilter] = useState('all')
   const [actionGuest, setActionGuest] = useState(null)
   const counts = countsFromGuests(guests)
@@ -75,7 +77,7 @@ export default function EventGuestsSection({ guests, loading, canManage, userId,
 
   const visibleGuests = filter === 'all' ? guests : guests.filter(g => g.status === filter)
   const filters = [{ key: 'all', label: 'Tous', count: total }, ...GUEST_STATUSES.map(key => ({ key, label: GUEST_STATUS_META[key].plural, count: counts[key] })).filter(f => f.count > 0)]
-  const canAct = guest => canManage && guest.status === 'pending' && !!guest.invitation_id && guest.role !== 'owner'
+  const canAct = guest => canManage && ((guest.status === 'pending' && !!guest.invitation_id && guest.role !== 'owner') || (!!onRemovePlusOne && canRemovePlusOne(guest)))
 
   return (
     <section aria-labelledby="event-guests-title" style={{ marginBottom: 20 }}>
@@ -142,7 +144,7 @@ export default function EventGuestsSection({ guests, loading, canManage, userId,
         </div>
       )}
 
-      {actionGuest && <GuestActionSheet guest={actionGuest} onClose={() => setActionGuest(null)} onRemind={onRemind} onRemove={onRemove} />}
+      {actionGuest && <GuestActionSheet guest={actionGuest} onClose={() => setActionGuest(null)} onRemind={onRemind} onRemove={onRemove} onRemovePlusOne={onRemovePlusOne} />}
     </section>
   )
 }

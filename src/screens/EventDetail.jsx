@@ -50,7 +50,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick, on
     setShowCoOrgModal, coOrgSubmitting, coOrgError, confirmedParticipants, coOrgLoading,
     eventForMessages, handleRsvp, handleDateVote, handleConfirmDate, handleEditOpen,
     toggleBirthdayPerson, handleEditSubmit, handleDeleteEvent,
-    refreshGuests, handleRemindGuest, handleRemoveInvitation, handleShare, showToast,
+    refreshGuests, handleRemindGuest, handleRemoveInvitation, handleRemovePlusOne, handleShare, showToast,
     handleOpenCoOrgModal, handleAddCoOrganizer, setEditing,
   } = detail
 
@@ -140,7 +140,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick, on
             open={showGuests}
             onOpen={() => setShowGuests(true)}
             onClose={() => setShowGuests(false)}
-            sectionProps={{ guests, loading: guestsLoading, canManage, userId, onInvite: openInvite, onShare: handleShare, onRemind: handleRemindGuest, onRemove: handleRemoveInvitation }}
+            sectionProps={{ guests, loading: guestsLoading, canManage, userId, onInvite: openInvite, onShare: handleShare, onRemind: handleRemindGuest, onRemove: handleRemoveInvitation, onRemovePlusOne: handleRemovePlusOne }}
           />
 
           <EventPhotosSection key={event.id} eventId={event.id} userId={userId} focus={event.focusSection === 'photos'} showToast={showToast} />
@@ -155,7 +155,7 @@ export default function EventDetail({ event, onBack, onChat, onMessagesClick, on
           )}
 
           {isPollActive && !pollBannerVisible && <EventDatePoll asSection dateOptions={dateOptions} myVotes={myVotes} allVoteCounts={allVoteCounts} canManage={canManage} confirmingDate={confirmingDate} onVote={handleDateVote} onConfirmDate={handleConfirmDate} />}
-          {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} />}
+          {canManage && <PlusOneReviewList eventId={event.id} isOrganizer={canManage} onResponded={refreshGuests} />}
         </div>
       </div>
 
