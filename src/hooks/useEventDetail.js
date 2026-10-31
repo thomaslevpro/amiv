@@ -10,6 +10,7 @@ import { announceRsvpChange, canRemovePlusOne, fetchEventGuestList } from '../li
 import { usePlusOne } from './usePlusOne'
 import { shareLink } from '../lib/share'
 import { fetchSecretUnreadCount } from '../lib/secretSpace'
+import { eventDateToLocalInput, localInputToEventDate, pollOptionToEventDate, toIcsUtc } from '../lib/eventDate'
 
 function readSeen(key) {
   if (typeof window === 'undefined') return 0
@@ -360,8 +361,7 @@ export default function useEventDetail(event, onBack) {
 
   async function handleConfirmDate(option) {
     setConfirmingDate(true)
-    // Heure proposée = heure locale, comme à la création (sinon enregistrée en UTC)
-    const datetime = new Date(`${option.proposed_date}T${option.proposed_time || '00:00'}`).toISOString()
+    const datetime = pollOptionToEventDate(option.proposed_date, option.proposed_time)
     const { error } = await supabase.from('events').update({ date: datetime, poll_closed: true }).eq('id', event.id)
     if (!error) {
       setEventOverrides(prev => ({ ...prev, date: datetime, poll_closed: true }))
@@ -371,7 +371,7 @@ export default function useEventDetail(event, onBack) {
   }
 
   function handleEditOpen() {
-    setEditForm({ name: event.name ?? '', type: currentType ?? 'Autre', date: event.date ? event.date.slice(0, 16) : '', description: event.description ?? '', location: event.location ?? '' })
+    setEditForm({ name: event.name ?? '', type: currentType ?? 'Autre', date: eventDateToLocalInput(eventOverrides.date ?? event.date), description: event.description ?? '', location: event.location ?? '' })
     setBirthdayPersonId(savedBirthdayPersonId)
     setCoverFile(null)
     setCoverPreview(null)
@@ -408,7 +408,8 @@ export default function useEventDetail(event, onBack) {
     // Quitter le type Anniversaire retire la personne fêtée : l'espace secret est
     // alors fermé (can_access_secret_space), son contenu est conservé.
     const nextBirthdayPersonId = keepsBirthdayPerson(editForm.type, currentType, birthdayPersonId) ? birthdayPersonId : null
-    const { error } = await supabase.from('events').update({ name: editForm.name, type: editForm.type, date: editForm.date || null, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: nextBirthdayPersonId }).eq('id', event.id)
+    const nextDate = localInputToEventDate(editForm.date)
+    const { error } = await supabase.from('events').update({ name: editForm.name, type: editForm.type, date: nextDate, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: nextBirthdayPersonId }).eq('id', event.id)
     if (!error) {
       track('event_updated', {
         event_id: event.id,
@@ -418,7 +419,7 @@ export default function useEventDetail(event, onBack) {
         has_birthday_person: Boolean(nextBirthdayPersonId),
       })
       setBirthdayPersonId(nextBirthdayPersonId)
-      setEventOverrides(prev => ({ ...prev, name: editForm.name, type: editForm.type, date: editForm.date, description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: nextBirthdayPersonId }))
+      setEventOverrides(prev => ({ ...prev, name: editForm.name, type: editForm.type, date: nextDate ?? '', description: editForm.description, location: editForm.location, cover_image: coverImagePath, birthday_person_user_id: nextBirthdayPersonId }))
       setEditing(false)
       showToast('Événement modifié !')
       refreshSecretSpaceAccess()
@@ -563,20 +564,20 @@ export default function useEventDetail(event, onBack) {
   }
 
   function handleAddToCalendar() {
-    if (!event?.date) {
+    const currentDate = eventOverrides.date ?? event?.date
+    if (!currentDate) {
       showToast('Date non précisée')
       return
     }
-    const start = new Date(eventOverrides.date ?? event.date)
+    const start = new Date(currentDate)
     if (isNaN(start)) {
       showToast('Date non précisée')
       return
     }
 
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000)
-    const formatIcsDate = date => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
     const clean = value => String(value || '').replace(/[\\;,]/g, '\\$&').replace(/\n/g, '\\n')
-    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Amiv//Event//FR', 'BEGIN:VEVENT', `UID:${event.id}@amiv.app`, `DTSTAMP:${formatIcsDate(new Date())}`, `DTSTART:${formatIcsDate(start)}`, `DTEND:${formatIcsDate(end)}`, `SUMMARY:${clean(eventOverrides.name ?? event.name)}`, `DESCRIPTION:${clean(eventOverrides.description ?? event.description ?? '')}`, `LOCATION:${clean(eventOverrides.location ?? event.location ?? '')}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n')
+    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Amiv//Event//FR', 'BEGIN:VEVENT', `UID:${event.id}@amiv.app`, `DTSTAMP:${toIcsUtc(new Date())}`, `DTSTART:${toIcsUtc(start)}`, `DTEND:${toIcsUtc(end)}`, `SUMMARY:${clean(eventOverrides.name ?? event.name)}`, `DESCRIPTION:${clean(eventOverrides.description ?? event.description ?? '')}`, `LOCATION:${clean(eventOverrides.location ?? event.location ?? '')}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n')
 
     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
     const url = URL.createObjectURL(blob)

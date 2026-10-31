@@ -5,6 +5,7 @@ import { getFriends } from '../lib/friendships'
 import { track } from '../lib/analytics'
 import { captureSupabaseError } from '../lib/monitoring'
 import { uploadEventCover } from '../lib/eventCover'
+import { localInputToEventDate } from '../lib/eventDate'
 import { EVENT_TYPES } from '../components/event/eventUtils'
 import { avatarInitial } from '../utils/avatar'
 
@@ -219,7 +220,7 @@ export default function Create({ onBack, session, initialData = null }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Utilisateur non connecté.')
 
-      const isoDate = form.date ? new Date(form.date).toISOString() : null
+      const isoDate = localInputToEventDate(form.date)
       const dateOptions = usePoll
         ? pollDates
           .filter(d => d.date)

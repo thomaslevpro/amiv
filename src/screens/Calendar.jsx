@@ -11,21 +11,15 @@ import { APP_URL } from '../lib/native'
 import EventCard from '../components/EventCard'
 import { getInviteeResponse } from '../hooks/useHomeData'
 import { announceRsvpChange, fetchEventGuestCounts, toCardStats } from '../lib/eventGuests'
+import { localDayKey } from '../lib/eventDate'
 
 const DAY_LABELS = ['LUN', 'MA.', 'ME.', 'JEU', 'VEN', 'SA.', 'DIM']
 const GRADIENT = 'linear-gradient(135deg, #e055aa, #f5a623)'
 const PAGE_BG = '#FFFFFF'
 
-function toYMD(date) {
-  return date.toISOString().split('T')[0]
-}
-
-function safeYMD(dateStr) {
-  if (!dateStr) return null
-  const date = new Date(dateStr)
-  if (Number.isNaN(date.getTime())) return null
-  return toYMD(date)
-}
+// Jour local (et non UTC) : sinon un événement entre minuit et 2 h, ou le
+// dernier jour du mois, tombait sur la veille.
+const toYMD = localDayKey
 
 function titleCase(value, fallback = 'Événement') {
   const text = (value || fallback).trim()
@@ -491,7 +485,7 @@ export default function Calendar({ onEventClick, onCreateClick, onMessagesClick,
 
   const visibleItems = useMemo(() => {
     return items.filter(item => {
-      const matchesDate = !selectedDate || item.event.date?.startsWith(selectedDate)
+      const matchesDate = !selectedDate || localDayKey(item.event.date) === selectedDate
       return matchesDate
     })
   }, [items, selectedDate])
