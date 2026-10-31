@@ -246,12 +246,8 @@ function MainApp() {
   const [showAskBirthday, setShowAskBirthday] = useState(false)
   const [birthdayRefreshTrigger, setBirthdayRefreshTrigger] = useState(0)
   const appLoadedTracked = useRef(false)
-  const { notifications, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
+  const { notifications, unreadCount: notificationUnreadCount, markAsRead, markAllAsRead } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
-  const hasUnreadNotifications = notifications.some(n => n.type !== 'message_received' && !n.read)
-  const notificationUnreadCount = notifications.filter(
-    n => !n.read && n.type !== 'message_received'
-  ).length
   const [pushTarget, setPushTarget] = useState(() => takePendingPushTarget())
   const [showPushPrompt, setShowPushPrompt] = useState(false)
 
@@ -645,7 +641,7 @@ function MainApp() {
         onChange={handleTabChange}
         onCreateClick={() => setShowCreateSheet(true)}
         hasUnreadMessages={totalUnread > 0}
-        hasUnreadNotifications={hasUnreadNotifications}
+        hasUnreadNotifications={notificationUnreadCount > 0}
         hidden={!TAB_VIEWS.includes(view)}
       />
       {showCreateSheet && (

@@ -90,9 +90,11 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         justifyContent: 'center',
         cursor: 'pointer',
         paddingBottom: 4,
+        position: 'relative',
         color: current === 'home' ? '#1C1C1E' : '#8E8E93',
       }}>
         <Home size={26} strokeWidth={1.7} />
+        {hasUnreadNotifications && <Badge />}
       </div>
 
       {/* Calendar */}
@@ -164,7 +166,6 @@ export default function BottomNav({ current, onChange, onCreateClick, hasUnreadM
         color: current === 'profile' ? '#1C1C1E' : '#8E8E93',
       }}>
         <User size={26} strokeWidth={1.7} />
-        {hasUnreadNotifications && <Badge />}
       </div>
 
     </div>

@@ -29,9 +29,6 @@ export default function Home({
   session,
   birthdayRefreshTrigger = 0,
 }) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
   const userId = session?.user?.id
   const userEmail = session?.user?.email
   const { pendingRequests, acceptRequest, declineRequest } = useFriendships(userId)
@@ -47,22 +44,12 @@ export default function Home({
     setTimeout(() => setToast(null), duration)
   }
 
-  const weekday = today.toLocaleDateString('fr-FR', { weekday: 'long' })
-  const dateRest = today.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-  const dateStr = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${dateRest}`
   const displayName = profileName || session?.user?.user_metadata?.first_name || session?.user?.user_metadata?.name || userEmail?.split('@')[0] || 'toi'
   const amivCount = myEvents.length
   const availableFriendsCount = new Set(availabilityFeed.filter(p => p.user_id !== userId).map(p => p.user_id)).size
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FFFFFF', overflow: 'hidden', position: 'relative' }}>
-      <style>{`
-        @keyframes pulse-dot {
-          0%, 100% { transform: scale(1); opacity: 0.9; }
-          50% { transform: scale(1.6); opacity: 0.5; }
-        }
-      `}</style>
-
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 90px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, padding: '20px 2px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -93,25 +80,18 @@ export default function Home({
                   {displayName}
                 </span>
               </div>
-              {availableFriendsCount > 0 ? (
-                <div
-                  onClick={() => {
-                    if (onDispoCalendarClick) onDispoCalendarClick()
-                    else onDispoDetailClick?.(availabilityFeed[0].id)
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
-                >
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#34C759', flexShrink: 0, animation: 'pulse-dot 2s ease-in-out infinite' }} />
-                  <span style={{ fontSize: 13, color: '#1C1C1E', fontWeight: 500 }}>
-                    {availableFriendsCount} ami{availableFriendsCount > 1 ? 's' : ''} disponible{availableFriendsCount > 1 ? 's' : ''} cette semaine
-                  </span>
-                  <span style={{ color: '#AEAEB2', fontSize: 12 }}>›</span>
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: '#8E8E93', fontWeight: 400 }}>
-                  {dateStr}
-                </div>
-              )}
+              <div
+                role="button"
+                onClick={() => setShowNotifications(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}
+              >
+                <span style={{ fontSize: 13, color: notificationUnreadCount > 0 ? '#1C1C1E' : '#8E8E93', fontWeight: notificationUnreadCount > 0 ? 500 : 400 }}>
+                  {notificationUnreadCount === 0
+                    ? 'Aucune nouvelle notification'
+                    : `${notificationUnreadCount} notification${notificationUnreadCount > 1 ? 's' : ''} non lue${notificationUnreadCount > 1 ? 's' : ''}`}
+                </span>
+                <span style={{ color: '#AEAEB2', fontSize: 12 }}>›</span>
+              </div>
             </div>
           </div>
           <div
