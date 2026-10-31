@@ -30,7 +30,13 @@ const gradientTextStyle = {
   display: 'inline-block',
 }
 
-const REMINDER_OPTIONS = [1, 3, 7, 14, 30]
+// Rappels en plus du jour J (toujours envoyé si le rappel est activé)
+const REMINDER_OPTIONS = [1, 3, 7, 14]
+
+function normalizeReminderDays(value) {
+  if (Array.isArray(value)) return value.map(Number).filter(day => REMINDER_OPTIONS.includes(day))
+  return []
+}
 
 function getProfileName(profile) {
   return profile?.first_name || profile?.name || 'Ami'
@@ -75,11 +81,7 @@ function FriendAvatar({ profile, size = 38 }) {
 export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDeleted, onLinkedProfileChanged, onToast, userId }) {
   const [visible, setVisible] = useState(false)
   const [reminder, setReminder] = useState(birthday.reminder_enabled ?? true)
-  const [reminderDays, setReminderDays] = useState(
-    Array.isArray(birthday.reminder_days)
-      ? birthday.reminder_days
-      : birthday.reminder_days != null ? [birthday.reminder_days] : [7]
-  )
+  const [reminderDays, setReminderDays] = useState(normalizeReminderDays(birthday.reminder_days))
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [linkedProfile, setLinkedProfile] = useState(birthday.linked_profile ?? null)
@@ -94,11 +96,7 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
 
   useEffect(() => {
     setReminder(birthday.reminder_enabled ?? true)
-    setReminderDays(
-      Array.isArray(birthday.reminder_days)
-        ? birthday.reminder_days
-        : birthday.reminder_days != null ? [birthday.reminder_days] : [7]
-    )
+    setReminderDays(normalizeReminderDays(birthday.reminder_days))
     setLinkedProfile(birthday.linked_profile ?? null)
     setLinkedProfileId(birthday.linked_profile_id ?? null)
     setFriendPickerOpen(false)

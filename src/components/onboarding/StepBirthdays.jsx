@@ -42,7 +42,7 @@ export default function StepBirthdays({ userId, header, direction, onDone }) {
     const birthdate = toBirthdayValue({ day: Number(day), month: Number(month), year: 2000 })
     const { data, error: insertError } = await supabase
       .from('birthdays')
-      .insert({ user_id: userId, name: name.trim().slice(0, 60), birthdate, reminder_days: [7] })
+      .insert({ user_id: userId, name: name.trim().slice(0, 60), birthdate })
       .select('id')
       .single()
     setSaving(false)

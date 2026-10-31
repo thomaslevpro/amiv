@@ -40,7 +40,7 @@ declare
     ['prénom vide refusé', 'anon', $s$select submit_birthday_request('DryRunPendingCode_0000000000000P', '   ', 12, 3)->>'status'$s$, 'invalid'],
     ['A ne répond pas à son propre lien', 'A', $s$select submit_birthday_request('DryRunPendingCode_0000000000000P', 'Moi', 12, 3)->>'status'$s$, 'own_request'],
     ['sans compte : Lola répond', 'anon', $s$select submit_birthday_request('DryRunPendingCode_0000000000000P', ' Lola ', 12, 3)::text$s$, '{"status": "ok", "requester_id": null}'],
-    ['rappel créé chez A', 'postgres', $s$select name || ':' || birthdate || ':' || array_to_string(reminder_days, ',') || ':' || coalesce(linked_profile_id::text, 'null') from birthdays where user_id = '00000000-0000-4000-a000-000000000061'$s$, 'Lola:2000-03-12:7:null'],
+    ['rappel créé chez A', 'postgres', $s$select name || ':' || birthdate || ':' || array_to_string(reminder_days, ',') || ':' || coalesce(linked_profile_id::text, 'null') from birthdays where user_id = '00000000-0000-4000-a000-000000000061'$s$, 'Lola:2000-03-12::null'],
     ['notification pour A', 'postgres', $s$select title from notifications where user_id = '00000000-0000-4000-a000-000000000061' and type = 'birthday_shared'$s$, 'Lola t''a donné sa date d''anniversaire : 12 mars'],
     ['A voit la demande reçue', 'A', $s$select status || ':' || responder_name || ':' || (birthday_id is not null) from birthday_requests where code = 'DryRunPendingCode_0000000000000P'$s$, 'received:Lola:true'],
     ['deuxième réponse refusée', 'anon', $s$select submit_birthday_request('DryRunPendingCode_0000000000000P', 'Lola', 13, 3)->>'status'$s$, 'used'],

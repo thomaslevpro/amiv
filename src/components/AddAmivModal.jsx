@@ -66,7 +66,7 @@ export default function AddAmivModal({ onClose, onSaved, onToast }) {
     if (user) {
       const { error } = await supabase
         .from('birthdays')
-        .insert({ name: firstName.trim(), birthdate, reminder_days: [7], user_id: user.id })
+        .insert({ name: firstName.trim(), birthdate, user_id: user.id })
       if (error) {
         console.error('Birthday save failed:', error)
         onToast?.('Erreur lors de la sauvegarde 😕', true)

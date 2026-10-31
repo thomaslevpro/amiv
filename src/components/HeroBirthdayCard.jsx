@@ -3,7 +3,8 @@ import { Cake, Link2, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { birthdateHasYear } from '../utils/birthday'
 
-const REMINDER_OPTIONS = [1, 3, 7, 14, 30]
+// Rappels en plus du jour J (toujours envoyé si le rappel est activé)
+const REMINDER_OPTIONS = [1, 3, 7, 14]
 const CONFETTI = [
   { left: '8%', w: 6, h: 6, r: 2, color: 'rgba(255,255,255,0.9)', dur: '2.1s', delay: '0s' },
   { left: '18%', w: 8, h: 3, r: 1, color: 'rgba(255,220,180,0.9)', dur: '2.6s', delay: '0.4s' },
@@ -23,11 +24,7 @@ const CONFETTI = [
 
 function normalizeReminderDays(value) {
   if (Array.isArray(value)) return value.map(Number).filter(day => REMINDER_OPTIONS.includes(day))
-  if (value != null) {
-    const day = Number(value)
-    return REMINDER_OPTIONS.includes(day) ? [day] : [7]
-  }
-  return [7]
+  return []
 }
 
 function getLinkedProfile(birthday) {
