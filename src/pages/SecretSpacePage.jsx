@@ -6,7 +6,7 @@ import { daysUntilReveal, fetchSecretUnreadCount, formatEuros, formatRevealDay, 
 import GuestLeaderBanner from '../components/GuestLeaderBanner'
 import PendingCandidatesPanel from '../components/PendingCandidatesPanel'
 import { useGuestLeader } from '../hooks/useGuestLeader'
-import { COLORS, EmptyCard, Input, PrimaryButton, Sheet } from '../components/secretSpace/ui'
+import { COLORS, EmptyCard, Input, PrimaryButton, SecondaryButton, Sheet } from '../components/secretSpace/ui'
 import CagnotteTab from '../components/secretSpace/CagnotteTab'
 import MemoryCard from '../components/secretSpace/MemoryCard'
 import MemoryActionSheet from '../components/secretSpace/MemoryActionSheet'
@@ -125,6 +125,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
 
   const [giftItems, setGiftItems] = useState([])
   const [collectiveGifts, setCollectiveGifts] = useState([])
+  const [confirmDeleteGiftId, setConfirmDeleteGiftId] = useState(null)
   const [giftModalOpen, setGiftModalOpen] = useState(false)
   const [giftForm, setGiftForm] = useState(EMPTY_GIFT_FORM)
   const [giftSaving, setGiftSaving] = useState(false)
@@ -313,7 +314,7 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     const [itemsRes, giftsRes] = await Promise.all([
       supabase
         .from('gift_items')
-        .select('id, event_id, label, price_estimate, added_by, claimed_by, created_at')
+        .select('id, event_id, label, price_estimate, added_by, claimed_by, collective_gift_id, created_at')
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
       supabase
@@ -332,7 +333,8 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
       ...gifts.flatMap(gift => [gift.added_by, gift.claimed_by]),
     ])
 
-    setGiftItems(items.map(item => ({
+    // Passées « Via la cagnotte » : affichées dans Cadeaux collectifs
+    setGiftItems(items.filter(item => !item.collective_gift_id).map(item => ({
       ...item,
       addedProfile: profilesById[item.added_by] ?? null,
       claimedProfile: profilesById[item.claimed_by] ?? null,
@@ -576,6 +578,55 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
     if (error) {
       console.error('[SecretSpace] gift item claim error:', error)
       setErrorMessage('Impossible de prendre ce cadeau.')
+      return
+    }
+    await fetchGifts()
+  }
+
+  // La base n'accepte l'annulation que de la personne qui a pris le cadeau
+  async function handleUnclaimGiftItem(giftItemId) {
+    if (!currentUserId) return
+    const { error } = await supabase
+      .from('gift_items')
+      .update({ claimed_by: null })
+      .eq('id', giftItemId)
+      .eq('claimed_by', currentUserId)
+
+    if (error) {
+      console.error('[SecretSpace] gift item unclaim error:', error)
+      setErrorMessage("Impossible d'annuler.")
+      return
+    }
+    await fetchGifts()
+  }
+
+  async function handleMoveGiftItemToCagnotte(giftItemId) {
+    if (!currentUserId) return
+    const { error } = await supabase.rpc('move_gift_item_to_cagnotte', { p_item_id: giftItemId })
+
+    if (error) {
+      console.error('[SecretSpace] gift item to cagnotte error:', error)
+      setErrorMessage(error.code === '55000' ? 'Ce cadeau est déjà pris.' : 'Impossible de passer ce cadeau en cagnotte.')
+      await fetchGifts()
+      return
+    }
+    showToast('Ajouté aux cadeaux collectifs')
+    await fetchGifts()
+  }
+
+  // Organisateurs et coordinateur seulement (vérifié par la base) ; l'idée
+  // d'origine revient dans la wishlist.
+  async function handleDeleteCollectiveGift(giftId) {
+    setConfirmDeleteGiftId(null)
+    const { data, error } = await supabase
+      .from('gifts')
+      .delete()
+      .eq('id', giftId)
+      .select('id')
+
+    if (error || !data?.length) {
+      if (error) console.error('[SecretSpace] collective gift delete error:', error)
+      setErrorMessage('Impossible de supprimer ce cadeau.')
       return
     }
     await fetchGifts()
@@ -829,13 +880,23 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 7 }}>
                         {formatMoney(item.price_estimate) && <span style={{ borderRadius: 999, background: 'rgba(224,85,170,0.10)', color: COLORS.pink, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>{formatMoney(item.price_estimate)}</span>}
                         {item.claimed_by && <span style={{ borderRadius: 999, background: 'rgba(52,199,89,0.12)', color: COLORS.green, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Pris par {profileFullName(item.claimedProfile, 'Quelqu’un')}</span>}
+                        {item.claimed_by && item.claimed_by === currentUserId && (
+                          <button type="button" onClick={() => handleUnclaimGiftItem(item.id)} style={{ fontSize: 12, fontWeight: 700, color: COLORS.muted, textDecoration: 'underline', padding: '4px 2px' }}>
+                            Annuler
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
                   {!item.claimed_by && (
-                    <PrimaryButton onClick={() => handleClaimGiftItem(item.id)} style={{ marginTop: 12, minHeight: 42, fontSize: 13 }}>
-                      Je m&apos;en charge
-                    </PrimaryButton>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <PrimaryButton onClick={() => handleClaimGiftItem(item.id)} style={{ flex: 1, minHeight: 42, fontSize: 13 }}>
+                        Je prends en charge
+                      </PrimaryButton>
+                      <SecondaryButton onClick={() => handleMoveGiftItemToCagnotte(item.id)} style={{ flex: 1, minHeight: 42, fontSize: 13 }}>
+                        Via la cagnotte
+                      </SecondaryButton>
+                    </div>
                   )}
                 </article>
               ))}
@@ -851,6 +912,19 @@ export default function SecretSpacePage({ eventId, initialTab = 'flashback', foc
                     {gift.needs_contribution && <span style={{ borderRadius: 999, background: '#FFF3E0', color: '#A76500', fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Contribution {formatMoney(gift.contribution_amount) ?? 'ouverte'}</span>}
                     {gift.claimed_by && <span style={{ borderRadius: 999, background: 'rgba(52,199,89,0.12)', color: COLORS.green, fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>Pris par {profileFullName(gift.claimedProfile, 'Quelqu’un')}</span>}
                   </div>
+                  {canManageCagnotte && (
+                    confirmDeleteGiftId === gift.id ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, fontSize: 12, fontWeight: 700 }}>
+                        <span style={{ color: COLORS.muted }}>Supprimer ce cadeau ?</span>
+                        <button type="button" onClick={() => handleDeleteCollectiveGift(gift.id)} style={{ color: COLORS.red, fontWeight: 800 }}>Supprimer</button>
+                        <button type="button" onClick={() => setConfirmDeleteGiftId(null)} style={{ color: COLORS.muted }}>Non</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setConfirmDeleteGiftId(gift.id)} style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: COLORS.muted, textDecoration: 'underline' }}>
+                        Supprimer
+                      </button>
+                    )
+                  )}
                 </article>
               ))}
             </>

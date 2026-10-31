@@ -107,6 +107,18 @@ export function PrimaryButton({ children, disabled, style, ...props }) {
   )
 }
 
+export function SecondaryButton({ children, disabled, style, ...props }) {
+  return (
+    <PrimaryButton
+      disabled={disabled}
+      style={{ background: COLORS.bg, color: disabled ? COLORS.muted : COLORS.text, ...style }}
+      {...props}
+    >
+      {children}
+    </PrimaryButton>
+  )
+}
+
 export function EmptyCard({ children }) {
   return (
     <div style={{ background: COLORS.card, borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(0,0,0,0.07)', color: COLORS.muted, fontSize: 14 }}>
