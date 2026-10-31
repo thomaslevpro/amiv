@@ -91,3 +91,5 @@
 	<true/>
 </dict>
 </plist>
+<key>ITSAppUsesNonExemptEncryption</key>
+<false/>
