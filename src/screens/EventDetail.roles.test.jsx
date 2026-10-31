@@ -139,3 +139,24 @@ describe('EventDetail — invités', () => {
     expect(screen.getByText('0 invité')).toBeTruthy()
   })
 })
+
+describe('EventDetail — sondage de dates', () => {
+  const dateOptions = [{ id: 'o1', proposed_date: '2026-12-12', proposed_time: '20:00:00' }, { id: 'o2', proposed_date: '2026-12-19', proposed_time: null }]
+  // Événement tel que chargé par les listes : sans poll_closed, date encore vide
+  const listEvent = { date: null, poll_closed: undefined }
+
+  it('sondage ouvert : bandeau « Un sondage attend ta réponse », date à définir', () => {
+    renderPage({ rsvpStatus: 'pending', dateOptions, eventOverrides: { date: null, poll_closed: false } }, listEvent)
+    expect(screen.getByText('Un sondage attend ta réponse')).toBeTruthy()
+    expect(screen.getByText(/Date à définir/)).toBeTruthy()
+  })
+
+  it('date choisie (lue en base) : plus de sondage, date affichée, réponse possible', () => {
+    renderPage({ rsvpStatus: 'pending', dateOptions, eventOverrides: { date: FUTURE, poll_closed: true } }, listEvent)
+    expect(screen.queryByText('Un sondage attend ta réponse')).toBeNull()
+    expect(screen.queryByText('Sondage de dates')).toBeNull()
+    expect(screen.queryByText(/Date à définir/)).toBeNull()
+    const group = screen.getByRole('group', { name: 'Ta réponse' })
+    expect([...group.querySelectorAll('button')].map(b => b.textContent)).toEqual(["J'y serai", 'Peut-être', 'Non'])
+  })
+})

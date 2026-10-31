@@ -77,6 +77,23 @@ export default function useEventDetail(event, onBack) {
     birthday_person_user_id: savedBirthdayPersonId,
   }
 
+  function applyDateState({ date, poll_closed }) {
+    setEventOverrides(prev => ({ ...prev, date, poll_closed }))
+  }
+
+  // Page restée ouverte pendant que l'organisateur choisit la date : relue au
+  // retour dans l'app (pas de temps réel sur events).
+  useEffect(() => {
+    if (!event?.id) return undefined
+    function handleVisibility() {
+      if (document.visibilityState !== 'visible') return
+      supabase.from('events').select('date, poll_closed').eq('id', event.id).maybeSingle()
+        .then(({ data }) => { if (data) applyDateState(data) })
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [event?.id])
+
   async function refreshGuests() {
     const list = await fetchEventGuestList(event.id)
     if (list) setGuests(list)
@@ -126,11 +143,14 @@ export default function useEventDetail(event, onBack) {
         supabase.from('rsvps').select('id, status, plus_one_requested, plus_one_status, plus_one_name, plus_one_message').eq('event_id', event.id).eq('user_id', user.id).maybeSingle(),
         supabase.from('event_date_options').select('*').eq('event_id', event.id).order('proposed_date', { ascending: true }).order('proposed_time', { ascending: true }),
         supabase.from('invitations').select('status').eq('event_id', event.id).eq('invited_user_id', user.id).maybeSingle(),
-        supabase.from('events').select('birthday_person_user_id').eq('id', event.id).maybeSingle(),
+        supabase.from('events').select('birthday_person_user_id, date, poll_closed').eq('id', event.id).maybeSingle(),
       ])
 
       if (cancelled) return
       setBirthdayPersonId(eventInfoRes.data?.birthday_person_user_id ?? event?.birthday_person_user_id ?? null)
+      // Les listes (Accueil, Calendrier, Messages…) ne chargent pas poll_closed et
+      // peuvent dater d'avant le choix de la date : la base fait foi.
+      if (eventInfoRes.data) applyDateState(eventInfoRes.data)
 
       const { data: orgsData } = await supabase.from('event_organizers').select('role, profile:user_id (id, first_name, name, username, avatar_url)').eq('event_id', event.id)
       if (!cancelled) setOrganizers(orgsData || [])
@@ -340,7 +360,8 @@ export default function useEventDetail(event, onBack) {
 
   async function handleConfirmDate(option) {
     setConfirmingDate(true)
-    const datetime = option.proposed_time ? `${option.proposed_date}T${option.proposed_time}` : `${option.proposed_date}T00:00`
+    // Heure proposée = heure locale, comme à la création (sinon enregistrée en UTC)
+    const datetime = new Date(`${option.proposed_date}T${option.proposed_time || '00:00'}`).toISOString()
     const { error } = await supabase.from('events').update({ date: datetime, poll_closed: true }).eq('id', event.id)
     if (!error) {
       setEventOverrides(prev => ({ ...prev, date: datetime, poll_closed: true }))
