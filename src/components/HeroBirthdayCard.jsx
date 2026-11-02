@@ -50,14 +50,14 @@ function getInitials(name) {
 }
 
 function ReminderSheet({ birthday, onClose, onSaved, onToast }) {
-  const [enabled, setEnabled] = useState(birthday.reminder_enabled ?? true)
   const [days, setDays] = useState(normalizeReminderDays(birthday.reminder_days))
   const [saving, setSaving] = useState(false)
 
+  // Seulement quand l'anniversaire change : la carte reçoit un nouvel objet à
+  // chaque rendu de l'Accueil, ce qui effaçait les choix pas encore enregistrés.
   useEffect(() => {
-    setEnabled(birthday.reminder_enabled ?? true)
     setDays(normalizeReminderDays(birthday.reminder_days))
-  }, [birthday])
+  }, [birthday.id])
 
   function toggleDay(day) {
     setDays(current =>
@@ -70,8 +70,10 @@ function ReminderSheet({ birthday, onClose, onSaved, onToast }) {
   async function handleSave() {
     if (!birthday?.id) return
     setSaving(true)
+    // Le jour J est affiché « Actif » sans interrupteur : enregistrer réactive
+    // aussi le rappel s'il avait été coupé (ancienne version de l'app).
     const payload = {
-      reminder_enabled: enabled,
+      reminder_enabled: true,
       reminder_days: days,
     }
     const { data, error } = await supabase
@@ -405,16 +407,18 @@ export default function HeroBirthdayCard({ birthday, onReminderSaved, onToast })
             </div>
           </div>
 
-          {showReminderSheet && (
-            <ReminderSheet
-              birthday={birthday}
-              onClose={() => setShowReminderSheet(false)}
-              onSaved={onReminderSaved}
-              onToast={onToast}
-            />
-          )}
         </div>
       </div>
+      {/* Hors de la carte : un appui sur le fond pour fermer remontait jusqu'à
+          la carte, qui rouvrait aussitôt la fiche. */}
+      {showReminderSheet && (
+        <ReminderSheet
+          birthday={birthday}
+          onClose={() => setShowReminderSheet(false)}
+          onSaved={onReminderSaved}
+          onToast={onToast}
+        />
+      )}
     </>
   )
 }

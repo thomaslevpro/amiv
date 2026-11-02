@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Bell, Link2, Pencil, Trash2, X } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
@@ -79,10 +79,15 @@ function FriendAvatar({ profile, size = 38 }) {
   )
 }
 
-export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDeleted, onLinkedProfileChanged, onToast, userId }) {
+export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDeleted, onLinkedProfileChanged, onReminderSaved, onToast, userId }) {
   const [visible, setVisible] = useState(false)
-  const [reminder, setReminder] = useState(birthday.reminder_enabled ?? true)
   const [reminderDays, setReminderDays] = useState(normalizeReminderDays(birthday.reminder_days))
+  // Appuis rapprochés : chaque appui part de la dernière sélection (pas de
+  // l'état du dernier rendu) et les enregistrements partent l'un après
+  // l'autre, pour que la base garde bien la dernière sélection.
+  const reminderDaysRef = useRef(reminderDays)
+  const savedReminderDays = useRef(reminderDays)
+  const reminderSaveQueue = useRef(Promise.resolve())
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [linkedProfile, setLinkedProfile] = useState(birthday.linked_profile ?? null)
@@ -95,13 +100,20 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
 
   useEffect(() => { requestAnimationFrame(() => setVisible(true)) }, [])
 
+  // Seulement quand on ouvre un autre anniversaire : un rechargement de la
+  // liste pendant un enregistrement ne doit pas réafficher l'ancienne sélection.
   useEffect(() => {
-    setReminder(birthday.reminder_enabled ?? true)
-    setReminderDays(normalizeReminderDays(birthday.reminder_days))
+    const days = normalizeReminderDays(birthday.reminder_days)
+    reminderDaysRef.current = days
+    savedReminderDays.current = days
+    setReminderDays(days)
+  }, [birthday.id])
+
+  useEffect(() => {
     setLinkedProfile(birthday.linked_profile ?? null)
     setLinkedProfileId(birthday.linked_profile_id ?? null)
     setFriendPickerOpen(false)
-  }, [birthday])
+  }, [birthday.id, birthday.linked_profile_id, birthday.linked_profile])
 
   function dismiss() {
     setVisible(false)
@@ -113,35 +125,34 @@ export default function BirthdayBottomSheet({ birthday, onClose, onEdit, onDelet
     setTimeout(() => { onClose(); onEdit() }, 280)
   }
 
-  async function handleReminderDays(value) {
-    const prev = reminderDays
-    const next = prev.includes(value)
-      ? prev.filter(v => v !== value)
-      : [...prev, value].sort((a, b) => a - b)
-    const payload = { reminder_days: next.map(Number) }
+  function handleReminderDays(value) {
+    const current = reminderDaysRef.current
+    const next = current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value].sort((a, b) => a - b)
+    reminderDaysRef.current = next
     setReminderDays(next)
-    const { error } = await supabase
-      .from('birthdays')
-      .update(payload)
-      .eq('id', birthday.id)
-    if (error) {
-      setReminderDays(prev)
-      onToast?.('Erreur lors de la mise à jour 😕', true)
-    }
-  }
-
-  async function handleToggleReminder() {
-    const next = !reminder
-    const payload = { reminder_enabled: next }
-    setReminder(next)
-    const { error } = await supabase
-      .from('birthdays')
-      .update(payload)
-      .eq('id', birthday.id)
-    if (error) {
-      setReminder(!next)
-      onToast?.('Erreur lors de la mise à jour 😕', true)
-    }
+    // Le jour J est affiché « Actif » sans interrupteur : choisir des rappels
+    // réactive aussi le rappel s'il avait été coupé (ancienne version de l'app),
+    // sinon aucun rappel ne partirait.
+    const payload = { reminder_enabled: true, reminder_days: next }
+    reminderSaveQueue.current = reminderSaveQueue.current.then(async () => {
+      const { error } = await supabase
+        .from('birthdays')
+        .update(payload)
+        .eq('id', birthday.id)
+      if (error) {
+        // Une erreur : on réaffiche ce qui est réellement enregistré
+        if (reminderDaysRef.current === next) {
+          reminderDaysRef.current = savedReminderDays.current
+          setReminderDays(savedReminderDays.current)
+        }
+        onToast?.('Erreur lors de la mise à jour 😕', true)
+        return
+      }
+      savedReminderDays.current = next
+      onReminderSaved?.({ id: birthday.id, ...payload })
+    })
   }
 
   async function handleDelete() {

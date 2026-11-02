@@ -476,7 +476,8 @@ export default function BirthdaySection({
     fetchBirthdays()
   }
 
-  function handleHeroReminderSaved(updatedBirthday) {
+  // Rappels enregistrés depuis la carte du haut ou la fiche anniversaire
+  function handleReminderSaved(updatedBirthday) {
     setBirthdays(current => current.map(item =>
       item.id === updatedBirthday.id
         ? {
@@ -530,7 +531,7 @@ export default function BirthdaySection({
         <div style={{ marginBottom: 0 }}>
           <HeroBirthdayCard
             birthday={heroBirthday}
-            onReminderSaved={handleHeroReminderSaved}
+            onReminderSaved={handleReminderSaved}
             onToast={onToast}
           />
           <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -662,6 +663,7 @@ export default function BirthdaySection({
             fetchBirthdays()
           }}
           onLinkedProfileChanged={handleLinkedProfileChanged}
+          onReminderSaved={handleReminderSaved}
           userId={user?.id}
           onToast={onToast}
         />
