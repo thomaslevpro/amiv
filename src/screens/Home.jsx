@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import NotificationPanel from '../components/NotificationPanel'
 import FriendRequests from '../components/FriendRequests'
 import TrendingNow from '../components/TrendingNow'
@@ -28,16 +28,44 @@ export default function Home({
   onDispoCalendarClick,
   session,
   birthdayRefreshTrigger = 0,
+  friendRequestsFocus = 0,
 }) {
   const userId = session?.user?.id
   const userEmail = session?.user?.email
-  const { pendingRequests, acceptRequest, declineRequest } = useFriendships(userId)
+  const { pendingRequests, loading: friendsLoading, acceptRequest, declineRequest } = useFriendships(userId)
   const { invitations, refetchInvitations, myEvents, profileName, profileAvatar } = useHomeData(userId, userEmail)
   const { feed: availabilityFeed } = useAvailability(userId)
   const [toast, setToast] = useState(null)
   const [showNotifications, setShowNotifications] = useState(false)
   // Anniversaires ajoutés depuis « Bien démarrer »
   const [gettingStartedChanges, setGettingStartedChanges] = useState(0)
+  // Ouverture depuis une notification de demande d'ami : défilement jusqu'à
+  // la section, mise en évidence brève. Revenue de l'arrière-plan, la liste
+  // peut n'avoir la demande qu'après son rechargement : on l'attend 10 s.
+  const friendRequestsRef = useRef(null)
+  const friendRequestsFocusAt = useRef(0)
+  const handledFriendRequestsFocus = useRef(0)
+  const [highlightFriendRequests, setHighlightFriendRequests] = useState(false)
+
+  useEffect(() => {
+    if (friendRequestsFocus) friendRequestsFocusAt.current = Date.now()
+  }, [friendRequestsFocus])
+
+  useEffect(() => {
+    if (!friendRequestsFocus || handledFriendRequestsFocus.current === friendRequestsFocus || friendsLoading) return
+    if (Date.now() - friendRequestsFocusAt.current > 10000) return
+    const section = friendRequestsRef.current
+    if (!section) return
+    handledFriendRequestsFocus.current = friendRequestsFocus
+    section.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    setHighlightFriendRequests(true)
+  }, [friendRequestsFocus, friendsLoading, pendingRequests.length])
+
+  useEffect(() => {
+    if (!highlightFriendRequests) return undefined
+    const timer = setTimeout(() => setHighlightFriendRequests(false), 1800)
+    return () => clearTimeout(timer)
+  }, [highlightFriendRequests])
 
   function showToast(message, isError = false, duration = 3000) {
     setToast({ message, isError })
@@ -120,10 +148,15 @@ export default function Home({
         <GettingStartedCard userId={userId} onChanged={() => setGettingStartedChanges(n => n + 1)} />
 
         {pendingRequests.length > 0 && (
-          <>
+          <div ref={friendRequestsRef} style={{
+            margin: '0 -8px', padding: '0 8px', borderRadius: 22, scrollMarginTop: 12,
+            background: highlightFriendRequests ? 'rgba(224,85,170,0.08)' : 'transparent',
+            boxShadow: highlightFriendRequests ? '0 0 0 6px rgba(224,85,170,0.08), 0 0 0 2px rgba(224,85,170,0.35)' : 'none',
+            transition: 'background 0.4s ease, box-shadow 0.4s ease',
+          }}>
             <SectionHeader title="Demandes d'amitié" badge={pendingRequests.length} />
             <FriendRequests requests={pendingRequests} onAccept={acceptRequest} onDecline={declineRequest} />
-          </>
+          </div>
         )}
 
         <InvitationsSection invitations={invitations} userId={userId} userEmail={userEmail} onUpdate={refetchInvitations} onAccepted={onNotifEventClick ?? onEventClick} />

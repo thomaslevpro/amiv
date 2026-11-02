@@ -48,8 +48,15 @@ export function useFriendships(userId) {
       }
     })
 
+    // Retour au premier plan : le websocket a pu décrocher en arrière-plan.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
       supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [userId, refresh])
 

@@ -130,15 +130,24 @@ function NativeDeepLinks() {
 }
 
 // Appui sur une notification push : profil et souvenirs sont des routes ;
-// événement, conversation d'événement et message privé sont des écrans de
-// MainApp, qui les ouvre dès que la session et l'onboarding sont chargés.
+// événement, conversation d'événement, message privé et notifications
+// d'amis sont des écrans de MainApp, qui les ouvre dès que la session et
+// l'onboarding sont chargés.
+const MAIN_APP_PUSH_SCREENS = ['event', 'messages', 'conversation', 'friendRequests', 'home']
+
 function NativePushListener() {
   const navigate = useNavigate()
   const navigateRef = useRef(navigate)
   navigateRef.current = navigate
 
-  useEffect(() => initPushListeners((target, notificationId) => {
-    if (target?.screen === 'event' || target?.screen === 'messages' || target?.screen === 'conversation') {
+  useEffect(() => initPushListeners((target, notificationId, type) => {
+    // Demande d'ami / demande acceptée : send-push envoie le profil public
+    // (page autonome, sans barre du bas ni bouton Accepter) et l'app n'a pas
+    // d'écran de profil d'ami ; on ouvre plutôt l'Accueil, où la demande
+    // s'accepte.
+    if (type === 'friend_request') target = { screen: 'friendRequests' }
+    else if (type === 'friend_accepted') target = { screen: 'home' }
+    if (MAIN_APP_PUSH_SCREENS.includes(target?.screen)) {
       if (window.location.pathname !== '/') navigateRef.current('/')
       setPendingPushTarget({ ...target, notificationId })
       return
@@ -255,6 +264,8 @@ function MainApp() {
   const { notifications, unreadCount: notificationUnreadCount, markAsRead, markAllAsRead, markAllAsReadByType } = useNotifications(session?.user?.id)
   const { totalUnread } = useUnreadCounts(session?.user?.id)
   const [pushTarget, setPushTarget] = useState(() => takePendingPushTarget())
+  // Incrémenté à chaque ouverture d'une notification de demande d'ami
+  const [friendRequestsFocus, setFriendRequestsFocus] = useState(0)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
 
   const pushNavEntry = (next, replace) => {
@@ -482,6 +493,12 @@ function MainApp() {
       openDirectConversation(pushTarget.conversation_id, pushTarget.sender_id)
       return
     }
+    if (targetScreen === 'home' || targetScreen === 'friendRequests') {
+      replaceScreen({ ...ROOT_NAV })
+      // L'Accueil défile jusqu'aux « Demandes d'amitié » et les met en évidence
+      if (targetScreen === 'friendRequests') setFriendRequestsFocus(n => n + 1)
+      return
+    }
     supabase.from('events').select('*').eq('id', eventId).maybeSingle().then(({ data, error }) => {
       if (error) captureSupabaseError(error, { operation: 'load_push_notification_event' })
       if (!data) return
@@ -643,7 +660,7 @@ function MainApp() {
       case 'eventConversation': return (
         <Messages event={conversationEvent} onBack={() => goBack({ conversationEvent: null })} notifications={notifications} markAsRead={markAsRead} onOpenSecretSpace={openSecretSpace} onOpenEvent={handleNotifEventClick} onDirectConvOpen={openDirectConvFromChat} />
       )
-      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={openCreate} onTrendingClick={openCreate} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => openScreen({ screen: 'allEvents' })} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => openScreen({ dispoDetailId: id })} onDispoCalendarClick={() => openScreen({ screen: 'dispoCalendar' })} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} />
+      case 'home': return <Home onEventClick={handleEventClick} onNotifEventClick={handleNotifEventClick} onNotifMessageClick={handleNotifMessageClick} onNotifDirectMessageClick={openDirectConversation} notificationUnreadCount={notificationUnreadCount} onNotificationsRead={() => markAllAsRead(false)} onCreateClick={openCreate} onTrendingClick={openCreate} onMessagesClick={() => handleTabChange('messages')} onAllEventsClick={() => openScreen({ screen: 'allEvents' })} onCalendarClick={() => handleTabChange('calendar')} onDispoDetailClick={(id) => openScreen({ dispoDetailId: id })} onDispoCalendarClick={() => openScreen({ screen: 'dispoCalendar' })} session={session} birthdayRefreshTrigger={birthdayRefreshTrigger} friendRequestsFocus={friendRequestsFocus} />
       case 'calendar': return <Calendar onEventClick={handleEventClick} onInvitationAccepted={handleNotifEventClick} onCreateClick={() => openCreate()} onMessagesClick={ev => openScreen({ selectedEvent: ev, screen: 'messages' })} />
       case 'messages': return <Messages onEventOpen={ev => openScreen({ conversationEvent: ev })} onDirectConvOpen={conv => openScreen({ directConv: conv })} notifications={notifications} markAsRead={markAsRead} markAllAsReadByType={markAllAsReadByType} onCreateClick={() => openCreate()} onOpenBlockedUsers={() => openScreen({ showBlockedUsers: true })} onOpenNotificationSettings={() => openScreen({ ...ROOT_NAV, tab: 'profile', screen: 'profile', profileSection: 'notifications' })} />
       case 'profile': return (

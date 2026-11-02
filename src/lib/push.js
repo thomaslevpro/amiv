@@ -39,7 +39,7 @@ async function saveToken(token) {
 }
 
 // À appeler une seule fois, au démarrage, avant tout register().
-// onOpen(target, notificationId) est appelé quand on appuie sur une notification.
+// onOpen(target, notificationId, type) est appelé quand on appuie sur une notification.
 export function initPushListeners(onOpen) {
   if (!isNative) return () => {}
   const handles = [
@@ -49,7 +49,7 @@ export function initPushListeners(onOpen) {
     }),
     PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
       const data = notification?.data ?? {}
-      onOpen(data.target ?? null, data.notification_id ?? null)
+      onOpen(data.target ?? null, data.notification_id ?? null, data.type ?? null)
     }),
   ]
   return () => { handles.forEach(handle => handle.then(listener => listener.remove())) }
